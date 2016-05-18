@@ -244,35 +244,40 @@ namespace MediaBrowser.Common.Implementations.Security
 
             if (!(lastChecked > DateTime.UtcNow.AddDays(-1)))
             {
-                var data = new Dictionary<string, string>
-                {
-                    { "feature", feature }, 
-                    { "key", SupporterKey }, 
-                    { "mac", _appHost.SystemId }, 
-                    { "systemid", _appHost.SystemId }, 
-                    { "mb2equiv", mb2Equivalent }, 
-                    { "ver", version }, 
-                    { "platform", _appHost.OperatingSystemDisplayName }, 
-                    { "isservice", _appHost.IsRunningAsService.ToString().ToLower() }
-                };
+                //var data = new Dictionary<string, string>
+                //{
+                //    { "feature", feature }, 
+                //    { "key", SupporterKey }, 
+                //    { "mac", _appHost.SystemId }, 
+                //    { "systemid", _appHost.SystemId }, 
+                //    { "mb2equiv", mb2Equivalent }, 
+                //    { "ver", version }, 
+                //    { "platform", _appHost.OperatingSystemDisplayName }, 
+                //    { "isservice", _appHost.IsRunningAsService.ToString().ToLower() }
+                //};
 
                 try
                 {
-                    var options = new HttpRequestOptions
-                    {
-                        Url = MBValidateUrl,
+                    //var options = new HttpRequestOptions
+                    //{
+                    //    Url = MBValidateUrl,
 
-                        // Seeing block length errors
-                        EnableHttpCompression = false
-                    };
+                    //    // Seeing block length errors
+                    //    EnableHttpCompression = false
+                    //};
 
-                    options.SetPostData(data);
+                    //options.SetPostData(data);
 
-                    using (var json = (await _httpClient.Post(options).ConfigureAwait(false)).Content)
-                    {
-                        reg = _jsonSerializer.DeserializeFromStream<RegRecord>(json);
-                        success = true;
-                    }
+                    //using (var json = (await _httpClient.Post(options).ConfigureAwait(false)).Content)
+                    //{
+                    //    reg = _jsonSerializer.DeserializeFromStream<RegRecord>(json);
+                    //    success = true;
+                    //}
+                    reg.featId = feature;
+                    reg.registered = true;
+                    reg.expDate = DateTime.UtcNow.AddDays(365);
+                    reg.key = feature;
+                    success = true;
 
                     if (reg.registered)
                     {
