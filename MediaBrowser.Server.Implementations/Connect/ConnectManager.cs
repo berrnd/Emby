@@ -155,13 +155,22 @@ namespace MediaBrowser.Server.Implementations.Connect
         {
             await _operationLock.WaitAsync().ConfigureAwait(false);
 
-            try
+            var anyConnectUser = _userManager.Users.All(u => !String.IsNullOrWhiteSpace(u.ConnectUserName));
+
+            if (anyConnectUser)
             {
-                await UpdateConnectInfoInternal().ConfigureAwait(false);
+                try
+                {
+                    await UpdateConnectInfoInternal().ConfigureAwait(false);
+                }
+                finally
+                {
+                    _operationLock.Release();
+                }
             }
-            finally
+            else
             {
-                _operationLock.Release();
+                _logger.Info("No user has a Emby Connect username, skipping UpdateConnectInfo");
             }
         }
 
