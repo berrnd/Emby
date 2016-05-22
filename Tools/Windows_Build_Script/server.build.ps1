@@ -19,7 +19,7 @@ function Remove-Tree($Path,$Include='*') {
 # http://invokemsbuild.codeplex.com/documentation?referringTitle=Home
 Import-Module -Name "$PSScriptRoot\Invoke-MsBuild.psm1"
 
-$DeployPath = "$PSScriptRoot\..\..\..\Deploy"
+$DeployPath = "$PSScriptRoot\..\..\.deploy"
 $DeployPathServerPath = "$DeployPath\Server"
 $DeployPathSystemFolderName = "System"
 $DeployPathSystemPath = "$DeployPathServerPath\$DeployPathSystemFolderName"
@@ -62,34 +62,34 @@ $WindowsReleaseVersion = ((Get-Command "$WindowsBinReleasePath\MediaBrowser.Serv
 Write-Host "Windows Release: Copy archive to MBServer_$WindowsReleaseVersion.zip..."
 Copy-Item -Path "$DeployPath\emby.windows.zip" -Destination "$DeployPath\MBServer_$WindowsReleaseVersion.zip" -Force
 
-Write-Host "Building Mono version..."
-$buildSucceeded = Invoke-MsBuild -Path "$PSScriptRoot\..\..\MediaBrowser.sln" -MsBuildParameters "/target:Clean;Build /property:Configuration=""Release Mono"";Platform=""Any CPU"" /verbosity:Quiet" -BuildLogDirectoryPath "$PSScriptRoot" 
-
-if ($buildSucceeded)
-{
-    Write-Host "Mono Build completed successfully."
-}
-else
-{
-    Write-Host "Mono Build failed. Check the build log file for errors."
-    Exit
-}
-
-$MonoBinReleasePath = "$PSScriptRoot\..\..\MediaBrowser.Server.Mono\bin\Release Mono"
-
-Remove-Tree $MonoBinReleasePath "*.pdb"
-Remove-Tree $MonoBinReleasePath "*.xml"
-
-Write-Host "Mono Release: Creating archive Emby.Mono.zip..."
-$process = (Start-Process -FilePath $7za -ArgumentList "$7zaOptions ""$DeployPath\Emby.Mono.zip"" ""$MonoBinReleasePath\*""" -Wait -Passthru -NoNewWindow -RedirectStandardOutput "$PSScriptRoot\7za.log" -RedirectStandardError "$PSScriptRoot\7zaError.log").ExitCode
-if ($process -ne 0)
-{
-    Write-Host "Creating archive failed."
-    Exit
-}
-
-$MonoReleaseVersion = ((Get-Command "$MonoBinReleasePath\MediaBrowser.Server.Mono.exe").FileVersionInfo).FileVersion
-Write-Host "Mono Release: Copy archive to Emby.Mono-$MonoReleaseVersion.zip..."
-Copy-Item -Path "$DeployPath\Emby.Mono.zip" -Destination "$DeployPath\Emby.Mono-$MonoReleaseVersion.zip" -Force
+#Write-Host "Building Mono version..."
+#$buildSucceeded = Invoke-MsBuild -Path "$PSScriptRoot\..\..\MediaBrowser.sln" -MsBuildParameters "/target:Clean;Build /property:Configuration=""Release Mono"";Platform=""Any CPU"" /verbosity:Quiet" -BuildLogDirectoryPath "$PSScriptRoot" 
+#
+#if ($buildSucceeded)
+#{
+#    Write-Host "Mono Build completed successfully."
+#}
+#else
+#{
+#    Write-Host "Mono Build failed. Check the build log file for errors."
+#    Exit
+#}
+#
+#$MonoBinReleasePath = "$PSScriptRoot\..\..\MediaBrowser.Server.Mono\bin\Release Mono"
+#
+#Remove-Tree $MonoBinReleasePath "*.pdb"
+#Remove-Tree $MonoBinReleasePath "*.xml"
+#
+#Write-Host "Mono Release: Creating archive Emby.Mono.zip..."
+#$process = (Start-Process -FilePath $7za -ArgumentList "$7zaOptions ""$DeployPath\Emby.Mono.zip"" ""$MonoBinReleasePath\*""" -Wait -Passthru -NoNewWindow -RedirectStandardOutput "$PSScriptRoot\7za.log" -RedirectStandardError "$PSScriptRoot\7zaError.log").ExitCode
+#if ($process -ne 0)
+#{
+#    Write-Host "Creating archive failed."
+#    Exit
+#}
+#
+#$MonoReleaseVersion = ((Get-Command "$MonoBinReleasePath\MediaBrowser.Server.Mono.exe").FileVersionInfo).FileVersion
+#Write-Host "Mono Release: Copy archive to Emby.Mono-$MonoReleaseVersion.zip..."
+#Copy-Item -Path "$DeployPath\Emby.Mono.zip" -Destination "$DeployPath\Emby.Mono-$MonoReleaseVersion.zip" -Force
 
 Write-Host "Done"
