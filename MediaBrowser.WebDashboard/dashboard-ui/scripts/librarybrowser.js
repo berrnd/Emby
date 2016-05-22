@@ -341,29 +341,33 @@
 
                 var pageTabsContainer = page.querySelector('.libraryViewNav');
 
-                if (isFirstLoad) {
+                // if (isFirstLoad) {
 
                     console.log('selected tab is null, checking query string');
 
                     var selected = page.firstTabIndex != null ? page.firstTabIndex : parseInt(getParameterByName('tab') || '0');
+					
+					var indexOverride = $(".page").data("default-tab-index-override");
+					if (indexOverride != null)
+						selected = indexOverride;
 
                     console.log('selected tab will be ' + selected);
 
                     LibraryBrowser.selectedTab(pageTabsContainer, selected);
 
-                } else {
+                // } else {
 
-                    // Go back to the first tab
-                    if (!e.detail.isRestored) {
-                        LibraryBrowser.selectedTab(pageTabsContainer, 0);
-                        return;
-                    }
-                    pageTabsContainer.dispatchEvent(new CustomEvent("tabchange", {
-                        detail: {
-                            selectedTabIndex: LibraryBrowser.selectedTab(pageTabsContainer)
-                        }
-                    }));
-                }
+                    // // Go back to the first tab
+                    // if (!e.detail.isRestored) {
+                        // LibraryBrowser.selectedTab(pageTabsContainer, 0);
+                        // return;
+                    // }
+                    // pageTabsContainer.dispatchEvent(new CustomEvent("tabchange", {
+                        // detail: {
+                            // selectedTabIndex: LibraryBrowser.selectedTab(pageTabsContainer)
+                        // }
+                    // }));
+                // }
             },
 
             showTab: function (url, index) {
@@ -708,11 +712,11 @@
                     commands.push('sync');
                 }
 
-                if (item.CanDownload) {
-                    if (appHost.supports('filedownload')) {
-                        commands.push('download');
-                    }
-                }
+                //if (item.CanDownload) {
+                //    if (appHost.supports('filedownload')) {
+                //        commands.push('download');
+                //    }
+                //}
 
                 if (LibraryBrowser.canShare(item, user)) {
                     commands.push('share');
@@ -2282,9 +2286,9 @@
                 // cardContent
                 html += '</a>';
 
-                if (options.overlayPlayButton && !item.IsPlaceHolder && (item.LocationType != 'Virtual' || !item.MediaType || item.Type == 'Program') && item.Type != 'Person') {
-                    html += '<div class="cardOverlayButtonContainer"><button is="paper-icon-button-light" class="cardOverlayPlayButton" onclick="return false;"><iron-icon icon="play-arrow"></iron-icon></button></div>';
-                }
+                //if (options.overlayPlayButton && !item.IsPlaceHolder && (item.LocationType != 'Virtual' || !item.MediaType || item.Type == 'Program') && item.Type != 'Person') {
+                //    html += '<div class="cardOverlayButtonContainer"><button is="paper-icon-button-light" class="cardOverlayPlayButton" onclick="return false;"><iron-icon icon="play-arrow"></iron-icon></button></div>';
+                //}
                 if (options.overlayMoreButton) {
                     html += '<div class="cardOverlayButtonContainer"><button is="paper-icon-button-light" class="cardOverlayMoreButton" onclick="return false;"><iron-icon icon="' + AppInfo.moreIcon + '"></iron-icon></button></div>';
                 }
@@ -3450,3 +3454,15 @@
 
     return libraryBrowser;
 });
+
+function ExecuteItemDetailsPageDownload()
+{
+	var itemId = getParameterByName("id");
+	
+	if (itemId != null)
+	{
+		var accessToken = ApiClient.accessToken();
+		var downloadUrl = ApiClient.getUrl("Items/" + itemId + "/Download?api_key=" + accessToken)
+		window.location.href = downloadUrl;
+	}
+}

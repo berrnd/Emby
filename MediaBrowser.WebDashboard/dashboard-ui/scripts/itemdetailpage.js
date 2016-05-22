@@ -121,6 +121,12 @@
             } else {
                 $('.btnSync', page).addClass('hide');
             }
+			
+			if (item.CanDownload) {
+                $('.btnDownload', page).removeClass('hide');
+            } else {
+                $('.btnDownload', page).addClass('hide');
+            }
 
             if (item.Type == 'Program' && item.TimerId) {
                 $('.btnCancelRecording', page).removeClass('hide');
@@ -388,7 +394,7 @@
         }
 
         if (item.MediaSources && item.MediaSources.length) {
-            renderMediaSources(page, item);
+            renderMediaSources(page, item, user);
         }
 
         var chapters = item.Chapters || [];
@@ -1434,11 +1440,11 @@
         ImageLoader.lazyChildren(scenesContent);
     }
 
-    function renderMediaSources(page, item) {
+    function renderMediaSources(page, item, user) {
 
         var html = item.MediaSources.map(function (v) {
 
-            return getMediaSourceHtml(item, v);
+            return getMediaSourceHtml(item, v, user);
 
         }).join('<div style="border-top:1px solid #444;margin: 1em 0;"></div>');
 
@@ -1450,7 +1456,7 @@
         mediaInfoContent.innerHTML = html;
     }
 
-    function getMediaSourceHtml(item, version) {
+    function getMediaSourceHtml(item, version, user) {
 
         var html = '';
 
@@ -1577,8 +1583,9 @@
         if (version.Formats && version.Formats.length) {
             //html += '<div><span class="mediaInfoLabel">'+Globalize.translate('MediaInfoFormat')+'</span><span class="mediaInfoAttribute">' + version.Formats.join(',') + '</span></div>';
         }
-
-        if (version.Path && version.Protocol != 'Http') {
+		
+		//Show file path only when the user can manage the server, otherwise this info is not relevant
+        if (version.Path && version.Protocol != 'Http' && user.Policy.IsAdministrator) {
             html += '<div style="max-width:600px;overflow:hidden;"><span class="mediaInfoLabel">' + Globalize.translate('MediaInfoPath') + '</span><span class="mediaInfoAttribute">' + version.Path + '</span></div>';
         }
 
