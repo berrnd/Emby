@@ -26,7 +26,7 @@
             html += '<div class="viewMenuSearch hide">';
             html += '<form class="viewMenuSearchForm">';
             html += '<input type="text" data-role="none" data-type="search" class="headerSearchInput" autocomplete="off" spellcheck="off" />';
-            html += '<button is="paper-icon-button-light" class="btnCloseSearch"><iron-icon icon="close"></iron-icon></button>';
+            html += '<button type="button" is="paper-icon-button-light" class="btnCloseSearch"><iron-icon icon="close"></iron-icon></button>';
             html += '</form>';
             html += '</div>';
         }
@@ -748,7 +748,10 @@
                 }
             }
 
-            document.querySelector('.libraryMenuButtonText').innerHTML = html;
+            var libraryMenuButtonText = document.querySelector('.libraryMenuButtonText');
+            if (libraryMenuButtonText) {
+                libraryMenuButtonText.innerHTML = html;
+            }
         },
 
         setBackButtonVisible: function (visible) {

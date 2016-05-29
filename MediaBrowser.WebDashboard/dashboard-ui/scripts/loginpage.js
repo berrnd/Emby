@@ -86,9 +86,9 @@
         $('.manualLoginForm', context).show();
 
         if (focusPassword) {
-            $('#txtManualPassword input', context).focus();
+            $('#txtManualPassword', context).focus();
         } else {
-            $('#txtManualName input', context).focus();
+            $('#txtManualName', context).focus();
         }
 
         if (showCancel) {
@@ -198,8 +198,6 @@
             getApiClient().then(function (apiClient) {
 
                 apiClient.getPublicUsers().then(function (users) {
-
-                    //var showManualForm = !users.length;
 
                     if (!users.length) {
 

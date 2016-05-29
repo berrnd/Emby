@@ -290,14 +290,11 @@
     <Compile Include="Providers\IImageFileSaver.cs" />
     <Compile Include="Providers\IImageProvider.cs" />
     <Compile Include="Providers\IImageSaver.cs" />
-    <Compile Include="Providers\IItemIdentityConverter.cs" />
-    <Compile Include="Providers\IItemIdentityProvider.cs" />
     <Compile Include="Providers\ILocalImageFileProvider.cs" />
     <Compile Include="Providers\ILocalMetadataProvider.cs" />
     <Compile Include="Providers\ImageRefreshMode.cs" />
     <Compile Include="Providers\ImageRefreshOptions.cs" />
     <Compile Include="Providers\IPreRefreshProvider.cs" />
-    <Compile Include="Providers\IProviderRepository.cs" />
     <Compile Include="Providers\IRemoteImageProvider.cs" />
     <Compile Include="Providers\ILocalImageProvider.cs" />
     <Compile Include="Providers\IMetadataProvider.cs" />
@@ -330,11 +327,8 @@
     <Compile Include="Sorting\SortHelper.cs" />
     <Compile Include="Subtitles\ISubtitleManager.cs" />
     <Compile Include="Subtitles\ISubtitleProvider.cs" />
-    <Compile Include="Providers\ItemIdentifier.cs" />
-    <Compile Include="Providers\ItemIdentities.cs" />
     <Compile Include="Providers\ItemLookupInfo.cs" />
     <Compile Include="Providers\MetadataRefreshOptions.cs" />
-    <Compile Include="Providers\MetadataStatus.cs" />
     <Compile Include="Providers\ISeriesOrderManager.cs" />
     <Compile Include="Session\ISessionManager.cs" />
     <Compile Include="Entities\AggregateFolder.cs" />

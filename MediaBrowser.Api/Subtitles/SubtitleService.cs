@@ -98,6 +98,9 @@ namespace MediaBrowser.Api.Subtitles
 
         [ApiMember(Name = "EndPositionTicks", Description = "EndPositionTicks", IsRequired = false, DataType = "string", ParameterType = "query", Verb = "GET")]
         public long? EndPositionTicks { get; set; }
+
+        [ApiMember(Name = "CopyTimestamps", Description = "CopyTimestamps", IsRequired = false, DataType = "bool", ParameterType = "query", Verb = "GET")]
+        public bool CopyTimestamps { get; set; }
     }
 
     [Route("/Videos/{Id}/{MediaSourceId}/Subtitles/{Index}/subtitles.m3u8", "GET", Summary = "Gets an HLS subtitle playlist.")]
@@ -159,6 +162,7 @@ namespace MediaBrowser.Api.Subtitles
             builder.AppendLine("#EXT-X-TARGETDURATION:" + request.SegmentLength.ToString(CultureInfo.InvariantCulture));
             builder.AppendLine("#EXT-X-VERSION:3");
             builder.AppendLine("#EXT-X-MEDIA-SEQUENCE:0");
+            builder.AppendLine("#EXT-X-PLAYLIST-TYPE:VOD");
 
             long positionTicks = 0;
             var segmentLengthTicks = TimeSpan.FromSeconds(request.SegmentLength).Ticks;
@@ -170,11 +174,11 @@ namespace MediaBrowser.Api.Subtitles
                 var remaining = runtime - positionTicks;
                 var lengthTicks = Math.Min(remaining, segmentLengthTicks);
 
-                builder.AppendLine("#EXTINF:" + TimeSpan.FromTicks(lengthTicks).TotalSeconds.ToString(CultureInfo.InvariantCulture));
+                builder.AppendLine("#EXTINF:" + TimeSpan.FromTicks(lengthTicks).TotalSeconds.ToString(CultureInfo.InvariantCulture) + ",");
 
                 var endPositionTicks = Math.Min(runtime, positionTicks + segmentLengthTicks);
 
-                var url = string.Format("stream.vtt?StartPositionTicks={0}&EndPositionTicks={1}&api_key={2}",
+                var url = string.Format("stream.vtt?CopyTimestamps=true,StartPositionTicks={0}&EndPositionTicks={1}&api_key={2}",
                     positionTicks.ToString(CultureInfo.InvariantCulture),
                     endPositionTicks.ToString(CultureInfo.InvariantCulture),
                     accessToken);
@@ -221,6 +225,7 @@ namespace MediaBrowser.Api.Subtitles
                 request.Format,
                 request.StartPositionTicks,
                 request.EndPositionTicks,
+                request.CopyTimestamps,
                 CancellationToken.None).ConfigureAwait(false);
         }
 
