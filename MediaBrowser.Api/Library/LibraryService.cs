@@ -260,6 +260,18 @@ namespace MediaBrowser.Api.Library
         public string Id { get; set; }
     }
 
+    [Route("/Items/{Id}/NotifyStreamedExternalInPlayer", "GET", Summary = "Just logs an activity entry that the given media element was streamed in an external player")]
+    [Authenticated(Roles = "download")]
+    public class NotifyStreamedExternalInPlayer
+    {
+        /// <summary>
+        /// Gets or sets the id.
+        /// </summary>
+        /// <value>The id.</value>
+        [ApiMember(Name = "Id", Description = "Item Id", IsRequired = true, DataType = "string", ParameterType = "path", Verb = "GET")]
+        public string Id { get; set; }
+    }
+
     [Route("/Items/{Id}/Similar", "GET", Summary = "Gets similar items")]
     [Authenticated]
     public class GetSimilarItems : BaseGetSimilarItemsFromItem
@@ -531,6 +543,55 @@ namespace MediaBrowser.Api.Library
                 Path = item.Path,
                 ResponseHeaders = headers
             });
+        }
+
+        public object Get(NotifyStreamedExternalInPlayer request)
+        {
+            var item = _libraryManager.GetItemById(request.Id);
+            var auth = _authContext.GetAuthorizationInfo(Request);
+
+            var user = _userManager.GetUserById(auth.UserId);
+
+            if (user != null)
+            {
+                if (!item.CanDownload(user))
+                {
+                    throw new ArgumentException("Item does not support downloading");
+                }
+            }
+            else
+            {
+                if (!item.CanDownload())
+                {
+                    throw new ArgumentException("Item does not support downloading");
+                }
+            }
+
+            if (user != null)
+            {
+                LogNotifyStreamedExternalInPlayer(item, user, auth);
+            }
+
+            return null;
+        }
+
+        private async void LogNotifyStreamedExternalInPlayer(BaseItem item, User user, AuthorizationInfo auth)
+        {
+            try
+            {
+                await _activityManager.Create(new ActivityLogEntry
+                {
+                    Name = string.Format(_localization.GetLocalizedString("{0} is streaming {1} in an external player"), user.Name, item.Name),
+                    Type = "UserStreamingContentExternalPlayer",
+                    ShortOverview = string.Format(_localization.GetLocalizedString("AppDeviceValues"), auth.Client, auth.Device),
+                    UserId = auth.UserId
+
+                }).ConfigureAwait(false);
+            }
+            catch
+            {
+                // Logged at lower levels
+            }
         }
 
         private async void LogDownload(BaseItem item, User user, AuthorizationInfo auth)

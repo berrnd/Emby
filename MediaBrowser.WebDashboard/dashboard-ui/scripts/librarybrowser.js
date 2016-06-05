@@ -3466,3 +3466,24 @@ function ExecuteItemDetailsPageDownload()
 		window.location.href = downloadUrl;
 	}
 }
+
+function ExecuteItemDetailsPageExternalStream()
+{
+	var itemId = getParameterByName("id");
+	
+	if (itemId != null)
+	{
+		var accessToken = ApiClient.accessToken();
+		var deviceId = ApiClient.deviceId();
+		
+		var logActivityUrl = ApiClient.getUrl("Items/" + itemId + "/NotifyStreamedExternalInPlayer?api_key=" + accessToken);
+		$.ajax(
+		{
+			url: logActivityUrl,
+			type: 'GET'
+		});
+		
+		var downloadUrl = ApiClient.getUrl("Videos/" + itemId + "/stream?static=true&mediaSourceId=" + itemId + "&deviceId=" + deviceId + "&api_key=" + accessToken);
+		window.location.href = downloadUrl;
+	}
+}
