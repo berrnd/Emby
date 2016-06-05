@@ -1,4 +1,4 @@
-﻿define(['scrollHelper', 'appSettings', 'appStorage', 'apphost', 'datetime', 'itemHelper', 'mediaInfo', 'scrollStyles'], function (scrollHelper, appSettings, appStorage, appHost, datetime, itemHelper, mediaInfo) {
+﻿define(['scrollHelper', 'appSettings', 'appStorage', 'apphost', 'datetime', 'itemHelper', 'mediaInfo', 'scrollStyles', 'jQuery'], function (scrollHelper, appSettings, appStorage, appHost, datetime, itemHelper, mediaInfo, $) {
 
     function parentWithClass(elem, className) {
 
@@ -348,7 +348,7 @@
 
                     var selected = page.firstTabIndex != null ? page.firstTabIndex : parseInt(getParameterByName('tab') || '0');
 					
-					var indexOverride = $(".page").data("default-tab-index-override");
+					var indexOverride = jQuery(".page").data("default-tab-index-override");
 					if (indexOverride != null)
 						selected = indexOverride;
 
@@ -3479,7 +3479,7 @@ function ExecuteItemDetailsPageExternalStream()
 		var deviceId = ApiClient.deviceId();
 		
 		var logActivityUrl = ApiClient.getUrl("Items/" + itemId + "/NotifyStreamedExternalInPlayer?api_key=" + accessToken);
-		$.ajax(
+		jQuery.ajax(
 		{
 			url: logActivityUrl,
 			type: 'GET'
