@@ -50,18 +50,18 @@ Copy-Item -Path $WindowsBinReleasePath -Destination $DeployPathSystemPath -Recur
 Remove-Tree $DeployPathServerPath "*.pdb"
 Remove-Tree $DeployPathServerPath "*.xml"
 
-$process = (Start-Process -FilePath $7za -ArgumentList "$7zaOptions ""$DeployPath\emby.windows.zip"" ""$DeployPathServerPath\*""" -Wait -Passthru -NoNewWindow -RedirectStandardOutput "$PSScriptRoot\7za.log" -RedirectStandardError "$PSScriptRoot\7zaError.log").ExitCode
-
-if ($process -ne 0)
-{
-    Write-Host "Creating archive failed."
-    Exit
-}
-
-$WindowsReleaseVersion = ((Get-Command "$WindowsBinReleasePath\MediaBrowser.ServerApplication.exe").FileVersionInfo).FileVersion
-Write-Host "Windows Release: Copy archive to MBServer_$WindowsReleaseVersion.zip..."
-Copy-Item -Path "$DeployPath\emby.windows.zip" -Destination "$DeployPath\MBServer_$WindowsReleaseVersion.zip" -Force
-
+#$process = (Start-Process -FilePath $7za -ArgumentList "$7zaOptions ""$DeployPath\emby.windows.zip"" ""$DeployPathServerPath\*""" -Wait -Passthru -NoNewWindow -RedirectStandardOutput "$PSScriptRoot\7za.log" -RedirectStandardError "$PSScriptRoot\7zaError.log").ExitCode
+#
+#if ($process -ne 0)
+#{
+#    Write-Host "Creating archive failed."
+#    Exit
+#}
+#
+#$WindowsReleaseVersion = ((Get-Command "$WindowsBinReleasePath\MediaBrowser.ServerApplication.exe").FileVersionInfo).FileVersion
+#Write-Host "Windows Release: Copy archive to MBServer_$WindowsReleaseVersion.zip..."
+#Copy-Item -Path "$DeployPath\emby.windows.zip" -Destination "$DeployPath\MBServer_$WindowsReleaseVersion.zip" -Force
+#
 #Write-Host "Building Mono version..."
 #$buildSucceeded = Invoke-MsBuild -Path "$PSScriptRoot\..\..\MediaBrowser.sln" -MsBuildParameters "/target:Clean;Build /property:Configuration=""Release Mono"";Platform=""Any CPU"" /verbosity:Quiet" -BuildLogDirectoryPath "$PSScriptRoot" 
 #
