@@ -23,7 +23,9 @@
     "ButtonOk": "Ok",
     "ButtonCancel": "Annuleren",
     "ButtonGotIt": "Begrepen",
+    "RecordingCancelled": "Recording cancelled.",
     "RecordingScheduled": "Opname schema",
+    "SeriesRecordingScheduled": "Series recording scheduled.",
     "HeaderNewRecording": "Nieuwe opname",
     "Sunday": "Zondag",
     "Monday": "Maandag",
@@ -66,5 +68,16 @@
     "MessageItemsAdded": "Items added.",
     "OptionNew": "New...",
     "LabelPlaylist": "Playlist:",
-    "AddToPlaylist": "Add to Playlist"
+    "AddToPlaylist": "Add to Playlist",
+    "Subtitles": "Subtitles",
+    "DownloadSubtitles": "Download Subtitles",
+    "LabelLanguage": "Language:",
+    "Search": "Search",
+    "NoSubtitleSearchResultsFound": "No results found.",
+    "File": "File",
+    "MessageAreYouSureDeleteSubtitles": "Are you sure you wish to delete this subtitle file?",
+    "ConfirmDeletion": "Confirm Deletion",
+    "MySubtitles": "My Subtitles",
+    "MessageDownloadQueued": "Download queued.",
+    "EditSubtitles": "Edit Subtitles"
 }

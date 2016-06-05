@@ -184,8 +184,6 @@ namespace MediaBrowser.Model.Configuration
         public bool EnableVideoArchiveFiles { get; set; }
         public int RemoteClientBitrateLimit { get; set; }
 
-        public bool DenyIFrameEmbedding { get; set; }
-
         public AutoOnOff EnableLibraryMonitor { get; set; }
 
         public int SharingExpirationDays { get; set; }
@@ -200,6 +198,7 @@ namespace MediaBrowser.Model.Configuration
         public bool EnableAnonymousUsageReporting { get; set; }
         public bool EnableStandaloneMusicKeys { get; set; }
         public bool EnableLocalizedGuids { get; set; }
+        public bool EnableFolderView { get; set; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ServerConfiguration" /> class.
@@ -222,7 +221,6 @@ namespace MediaBrowser.Model.Configuration
             EnableAnonymousUsageReporting = true;
 
             EnableAutomaticRestart = true;
-            DenyIFrameEmbedding = true;
 
             EnableUPnP = true;
             SharingExpirationDays = 30;

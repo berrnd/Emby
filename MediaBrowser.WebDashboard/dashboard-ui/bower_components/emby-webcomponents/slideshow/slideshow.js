@@ -51,15 +51,6 @@ define(['dialogHelper', 'inputManager', 'connectionManager', 'layoutManager', 'f
         options = options || {};
         options.type = options.type || "Backdrop";
 
-        options.width = null;
-        delete options.width;
-        options.maxWidth = null;
-        delete options.maxWidth;
-        options.maxHeight = null;
-        delete options.maxHeight;
-        options.height = null;
-        delete options.height;
-
         // If not resizing, get the original image
         if (!options.maxWidth && !options.width && !options.maxHeight && !options.height) {
             options.quality = 100;
@@ -119,7 +110,8 @@ define(['dialogHelper', 'inputManager', 'connectionManager', 'layoutManager', 'f
                 exitAnimationDuration: options.interactive ? 400 : 800,
                 size: 'fullscreen',
                 autoFocus: false,
-                scrollY: false
+                scrollY: false,
+                exitAnimation: 'fadeout'
             });
 
             dlg.classList.add('slideshowDialog');
@@ -233,7 +225,8 @@ define(['dialogHelper', 'inputManager', 'connectionManager', 'layoutManager', 'f
                     lazyLoading: true,
                     lazyLoadingInPrevNext: true,
                     autoplayDisableOnInteraction: false,
-                    initialSlide: options.startIndex || 0
+                    initialSlide: options.startIndex || 0,
+                    speed: 240
                 });
 
                 swiperInstance.on('onLazyImageLoad', onSlideChangeStart);

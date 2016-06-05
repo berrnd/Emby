@@ -280,11 +280,7 @@ namespace MediaBrowser.Api
                 episode.AbsoluteEpisodeNumber = request.AbsoluteEpisodeNumber;
             }
 
-            var hasTags = item as IHasTags;
-            if (hasTags != null)
-            {
-                hasTags.Tags = request.Tags;
-            }
+            item.Tags = request.Tags;
 
             var hasTaglines = item as IHasTaglines;
             if (hasTaglines != null)
@@ -298,11 +294,7 @@ namespace MediaBrowser.Api
                 hasShortOverview.ShortOverview = request.ShortOverview;
             }
 
-            var hasKeywords = item as IHasKeywords;
-            if (hasKeywords != null)
-            {
-                hasKeywords.Keywords = request.Keywords;
-            }
+            item.Keywords = request.Keywords;
 
             if (request.Studios != null)
             {

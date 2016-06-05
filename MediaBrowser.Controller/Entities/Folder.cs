@@ -20,7 +20,7 @@ namespace MediaBrowser.Controller.Entities
     /// <summary>
     /// Class Folder
     /// </summary>
-    public class Folder : BaseItem, IHasThemeMedia, IHasTags
+    public class Folder : BaseItem, IHasThemeMedia
     {
         public static IUserManager UserManager { get; set; }
         public static IUserViewManager UserViewManager { get; set; }
@@ -164,39 +164,7 @@ namespace MediaBrowser.Controller.Entities
                 item.DateModified = DateTime.UtcNow;
             }
 
-            AddChildInternal(item.Id);
-
             await LibraryManager.CreateItem(item, cancellationToken).ConfigureAwait(false);
-        }
-
-        protected void AddChildrenInternal(List<Guid> children)
-        {
-            lock (_childrenSyncLock)
-            {
-                var newChildren = ChildIds.ToList();
-                newChildren.AddRange(children);
-                _children = newChildren.ToList();
-            }
-        }
-        protected void AddChildInternal(Guid child)
-        {
-            lock (_childrenSyncLock)
-            {
-                var childIds = ChildIds.ToList();
-                if (!childIds.Contains(child))
-                {
-                    childIds.Add(child);
-                    _children = childIds.ToList();
-                }
-            }
-        }
-
-        protected void RemoveChildrenInternal(List<Guid> children)
-        {
-            lock (_childrenSyncLock)
-            {
-                _children = ChildIds.Except(children).ToList();
-            }
         }
 
         /// <summary>
@@ -205,8 +173,6 @@ namespace MediaBrowser.Controller.Entities
         /// <param name="item">The item.</param>
         public void RemoveChild(BaseItem item)
         {
-            RemoveChildrenInternal(new[] { item.Id }.ToList());
-
             item.SetParent(null);
         }
 
@@ -242,33 +208,6 @@ namespace MediaBrowser.Controller.Entities
         #endregion
 
         /// <summary>
-        /// The children
-        /// </summary>
-        private IReadOnlyList<Guid> _children;
-        /// <summary>
-        /// The _children sync lock
-        /// </summary>
-        private readonly object _childrenSyncLock = new object();
-        /// <summary>
-        /// Gets or sets the actual children.
-        /// </summary>
-        /// <value>The actual children.</value>
-        protected virtual IEnumerable<Guid> ChildIds
-        {
-            get
-            {
-                lock (_childrenSyncLock)
-                {
-                    if (_children == null)
-                    {
-                        _children = LoadChildren().ToList();
-                    }
-                    return _children.ToList();
-                }
-            }
-        }
-
-        /// <summary>
         /// Gets the actual children.
         /// </summary>
         /// <value>The actual children.</value>
@@ -277,7 +216,7 @@ namespace MediaBrowser.Controller.Entities
         {
             get
             {
-                return ChildIds.Select(LibraryManager.GetItemById).Where(i => i != null);
+                return LoadChildren().Select(LibraryManager.GetItemById).Where(i => i != null);
             }
         }
 
@@ -479,8 +418,6 @@ namespace MediaBrowser.Controller.Entities
 
                     if (actualRemovals.Count > 0)
                     {
-                        RemoveChildrenInternal(actualRemovals.Select(i => i.Id).ToList());
-
                         foreach (var item in actualRemovals)
                         {
                             Logger.Debug("Removed item: " + item.Path);
@@ -493,8 +430,6 @@ namespace MediaBrowser.Controller.Entities
                     }
 
                     await LibraryManager.CreateItems(newItems, cancellationToken).ConfigureAwait(false);
-
-                    AddChildrenInternal(newItems.Select(i => i.Id).ToList());
                 }
             }
 
@@ -766,7 +701,7 @@ namespace MediaBrowser.Controller.Entities
             {
                 if (!(this is ICollectionFolder))
                 {
-                    Logger.Debug("Query requires post-filtering due to LinkedChildren");
+                    Logger.Debug("Query requires post-filtering due to LinkedChildren. Type: " + GetType().Name);
                     return true;
                 }
             }
@@ -793,11 +728,6 @@ namespace MediaBrowser.Controller.Entities
                     Logger.Debug("Query requires post-filtering due to ItemSortBy.Metascore");
                     return true;
                 }
-                if (query.SortBy.Contains(ItemSortBy.OfficialRating, StringComparer.OrdinalIgnoreCase))
-                {
-                    Logger.Debug("Query requires post-filtering due to ItemSortBy.OfficialRating");
-                    return true;
-                }
                 if (query.SortBy.Contains(ItemSortBy.Players, StringComparer.OrdinalIgnoreCase))
                 {
                     Logger.Debug("Query requires post-filtering due to ItemSortBy.Players");
@@ -811,11 +741,6 @@ namespace MediaBrowser.Controller.Entities
                 if (query.SortBy.Contains(ItemSortBy.SeriesSortName, StringComparer.OrdinalIgnoreCase))
                 {
                     Logger.Debug("Query requires post-filtering due to ItemSortBy.SeriesSortName");
-                    return true;
-                }
-                if (query.SortBy.Contains(ItemSortBy.Studio, StringComparer.OrdinalIgnoreCase))
-                {
-                    Logger.Debug("Query requires post-filtering due to ItemSortBy.Studio");
                     return true;
                 }
                 if (query.SortBy.Contains(ItemSortBy.VideoBitRate, StringComparer.OrdinalIgnoreCase))
@@ -847,30 +772,6 @@ namespace MediaBrowser.Controller.Entities
             if (query.Is3D.HasValue)
             {
                 Logger.Debug("Query requires post-filtering due to Is3D");
-                return true;
-            }
-
-            if (query.HasImdbId.HasValue)
-            {
-                Logger.Debug("Query requires post-filtering due to HasImdbId");
-                return true;
-            }
-
-            if (query.HasTmdbId.HasValue)
-            {
-                Logger.Debug("Query requires post-filtering due to HasTmdbId");
-                return true;
-            }
-
-            if (query.HasTvdbId.HasValue)
-            {
-                Logger.Debug("Query requires post-filtering due to HasTvdbId");
-                return true;
-            }
-
-            if (query.IsYearMismatched.HasValue)
-            {
-                Logger.Debug("Query requires post-filtering due to IsYearMismatched");
                 return true;
             }
 
@@ -923,12 +824,6 @@ namespace MediaBrowser.Controller.Entities
                 return true;
             }
 
-            if (query.ImageTypes.Length > 0)
-            {
-                Logger.Debug("Query requires post-filtering due to ImageTypes");
-                return true;
-            }
-
             // Apply studio filter
             if (query.StudioIds.Length > 0)
             {
@@ -959,12 +854,6 @@ namespace MediaBrowser.Controller.Entities
             if (query.MaxPlayers.HasValue)
             {
                 Logger.Debug("Query requires post-filtering due to MaxPlayers");
-                return true;
-            }
-
-            if (query.OfficialRatings.Length > 0)
-            {
-                Logger.Debug("Query requires post-filtering due to OfficialRatings");
                 return true;
             }
 

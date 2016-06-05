@@ -10,6 +10,7 @@
     border: 0;
     padding: 0;
     will-change: transform;
+    contain: style;
 }
 
     .dialog.fixedSize {
@@ -23,12 +24,14 @@
         max-height: none !important;
         max-width: none !important;
         width: auto;
+        contain: strict;
     }
 
     .dialog.centeredDialog {
         top: 50%;
         left: 50%;
         max-width: 70%;
+        max-height: 80%;
     }
 
 @media all and (min-width: 1280px) and (min-height: 720px) {

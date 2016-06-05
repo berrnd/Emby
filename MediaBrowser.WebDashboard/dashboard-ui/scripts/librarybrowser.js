@@ -1,4 +1,4 @@
-﻿define(['scrollHelper', 'appSettings', 'appStorage', 'apphost', 'datetime', 'jQuery', 'itemHelper', 'mediaInfo', 'scrollStyles'], function (scrollHelper, appSettings, appStorage, appHost, datetime, $, itemHelper, mediaInfo) {
+﻿define(['scrollHelper', 'appSettings', 'appStorage', 'apphost', 'datetime', 'itemHelper', 'mediaInfo', 'scrollStyles'], function (scrollHelper, appSettings, appStorage, appHost, datetime, itemHelper, mediaInfo) {
 
     function parentWithClass(elem, className) {
 
@@ -15,7 +15,7 @@
 
     function fadeInRight(elem) {
 
-        var pct = browserInfo.mobile ? '2%' : '0.5%';
+        var pct = browserInfo.mobile ? '2.5%' : '0.5%';
 
         var keyframes = [
           { opacity: '0', transform: 'translate3d(' + pct + ', 0, 0)', offset: 0 },
@@ -385,7 +385,9 @@
 
                 if (window.location.href.toLowerCase().indexOf(url.toLowerCase()) != -1) {
 
-                    afterNavigate.call($.mobile.activePage);
+                    if (window.$) {
+                        afterNavigate.call($.mobile.activePage);
+                    }
                 } else {
 
                     pageClassOn('pagebeforeshow', 'page', afterNavigate);
@@ -806,9 +808,10 @@
 
             editSubtitles: function (itemId) {
 
-                require(['components/subtitleeditor/subtitleeditor'], function (SubtitleEditor) {
+                require(['subtitleEditor'], function (subtitleEditor) {
 
-                    SubtitleEditor.show(itemId);
+                    var serverId = ApiClient.serverInfo().Id;
+                    subtitleEditor.show(itemId, serverId);
                 });
             },
 
@@ -1693,8 +1696,12 @@
                         default:
                             break;
                     }
-                    var div = $('<div class="card ' + shape + 'Card"><div class="cardBox"><div class="cardImage"></div></div></div>').appendTo(document.body);
-                    var innerWidth = $('.cardImage', div).innerWidth();
+                    var div = document.createElement('div');
+                    div.classList.add('card');
+                    div.classList.add(shape + 'Card');
+                    div.innerHTML = '<div class="cardBox"><div class="cardImage"></div></div>';
+                    document.body.appendChild(div);
+                    var innerWidth = div.querySelector('.cardImage').clientWidth;
 
                     if (!innerWidth || isNaN(innerWidth)) {
                         cache = false;
@@ -1702,7 +1709,7 @@
                     }
 
                     var width = screenWidth / innerWidth;
-                    div.remove();
+                    div.parentNode.removeChild(div);
                     return Math.floor(width);
                 }
 
@@ -2855,10 +2862,9 @@
                             }));
 
                             if (!dispatchEvent) {
-                                // TODO: remove jQuery
-                                require(['jQuery'], function ($) {
+                                if (window.$) {
                                     $(button).trigger('layoutchange', [id]);
-                                });
+                                }
                             }
                         }
                     });
@@ -2966,6 +2972,7 @@
 
                     dlg.classList.add('ui-body-a');
                     dlg.classList.add('background-theme-a');
+                    dlg.classList.add('formDialog');
 
                     var html = '';
 
@@ -3109,22 +3116,17 @@
 
             markFavorite: function (link) {
 
-                // TODO: remove jQuery
-                require(['jQuery'], function ($) {
-                    var id = link.getAttribute('data-itemid');
+                var id = link.getAttribute('data-itemid');
 
-                    var $link = $(link);
+                var markAsFavorite = !link.classList.contains('btnUserItemRatingOn');
 
-                    var markAsFavorite = !$link.hasClass('btnUserItemRatingOn');
+                ApiClient.updateFavoriteStatus(Dashboard.getCurrentUserId(), id, markAsFavorite);
 
-                    ApiClient.updateFavoriteStatus(Dashboard.getCurrentUserId(), id, markAsFavorite);
-
-                    if (markAsFavorite) {
-                        $link.addClass('btnUserItemRatingOn');
-                    } else {
-                        $link.removeClass('btnUserItemRatingOn');
-                    }
-                });
+                if (markAsFavorite) {
+                    link.classList.add('btnUserItemRatingOn');
+                } else {
+                    link.classList.remove('btnUserItemRatingOn');
+                }
             },
 
             renderDetailImage: function (elem, item, editable, preferThumb) {

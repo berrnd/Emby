@@ -316,7 +316,7 @@
 
                 html += '</a>';
                 html += '</paper-item-body>';
-                html += '<button type="button" is="paper-icon-button-light" class="btnDeleteDevice" data-id="' + provider.Id + '" title="' + Globalize.translate('ButtonDelete') + '"><iron-icon icon="delete"></iron-icon></button>';
+                html += '<button type="button" is="paper-icon-button-light" class="btnDelete" data-id="' + provider.Id + '" title="' + Globalize.translate('ButtonDelete') + '"><iron-icon icon="delete"></iron-icon></button>';
                 html += '</paper-icon-item>';
             }
 
@@ -386,6 +386,8 @@
 
             case 'schedulesdirect':
                 return 'Schedules Direct';
+            case 'xmltv':
+                return 'Xml TV';
             case 'emby':
                 return 'Emby Guide';
             default:
@@ -399,6 +401,8 @@
 
         switch (providerId) {
 
+            case 'xmltv':
+                return 'livetvguideprovider.html?type=xmltv';
             case 'schedulesdirect':
                 return 'livetvguideprovider.html?type=schedulesdirect';
             case 'emby':
@@ -421,6 +425,11 @@
         //    name: 'Emby Guide',
         //    id: 'emby'
         //});
+
+        menuItems.push({
+            name: 'Xml TV',
+            id: 'xmltv'
+        });
 
         menuItems.push({
             name: Globalize.translate('ButtonOther'),

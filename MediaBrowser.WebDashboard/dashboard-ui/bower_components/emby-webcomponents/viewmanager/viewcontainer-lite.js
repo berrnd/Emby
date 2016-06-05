@@ -1,4 +1,4 @@
-define(['browser'], function (browser) {
+define(['browser', 'css!./viewcontainer-lite'], function (browser) {
 
     var mainAnimatedPages = document.querySelector('.mainAnimatedPages');
     var allPages = [];
@@ -9,6 +9,10 @@ define(['browser'], function (browser) {
     function enableAnimation() {
 
         if (browser.tv) {
+            return false;
+        }
+
+        if (browser.operaTv) {
             return false;
         }
 
