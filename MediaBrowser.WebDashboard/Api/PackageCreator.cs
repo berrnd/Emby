@@ -315,11 +315,11 @@ namespace MediaBrowser.WebDashboard.Api
                 html = html.Replace("<head>", "<head>" + GetMetaTags(mode) + GetCommonCss(mode, appVersion));
 
                 // Disable embedded scripts from plugins. We'll run them later once resources have loaded
-                if (html.IndexOf("<script", StringComparison.OrdinalIgnoreCase) != -1)
-                {
-                    html = html.Replace("<script", "<!--<script");
-                    html = html.Replace("</script>", "</script>-->");
-                }
+                //if (html.IndexOf("<script", StringComparison.OrdinalIgnoreCase) != -1)
+                //{
+                //    html = html.Replace("<script", "<!--<script");
+                //    html = html.Replace("</script>", "</script>-->");
+                //}
 
                 html = html.Replace("</body>", GetCommonJavascript(mode, appVersion) + "</body>");
 
