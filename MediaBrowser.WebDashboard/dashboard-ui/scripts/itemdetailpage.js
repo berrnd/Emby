@@ -123,8 +123,10 @@
 			
 			if (item.CanDownload) {
                 $('.btnDownload', page).removeClass('hide');
+				$('.btnStreamExternal', page).removeClass('hide');
             } else {
                 $('.btnDownload', page).addClass('hide');
+				$('.btnStreamExternal', page).addClass('hide');
             }
 
             if (item.Type == 'Program' && item.TimerId) {
