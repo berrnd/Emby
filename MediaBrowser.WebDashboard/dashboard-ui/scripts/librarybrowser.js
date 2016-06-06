@@ -1,4 +1,4 @@
-﻿define(['scrollHelper', 'appSettings', 'appStorage', 'apphost', 'datetime', 'itemHelper', 'mediaInfo', 'scrollStyles', 'jQuery'], function (scrollHelper, appSettings, appStorage, appHost, datetime, itemHelper, mediaInfo, $) {
+﻿define(['scrollHelper', 'appSettings', 'appStorage', 'apphost', 'datetime', 'itemHelper', 'mediaInfo', 'scrollStyles', 'jQuery'], function (scrollHelper, appSettings, appStorage, appHost, datetime, itemHelper, mediaInfo, scrollStyles, jQuery) {
 
     function parentWithClass(elem, className) {
 
@@ -2741,8 +2741,18 @@
                 var name = itemHelper.getDisplayName(item, {
                     includeParentInfo: false
                 });
+				
+				var nameTitle = itemHelper.getDisplayName(item, {
+                    includeParentInfo: true
+                });
+				
+				var additionalPageTitle = "";
+				if (item.Type == "Episode")
+				{
+					additionalPageTitle = " (" + item.SeriesName + ")";
+				}
 
-                Dashboard.setPageTitle(name);
+                Dashboard.setPageTitle(nameTitle + additionalPageTitle);
 
                 if (linkToElement) {
                     nameElem.html('<a class="detailPageParentLink" href="' + LibraryBrowser.getHref(item, context) + '">' + name + '</a>');
@@ -3445,7 +3455,52 @@
                 }
 
                 return hasbackdrop;
-            }
+            },
+			
+			ExecuteItemDetailsPageDownload: function()
+			{
+				var itemId = getParameterByName("id");
+				
+				if (itemId != null)
+				{
+					var piwikTracker = Piwik.getAsyncTracker();
+					piwikTracker.trackEvent("MediaAccess", "DownloadedItem", document.title);
+					
+					var accessToken = ApiClient.accessToken();
+					var downloadUrl = ApiClient.getUrl("Items/" + itemId + "/Download?api_key=" + accessToken);
+					setTimeout(function ()
+					{
+						window.location.href = downloadUrl;
+					}, 500);
+				}
+			},
+			
+			ExecuteItemDetailsPageExternalStream: function()
+			{
+				var itemId = getParameterByName("id");
+				
+				if (itemId != null)
+				{
+					var accessToken = ApiClient.accessToken();
+					var deviceId = ApiClient.deviceId();
+					
+					var logActivityUrl = ApiClient.getUrl("Items/" + itemId + "/NotifyStreamedExternalInPlayer?api_key=" + accessToken);
+					jQuery.ajax(
+					{
+						url: logActivityUrl,
+						type: 'GET'
+					});
+					
+					var piwikTracker = Piwik.getAsyncTracker();
+					piwikTracker.trackEvent("MediaAccess", "StreamedItemInExternalPlayer", document.title);
+					
+					var downloadUrl = ApiClient.getUrl("Videos/" + itemId + "/stream?static=true&mediaSourceId=" + itemId + "&deviceId=" + deviceId + "&api_key=" + accessToken);
+					setTimeout(function ()
+					{
+						window.location.href = downloadUrl;
+					}, 500);
+				}
+			}
         };
 
         return libraryBrowser;
@@ -3456,36 +3511,3 @@
 
     return libraryBrowser;
 });
-
-function ExecuteItemDetailsPageDownload()
-{
-	var itemId = getParameterByName("id");
-	
-	if (itemId != null)
-	{
-		var accessToken = ApiClient.accessToken();
-		var downloadUrl = ApiClient.getUrl("Items/" + itemId + "/Download?api_key=" + accessToken)
-		window.location.href = downloadUrl;
-	}
-}
-
-function ExecuteItemDetailsPageExternalStream()
-{
-	var itemId = getParameterByName("id");
-	
-	if (itemId != null)
-	{
-		var accessToken = ApiClient.accessToken();
-		var deviceId = ApiClient.deviceId();
-		
-		var logActivityUrl = ApiClient.getUrl("Items/" + itemId + "/NotifyStreamedExternalInPlayer?api_key=" + accessToken);
-		jQuery.ajax(
-		{
-			url: logActivityUrl,
-			type: 'GET'
-		});
-		
-		var downloadUrl = ApiClient.getUrl("Videos/" + itemId + "/stream?static=true&mediaSourceId=" + itemId + "&deviceId=" + deviceId + "&api_key=" + accessToken);
-		window.location.href = downloadUrl;
-	}
-}

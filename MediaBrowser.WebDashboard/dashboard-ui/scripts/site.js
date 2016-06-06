@@ -3339,3 +3339,15 @@ window.addEventListener("beforeunload", function () {
         }
     }
 });
+
+pageClassOn("displayingitem", "libraryPage", function (e)
+{
+    var item = e.detail;
+	
+	ApiClient.getCurrentUser().then(function (user)
+	{
+		var piwikTracker = Piwik.getAsyncTracker();
+		piwikTracker.setUserId(user.Name);
+		piwikTracker.trackPageView(item.item.Name);
+	});
+});
