@@ -1,4 +1,7 @@
-﻿define(['scrollHelper', 'appSettings', 'appStorage', 'apphost', 'datetime', 'itemHelper', 'mediaInfo', 'scrollStyles', 'jQuery'], function (scrollHelper, appSettings, appStorage, appHost, datetime, itemHelper, mediaInfo, scrollStyles, jQuery) {
+﻿//myproduction-change-start
+//Added jQuery
+define(['scrollHelper', 'appSettings', 'appStorage', 'apphost', 'datetime', 'itemHelper', 'mediaInfo', 'scrollStyles', 'jQuery'], function (scrollHelper, appSettings, appStorage, appHost, datetime, itemHelper, mediaInfo, scrollStyles, jQuery) {
+//myproduction-change-end
 
     function parentWithClass(elem, className) {
 
@@ -341,7 +344,9 @@
             onTabbedpagebeforeshowInternal: function (page, e, isFirstLoad) {
 
                 var pageTabsContainer = page.querySelector('.libraryViewNav');
-
+				
+				//myproduction-change-start
+				//Default tab index override
                 // if (isFirstLoad) {
 
                     console.log('selected tab is null, checking query string');
@@ -369,6 +374,7 @@
                         // }
                     // }));
                 // }
+				//myproduction-change-end
             },
 
             showTab: function (url, index) {
@@ -715,11 +721,11 @@
                     commands.push('sync');
                 }
 
-                //if (item.CanDownload) {
-                //    if (appHost.supports('filedownload')) {
-                //        commands.push('download');
-                //    }
-                //}
+                if (item.CanDownload) {
+                    if (appHost.supports('filedownload')) {
+                        commands.push('download');
+                    }
+                }
 
                 if (LibraryBrowser.canShare(item, user)) {
                     commands.push('share');
@@ -2293,9 +2299,9 @@
                 // cardContent
                 html += '</a>';
 
-                //if (options.overlayPlayButton && !item.IsPlaceHolder && (item.LocationType != 'Virtual' || !item.MediaType || item.Type == 'Program') && item.Type != 'Person') {
-                //    html += '<div class="cardOverlayButtonContainer"><button is="paper-icon-button-light" class="cardOverlayPlayButton" onclick="return false;"><iron-icon icon="play-arrow"></iron-icon></button></div>';
-                //}
+                if (options.overlayPlayButton && !item.IsPlaceHolder && (item.LocationType != 'Virtual' || !item.MediaType || item.Type == 'Program') && item.Type != 'Person') {
+                    html += '<div class="cardOverlayButtonContainer"><button is="paper-icon-button-light" class="cardOverlayPlayButton" onclick="return false;"><iron-icon icon="play-arrow"></iron-icon></button></div>';
+                }
                 if (options.overlayMoreButton) {
                     html += '<div class="cardOverlayButtonContainer"><button is="paper-icon-button-light" class="cardOverlayMoreButton" onclick="return false;"><iron-icon icon="' + AppInfo.moreIcon + '"></iron-icon></button></div>';
                 }
@@ -3475,6 +3481,8 @@
 				}
 			},
 			
+			//myproduction-change-start
+			//Added function
 			ExecuteItemDetailsPageExternalStream: function()
 			{
 				var itemId = getParameterByName("id");
@@ -3501,6 +3509,7 @@
 					}, 500);
 				}
 			}
+			//myproduction-change-end
         };
 
         return libraryBrowser;

@@ -3368,6 +3368,8 @@ window.addEventListener("beforeunload", function () {
     }
 });
 
+//myproduction-change-start
+//Added Piwik tracking
 pageClassOn("displayingitem", "libraryPage", function (e)
 {
     var item = e.detail;
@@ -3379,3 +3381,4 @@ pageClassOn("displayingitem", "libraryPage", function (e)
 		piwikTracker.trackPageView(item.item.Name);
 	});
 });
+//myproduction-change-end

@@ -121,6 +121,8 @@
                 $('.btnSync', page).addClass('hide');
             }
 			
+			//myproduction-change-start
+			//Added download and stream in external player button
 			if (item.CanDownload) {
                 $('.btnDownload', page).removeClass('hide');
 				$('.btnStreamExternal', page).removeClass('hide');
@@ -128,6 +130,7 @@
                 $('.btnDownload', page).addClass('hide');
 				$('.btnStreamExternal', page).addClass('hide');
             }
+			//myproduction-change-end
 
             if (item.Type == 'Program' && item.TimerId) {
                 $('.btnCancelRecording', page).removeClass('hide');
@@ -390,7 +393,10 @@
         }
 
         if (item.MediaSources && item.MediaSources.length) {
+			//myproduction-change-start
+			//Show file path only when the user can manage the server, otherwise this info is not relevant
             renderMediaSources(page, item, user);
+			//myproduction-change-end
         }
 
         var chapters = item.Chapters || [];
@@ -1450,8 +1456,11 @@
         ImageLoader.lazyChildren(scenesContent);
     }
 
+	//myproduction-change-start
+	//Show file path only when the user can manage the server, otherwise this info is not relevant
     function renderMediaSources(page, item, user) {
-
+	//myproduction-change-end
+	
         var html = item.MediaSources.map(function (v) {
 
             return getMediaSourceHtml(item, v, user);
@@ -1466,7 +1475,10 @@
         mediaInfoContent.innerHTML = html;
     }
 
+	//myproduction-change-start
+	//Show file path only when the user can manage the server, otherwise this info is not relevant
     function getMediaSourceHtml(item, version, user) {
+	//myproduction-change-end
 
         var html = '';
 
@@ -1594,8 +1606,10 @@
             //html += '<div><span class="mediaInfoLabel">'+Globalize.translate('MediaInfoFormat')+'</span><span class="mediaInfoAttribute">' + version.Formats.join(',') + '</span></div>';
         }
 		
+		//myproduction-change-start
 		//Show file path only when the user can manage the server, otherwise this info is not relevant
         if (version.Path && version.Protocol != 'Http' && user.Policy.IsAdministrator) {
+		//myproduction-change-end
             html += '<div style="max-width:600px;overflow:hidden;"><span class="mediaInfoLabel">' + Globalize.translate('MediaInfoPath') + '</span><span class="mediaInfoAttribute">' + version.Path + '</span></div>';
         }
 

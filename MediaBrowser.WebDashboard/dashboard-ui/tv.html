@@ -1,13 +1,22 @@
-﻿<div id="tvRecommendedPage" data-dom-cache="true" data-role="page" class="page libraryPage backdropPage pageWithAbsoluteTabs" data-backdroptype="series" data-default-tab-index-override="3">
+﻿<!--myproduction-change-start-->
+<!--Added data-default-tab-index-override attribute-->
+<div id="tvRecommendedPage" data-dom-cache="true" data-role="page" class="page libraryPage backdropPage pageWithAbsoluteTabs" data-backdroptype="series" data-default-tab-index-override="3">
+<!--myproduction-change-end-->
 
     <div class="libraryViewNav">
         <button class="pageTabButton is-active" data-index="0">${TabSuggestions}</button>
         <button class="pageTabButton" data-index="1">${TabLatest}</button>
+		<!--myproduction-change-start-->
+		<!--Hided button-->
         <button class="pageTabButton hide" data-index="2">${TabUpcoming}</button>
+		<!--myproduction-change-end-->
         <button class="pageTabButton" data-index="3">${TabShows}</button>
-        <button class="pageTabButton tvEpisodesTab" data-index="4">${TabEpisodes}</button>
+        <button class="pageTabButton" data-index="4">${TabEpisodes}</button>
         <button class="pageTabButton" data-index="5">${TabGenres}</button>
+		<!--myproduction-change-start-->
+		<!--Hided button-->
         <button class="pageTabButton hide" data-index="6">${TabNetworks}</button>
+		<!--myproduction-change-end-->
     </div>
     <div class="is-active pageTabContent ehsContent" id="suggestionsTab" data-index="0">
         <div id="resumableSection" class="homePageSection">

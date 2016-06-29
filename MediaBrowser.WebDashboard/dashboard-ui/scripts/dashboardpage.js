@@ -1,20 +1,4 @@
-﻿define(['datetime', 'jQuery'], function (datetime, $) {
-
-    function renderNoHealthAlertsMessage(page) {
-
-        var html = '<p style="padding:0 .5em;display:flex;align-items:center;">';
-
-        html += '<iron-icon icon="check" style="margin-right:.5em;background-color: #52B54B;border-radius:1em;color: #fff;"></iron-icon>';
-
-        html += Globalize.translate('HealthMonitorNoAlerts') + '</p>';
-
-        page.querySelector('.healthMonitor').innerHTML = html;
-    }
-
-    function refreshHealthMonitor(page) {
-
-        renderNoHealthAlertsMessage(page);
-    }
+﻿define(['datetime'], function (datetime) {
 
     window.DashboardPage = {
 
@@ -46,10 +30,13 @@
             DashboardPage.lastAppUpdateCheck = null;
             DashboardPage.lastPluginUpdateCheck = null;
 
-            //Dashboard.getPluginSecurityInfo().then(function (pluginSecurityInfo) {
+            //myproduction-change-start
+			//Removed Emby Premiere subscription
+			//Dashboard.getPluginSecurityInfo().then(function (pluginSecurityInfo) {
 
             //    DashboardPage.renderSupporterIcon(page, pluginSecurityInfo);
             //});
+			//myproduction-change-end
 
             DashboardPage.reloadSystemInfo(page);
             DashboardPage.reloadNews(page);
@@ -60,8 +47,6 @@
             $('.swaggerLink', page).attr('href', apiClient.getUrl('swagger-ui/index.html', {
                 api_key: ApiClient.accessToken()
             }));
-
-            refreshHealthMonitor(page);
         },
 
         onPageHide: function () {
@@ -815,7 +800,9 @@
             }
         },
 
-        //renderSupporterIcon: function (page, pluginSecurityInfo) {
+        //myproduction-change-start
+		//Removed Emby Premiere subscription
+		//renderSupporterIcon: function (page, pluginSecurityInfo) {
 
         //    var imgUrl, text;
 
@@ -836,6 +823,7 @@
         //        $('.supporterIconContainer', page).html('<a class="imageLink supporterIcon" href="http://emby.media/premiere" target="_blank" title="' + text + '"><img src="' + imgUrl + '" style="height:32px;vertical-align: middle; margin-right: .5em;" /><span style="position:relative;top:2px;text-decoration:none;">' + text + '</span></a>');
         //    }
         //},
+		//myproduction-change-end
 
         renderHasPendingRestart: function (page, hasPendingRestart) {
 
@@ -1326,7 +1314,7 @@
 
                     if (!pluginSecurityInfo.IsMBSupporter && AppInfo.enableSupporterMembership) {
 
-                        var html = '<div class="supporterPromotion"><a class="clearLink" href="http://emby.media/premiere" target="_blank"><button is="emby-button" type="button" class="raised block" style="text-transform:none;background-color:#52B54B;color:#fff;"><div>' + Globalize.translate('HeaderSupportTheTeam') + '</div><div style="font-weight:normal;margin-top:5px;">' + Globalize.translate('TextEnjoyBonusFeatures') + '</div></button></a></div>';
+                        var html = '<div class="supporterPromotion"><a class="clearLink" href="http://emby.media/premiere" target="_blank"><paper-button raised class="block" style="text-transform:none;background-color:#52B54B;color:#fff;"><div>' + Globalize.translate('HeaderSupportTheTeam') + '</div><div style="font-weight:normal;margin-top:5px;">' + Globalize.translate('TextEnjoyBonusFeatures') + '</div></paper-button></a></div>';
 
                         $('.content-primary', page).append(html);
                     }

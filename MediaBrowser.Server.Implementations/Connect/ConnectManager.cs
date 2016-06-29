@@ -151,6 +151,8 @@ namespace MediaBrowser.Server.Implementations.Connect
             UpdateConnectInfo();
         }
 
+		//myproduction-change-start
+		//Added skipping of Emby Connect connection when no single user has a Connect username
         private async Task UpdateConnectInfo()
         {
             await _operationLock.WaitAsync().ConfigureAwait(false);
@@ -173,6 +175,7 @@ namespace MediaBrowser.Server.Implementations.Connect
                 _logger.Info("No user has a Emby Connect username, skipping UpdateConnectInfo");
             }
         }
+		//myproduction-change-end
 
         private async Task UpdateConnectInfoInternal()
         {

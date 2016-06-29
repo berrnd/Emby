@@ -260,6 +260,8 @@ namespace MediaBrowser.Api.Library
         public string Id { get; set; }
     }
 
+	//myproduction-change-start
+	//Added activity logging of external player streaming actions
     [Route("/Items/{Id}/NotifyStreamedExternalInPlayer", "GET", Summary = "Just logs an activity entry that the given media element was streamed in an external player")]
     [Authenticated(Roles = "download")]
     public class NotifyStreamedExternalInPlayer
@@ -271,6 +273,7 @@ namespace MediaBrowser.Api.Library
         [ApiMember(Name = "Id", Description = "Item Id", IsRequired = true, DataType = "string", ParameterType = "path", Verb = "GET")]
         public string Id { get; set; }
     }
+	//myproduction-change-end
 
     [Route("/Items/{Id}/Similar", "GET", Summary = "Gets similar items")]
     [Authenticated]
@@ -545,7 +548,9 @@ namespace MediaBrowser.Api.Library
             });
         }
 
-        public object Get(NotifyStreamedExternalInPlayer request)
+        //myproduction-change-start
+		//Added activity logging of external player streaming actions
+		public object Get(NotifyStreamedExternalInPlayer request)
         {
             var item = _libraryManager.GetItemById(request.Id);
             var auth = _authContext.GetAuthorizationInfo(Request);
@@ -575,7 +580,7 @@ namespace MediaBrowser.Api.Library
             return null;
         }
 
-        private async void LogNotifyStreamedExternalInPlayer(BaseItem item, User user, AuthorizationInfo auth)
+		private async void LogNotifyStreamedExternalInPlayer(BaseItem item, User user, AuthorizationInfo auth)
         {
             try
             {
@@ -593,6 +598,7 @@ namespace MediaBrowser.Api.Library
                 // Logged at lower levels
             }
         }
+		//myproduction-change-end
 
         private async void LogDownload(BaseItem item, User user, AuthorizationInfo auth)
         {

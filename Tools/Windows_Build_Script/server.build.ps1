@@ -19,7 +19,10 @@ function Remove-Tree($Path,$Include='*') {
 # http://invokemsbuild.codeplex.com/documentation?referringTitle=Home
 Import-Module -Name "$PSScriptRoot\Invoke-MsBuild.psm1"
 
+#myproduction-change-start
+#Changed path to be inside working copy
 $DeployPath = "$PSScriptRoot\..\..\.deploy"
+#myproduction-change-end
 $DeployPathServerPath = "$DeployPath\Server"
 $DeployPathSystemFolderName = "System"
 $DeployPathSystemPath = "$DeployPathServerPath\$DeployPathSystemFolderName"
@@ -50,6 +53,8 @@ Copy-Item -Path $WindowsBinReleasePath -Destination $DeployPathSystemPath -Recur
 Remove-Tree $DeployPathServerPath "*.pdb"
 Remove-Tree $DeployPathServerPath "*.xml"
 
+#myproduction-change-start
+#Disabled ZIP creation and mono build
 #$process = (Start-Process -FilePath $7za -ArgumentList "$7zaOptions ""$DeployPath\emby.windows.zip"" ""$DeployPathServerPath\*""" -Wait -Passthru -NoNewWindow -RedirectStandardOutput "$PSScriptRoot\7za.log" -RedirectStandardError "$PSScriptRoot\7zaError.log").ExitCode
 #
 #if ($process -ne 0)
@@ -91,5 +96,6 @@ Remove-Tree $DeployPathServerPath "*.xml"
 #$MonoReleaseVersion = ((Get-Command "$MonoBinReleasePath\MediaBrowser.Server.Mono.exe").FileVersionInfo).FileVersion
 #Write-Host "Mono Release: Copy archive to Emby.Mono-$MonoReleaseVersion.zip..."
 #Copy-Item -Path "$DeployPath\Emby.Mono.zip" -Destination "$DeployPath\Emby.Mono-$MonoReleaseVersion.zip" -Force
+#myproduction-change-end
 
 Write-Host "Done"

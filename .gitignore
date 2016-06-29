@@ -232,4 +232,6 @@ pip-log.txt
 .mr.developer.cfg
 MediaBrowser.WebDashboard/dashboard-ui/.idea/
 
+#myproduction-change-start
 .deploy/
+#myproduction-change-end

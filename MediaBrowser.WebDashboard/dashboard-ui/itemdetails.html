@@ -32,8 +32,11 @@
                     <button is="emby-button" type="button" class="raised subdued btnRecord hide"><iron-icon icon="videocam"></iron-icon><span>${ButtonRecord}</span></button>
                     <button is="emby-button" type="button" class="raised subdued hide btnCancelRecording"><iron-icon icon="delete"></iron-icon><span>${ButtonCancelRecording}</span></button>
                     <button is="emby-button" type="button" class="raised subdued btnSync hide"><iron-icon icon="sync"></iron-icon><span>${ButtonSync}</span></button>
+					<!--myproduction-change-start-->
+					<!--Added download and stream in external player button-->
                     <button is="emby-button" type="button" class="raised subdued btnDownload hide" role="button" data-id="download" onclick="window.LibraryBrowser.ExecuteItemDetailsPageDownload();"><iron-icon icon="file-download"></iron-icon><span>${ButtonDownload}</span></button>
                     <button is="emby-button" type="button" class="raised subdued btnStreamExternal hide" role="button" data-id="stream" onclick="window.LibraryBrowser.ExecuteItemDetailsPageExternalStream();"><iron-icon icon="play-arrow"></iron-icon><span>In externem Player abspielen</span></button>
+					<!--myproduction-change-end-->
                     <button is="emby-button" type="button" class="raised subdued btnMoreCommands hide notext"><iron-icon icon="more-vert"></iron-icon></button>
                     <div class="detailUserDataIcons userDataIcons"></div>
                 </div>
@@ -52,8 +55,11 @@
             <button is="emby-button" type="button" class="raised subdued btnRecord hide"><iron-icon icon="videocam"></iron-icon><span>${ButtonRecord}</span></button>
             <button is="emby-button" type="button" class="raised subdued hide btnCancelRecording"><iron-icon icon="delete"></iron-icon><span>${ButtonCancelRecording}</span></button>
             <button is="emby-button" type="button" class="raised subdued btnSync hide"><iron-icon icon="sync"></iron-icon><span>${ButtonSync}</span></button>
-            <button is="emby-button" type="button" class="raised subdued btnDownload hide" role="button" data-id="download" onclick="window.LibraryBrowser.ExecuteItemDetailsPageDownload();"><iron-icon icon="file-download"></iron-icon><span>${ButtonDownload}</span></button>
-            <button is="emby-button" type="button" class="raised subdued btnStreamExternal hide" role="button" data-id="stream" onclick="window.LibraryBrowser.ExecuteItemDetailsPageExternalStream();"><iron-icon icon="play-arrow"></iron-icon><span>In externem Player abspielen</span></button>
+			<!--myproduction-change-start-->
+			<!--Added download and stream in external player button-->
+			<button is="emby-button" type="button" class="raised subdued btnDownload hide" role="button" data-id="download" onclick="window.LibraryBrowser.ExecuteItemDetailsPageDownload();"><iron-icon icon="file-download"></iron-icon><span>${ButtonDownload}</span></button>
+			<button is="emby-button" type="button" class="raised subdued btnStreamExternal hide" role="button" data-id="stream" onclick="window.LibraryBrowser.ExecuteItemDetailsPageExternalStream();"><iron-icon icon="play-arrow"></iron-icon><span>In externem Player abspielen</span></button>
+			<!--myproduction-change-end-->
             <button is="emby-button" type="button" class="raised subdued btnMoreCommands hide notext"><iron-icon icon="more-vert"></iron-icon></button>
             <div class="detailUserDataIcons userDataIcons"></div>
         </div>

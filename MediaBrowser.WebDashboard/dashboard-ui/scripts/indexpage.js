@@ -219,12 +219,14 @@
 
             getDisplayPreferences('home', userId).then(function (result) {
 				
+				//myproduction-change-start
 				//Overwrite some values to ensure some default things
 				result.CustomPrefs.homePageTour = 14;
 				result.CustomPrefs.home0 = "librarybuttons";
 				result.CustomPrefs.home1 = "latestmedia";
 				result.CustomPrefs.home2 = "";
 				result.CustomPrefs.home3 = "";
+				//myproduction-change-end
 
                 Dashboard.getCurrentUser().then(function (user) {
 

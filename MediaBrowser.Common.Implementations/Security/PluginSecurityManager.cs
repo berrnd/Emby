@@ -244,6 +244,8 @@ namespace MediaBrowser.Common.Implementations.Security
 
             if (!(lastChecked > DateTime.UtcNow.AddDays(-1)))
             {
+				//myproduction-change-start
+				//Removed Emby Premiere subscription
                 //var data = new Dictionary<string, string>
                 //{
                 //    { "feature", feature }, 
@@ -255,9 +257,12 @@ namespace MediaBrowser.Common.Implementations.Security
                 //    { "platform", _appHost.OperatingSystemDisplayName }, 
                 //    { "isservice", _appHost.IsRunningAsService.ToString().ToLower() }
                 //};
+				//myproduction-change-end
 
                 try
                 {
+					//myproduction-change-start
+					//Removed Emby Premiere subscription
                     //var options = new HttpRequestOptions
                     //{
                     //    Url = MBValidateUrl,
@@ -278,6 +283,7 @@ namespace MediaBrowser.Common.Implementations.Security
                     reg.expDate = DateTime.UtcNow.AddDays(365);
                     reg.key = feature;
                     success = true;
+					//myproduction-change-end
 
                     if (reg.registered)
                     {
