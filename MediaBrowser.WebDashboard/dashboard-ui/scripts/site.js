@@ -255,7 +255,7 @@ var Dashboard = {
         var html = '<span style="margin-right: 1em;">' + Globalize.translate('MessagePleaseRestart') + '</span>';
 
         if (systemInfo.CanSelfRestart) {
-            html += '<paper-button raised class="submit mini" onclick="this.disabled=\'disabled\';Dashboard.restartServer();"><iron-icon icon="refresh"></iron-icon><span>' + Globalize.translate('ButtonRestart') + '</span></paper-button>';
+            html += '<button is="emby-button" type="button" class="raised submit mini" onclick="this.disabled=\'disabled\';Dashboard.restartServer();"><iron-icon icon="refresh"></iron-icon><span>' + Globalize.translate('ButtonRestart') + '</span></button>';
         }
 
         Dashboard.showFooterNotification({ id: "serverRestartWarning", html: html, forceShow: true, allowHide: false });
@@ -277,7 +277,7 @@ var Dashboard = {
 
         var html = '<span style="margin-right: 1em;">' + Globalize.translate('MessagePleaseRefreshPage') + '</span>';
 
-        html += '<paper-button raised class="submit mini" onclick="this.disabled=\'disabled\';Dashboard.reloadPage();"><iron-icon icon="refresh"></iron-icon><span>' + Globalize.translate('ButtonRefresh') + '</span></paper-button>';
+        html += '<button is="emby-button" type="button" class="raised submit mini" onclick="this.disabled=\'disabled\';Dashboard.reloadPage();"><iron-icon icon="refresh"></iron-icon><span>' + Globalize.translate('ButtonRefresh') + '</span></button>';
 
         Dashboard.showFooterNotification({ id: "dashboardVersionWarning", html: html, forceShow: true, allowHide: false });
     },
@@ -327,7 +327,7 @@ var Dashboard = {
         var onclick = removeOnHide ? "jQuery(\"#" + options.id + "\").trigger(\"notification.remove\").remove();" : "jQuery(\"#" + options.id + "\").trigger(\"notification.hide\").hide();";
 
         if (options.allowHide !== false) {
-            options.html += "<span style='margin-left: 1em;'><paper-button class='submit' onclick='" + onclick + "'>" + Globalize.translate('ButtonHide') + "</paper-button></span>";
+            options.html += '<span style="margin-left: 1em;"><button is="emby-button" type="button" class="submit" onclick="' + onclick + '">' + Globalize.translate('ButtonHide') + "</button></span>";
         }
 
         if (options.forceShow) {
@@ -452,6 +452,22 @@ var Dashboard = {
 
         require(['toast'], function (toast) {
             toast(Globalize.translate('MessageSettingsSaved'));
+        });
+    },
+
+    processErrorResponse: function (response) {
+
+        Dashboard.hideLoadingMsg();
+
+        var status = '' + response.status;
+
+        if (response.statusText) {
+            status = response.statusText;
+        }
+
+        Dashboard.alert({
+            title: status,
+            message: response.headers ? response.headers.get('X-Application-Error-Code') : null
         });
     },
 
@@ -701,7 +717,7 @@ var Dashboard = {
             divider: true,
             name: Globalize.translate('TabLibrary'),
             href: "library.html",
-            pageIds: ['mediaLibraryPage', 'libraryPathMappingPage', 'librarySettingsPage'],
+            pageIds: ['mediaLibraryPage', 'libraryPathMappingPage', 'librarySettingsPage', 'libraryDisplayPage'],
             icon: 'folder',
             color: '#009688'
         }, {
@@ -1004,7 +1020,7 @@ var Dashboard = {
             html += '</progress>';
 
             if (percentComplete < 100) {
-                html += '<paper-button raised class="cancelDark mini" onclick="this.disabled=\'disabled\';Dashboard.cancelInstallation(\'' + installation.Id + '\');"><iron-icon icon="cancel"></iron-icon><span>' + Globalize.translate('ButtonCancel') + '</span></paper-button>';
+                html += '<button is="emby-button" type="button" class="raised cancelDark mini" onclick="this.disabled=\'disabled\';Dashboard.cancelInstallation(\'' + installation.Id + '\');"><iron-icon icon="cancel"></iron-icon><span>' + Globalize.translate('ButtonCancel') + '</span></button>';
             }
         }
 
@@ -1225,7 +1241,7 @@ var Dashboard = {
                 if (enableVlcVideo) {
 
                     profile.DirectPlayProfiles.push({
-                        Container: "m4v,3gp,ts,mpegts,mov,xvid,vob,mkv,wmv,asf,ogm,ogv,m2v,avi,mpg,mpeg,mp4,webm",
+                        Container: "m4v,3gp,ts,mpegts,mov,xvid,vob,mkv,wmv,asf,ogm,ogv,m2v,avi,mpg,mpeg,mp4,webm,wtv",
                         Type: 'Video',
                         AudioCodec: 'aac,aac_latm,mp2,mp3,ac3,wma,dca,pcm,PCM_S16LE,PCM_S24LE,opus,flac'
                     });
@@ -1775,6 +1791,9 @@ var AppInfo = {};
 
         define("libjass", [bowerPath + "/libjass/libjass", "css!" + bowerPath + "/libjass/libjass"], returnFirstDependency);
 
+        define("emby-button", [embyWebComponentsBowerPath + "/emby-button/emby-button"], returnFirstDependency);
+        define("paper-icon-button-light", [embyWebComponentsBowerPath + "/emby-button/paper-icon-button-light"]);
+
         define("emby-input", [embyWebComponentsBowerPath + "/emby-input/emby-input"], returnFirstDependency);
         define("emby-select", [embyWebComponentsBowerPath + "/emby-select/emby-select"], returnFirstDependency);
         define("collectionEditor", [embyWebComponentsBowerPath + "/collectioneditor/collectioneditor"], returnFirstDependency);
@@ -1859,7 +1878,6 @@ var AppInfo = {};
         define("paper-material", ["html!" + bowerPath + "/paper-material/paper-material.html"]);
         define("paper-button", ["html!" + bowerPath + "/paper-button/paper-button.html"]);
         define("paper-icon-button", ["html!" + bowerPath + "/paper-icon-button/paper-icon-button.html"]);
-        define("paper-icon-button-light", ["html!" + bowerPath + "/paper-icon-button/paper-icon-button-light.html", 'css!css/polymer/paper-icon-button-light.css']);
         define("paper-drawer-panel", ["html!" + bowerPath + "/paper-drawer-panel/paper-drawer-panel.html"]);
         define("paper-radio-group", ["html!" + bowerPath + "/paper-radio-group/paper-radio-group.html"]);
         define("paper-radio-button", ["html!" + bowerPath + "/paper-radio-button/paper-radio-button.html"]);
@@ -1885,7 +1903,7 @@ var AppInfo = {};
         define("paper-item-body", ["html!" + bowerPath + "/paper-item/paper-item-body.html"]);
 
         define("paper-collapse-item", ["html!" + bowerPath + "/paper-collapse-item/paper-collapse-item.html"]);
-        define("emby-collapsible", ["html!" + bowerPath + "/emby-collapsible/emby-collapsible.html"]);
+        define("emby-collapsible", ["emby-button", "html!" + bowerPath + "/emby-collapsible/emby-collapsible.html"]);
 
         define("jstree", [bowerPath + "/jstree/dist/jstree", "css!thirdparty/jstree/themes/default/style.min.css"]);
 
@@ -1989,6 +2007,15 @@ var AppInfo = {};
                 on: function () {
                 },
                 off: function () {
+                }
+            };
+        });
+
+        // mock this for now. not used in this app
+        define("playbackManager", [], function () {
+            return {
+                isPlayingVideo: function () {
+                    return false;
                 }
             };
         });
@@ -2390,7 +2417,7 @@ var AppInfo = {};
 
         defineRoute({
             path: '/connectlogin.html',
-            dependencies: ['paper-button'],
+            dependencies: ['emby-button'],
             autoFocus: false,
             anonymous: true
         });
@@ -2412,7 +2439,7 @@ var AppInfo = {};
 
         defineRoute({
             path: '/dashboardhosting.html',
-            dependencies: ['paper-checkbox', 'paper-input', 'paper-button'],
+            dependencies: ['paper-checkbox', 'paper-input', 'emby-button'],
             autoFocus: false,
             roles: 'admin',
             controller: 'scripts/dashboardhosting'
@@ -2547,7 +2574,7 @@ var AppInfo = {};
 
         defineRoute({
             path: '/itemdetails.html',
-            dependencies: ['paper-button', 'tileitemcss', 'scripts/livetvcomponents', 'paper-fab', 'paper-item-body', 'paper-icon-item', 'paper-icon-button-light'],
+            dependencies: ['emby-button', 'tileitemcss', 'scripts/livetvcomponents', 'paper-item-body', 'paper-icon-item', 'paper-icon-button-light'],
             controller: 'scripts/itemdetailpage',
             autoFocus: false,
             transition: 'fade'
@@ -2576,7 +2603,7 @@ var AppInfo = {};
 
         defineRoute({
             path: '/librarydisplay.html',
-            dependencies: ['paper-button', 'paper-checkbox'],
+            dependencies: ['emby-button', 'paper-checkbox'],
             autoFocus: false,
             roles: 'admin',
             controller: 'scripts/librarydisplay'
@@ -2591,14 +2618,15 @@ var AppInfo = {};
 
         defineRoute({
             path: '/librarysettings.html',
-            dependencies: [],
+            dependencies: ['emby-collapsible', 'paper-input', 'paper-checkbox', 'emby-button'],
             autoFocus: false,
-            roles: 'admin'
+            roles: 'admin',
+            controller: 'scripts/librarysettings'
         });
 
         defineRoute({
             path: '/livetv.html',
-            dependencies: ['paper-button', 'livetvcss'],
+            dependencies: ['emby-button', 'livetvcss'],
             controller: 'scripts/livetvsuggested',
             autoFocus: false,
             transition: 'fade'
@@ -2673,7 +2701,7 @@ var AppInfo = {};
 
         defineRoute({
             path: '/login.html',
-            dependencies: ['paper-button', 'humanedate', 'emby-input'],
+            dependencies: ['emby-button', 'humanedate', 'emby-input'],
             autoFocus: false,
             anonymous: true,
             controller: 'scripts/loginpage'
@@ -2716,7 +2744,7 @@ var AppInfo = {};
 
         defineRoute({
             path: '/movies.html',
-            dependencies: ['paper-checkbox', 'scripts/alphapicker', 'paper-button'],
+            dependencies: ['paper-checkbox', 'scripts/alphapicker', 'emby-button'],
             autoFocus: false,
             controller: 'scripts/moviesrecommended',
             transition: 'fade'
@@ -2732,35 +2760,35 @@ var AppInfo = {};
 
         defineRoute({
             path: '/mypreferencesdisplay.html',
-            dependencies: ['paper-button'],
+            dependencies: ['emby-button'],
             autoFocus: false,
             transition: 'fade'
         });
 
         defineRoute({
             path: '/mypreferenceshome.html',
-            dependencies: ['paper-button'],
+            dependencies: ['emby-button'],
             autoFocus: false,
             transition: 'fade'
         });
 
         defineRoute({
             path: '/mypreferenceslanguages.html',
-            dependencies: ['paper-button'],
+            dependencies: ['emby-button'],
             autoFocus: false,
             transition: 'fade'
         });
 
         defineRoute({
             path: '/mypreferencesmenu.html',
-            dependencies: ['paper-button'],
+            dependencies: ['emby-button'],
             autoFocus: false,
             transition: 'fade'
         });
 
         defineRoute({
             path: '/myprofile.html',
-            dependencies: ['paper-button'],
+            dependencies: ['emby-button'],
             autoFocus: false,
             transition: 'fade'
         });
@@ -2809,7 +2837,7 @@ var AppInfo = {};
 
         defineRoute({
             path: '/nowplaying.html',
-            dependencies: ['paper-icon-button-light', 'paper-slider', 'paper-button'],
+            dependencies: ['paper-icon-button-light', 'paper-slider', 'emby-button'],
             controller: 'scripts/nowplayingpage',
             autoFocus: false,
             transition: 'fade'
@@ -2945,7 +2973,7 @@ var AppInfo = {};
 
         defineRoute({
             path: '/tv.html',
-            dependencies: ['paper-checkbox', 'paper-icon-button-light', 'paper-button'],
+            dependencies: ['paper-checkbox', 'paper-icon-button-light', 'emby-button'],
             autoFocus: false,
             controller: 'scripts/tvrecommended',
             transition: 'fade'
@@ -3001,7 +3029,7 @@ var AppInfo = {};
 
         defineRoute({
             path: '/wizardfinish.html',
-            dependencies: ['paper-button', 'dashboardcss'],
+            dependencies: ['emby-button', 'dashboardcss'],
             autoFocus: false,
             anonymous: true,
             controller: 'scripts/wizardfinishpage'

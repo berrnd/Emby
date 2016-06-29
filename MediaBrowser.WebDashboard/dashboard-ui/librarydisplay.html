@@ -1,4 +1,4 @@
-﻿<div id="librarySettingsPage" data-role="page" class="page type-interior librarySectionPage withTabs">
+﻿<div id="libraryDisplayPage" data-role="page" class="page type-interior librarySectionPage withTabs">
 
     <div data-role="content">
         <div class="content-primary">
@@ -8,10 +8,13 @@
                     <div class="fieldDescription paperCheckboxFieldDescription">${OptionDisplayFolderViewHelp}</div>
                 </div>
                 <br />
+                <div>
+                    <paper-checkbox class="chkGroupMoviesIntoCollections">${LabelGroupMoviesIntoCollections}</paper-checkbox>
+                    <div class="fieldDescription paperCheckboxFieldDescription">${LabelGroupMoviesIntoCollectionsHelp}</div>
+                </div>
                 <br />
-                <button type="submit" data-role="none" class="clearButton">
-                    <paper-button raised class="submit block"><iron-icon icon="check"></iron-icon><span>${ButtonSave}</span></paper-button>
-                </button>
+                <br />
+                <button is="emby-button" type="submit" class="raised submit block"><iron-icon icon="check"></iron-icon><span>${ButtonSave}</span></button>
 
             </form>
         </div>
