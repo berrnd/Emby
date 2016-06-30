@@ -1,4 +1,20 @@
-﻿define(['datetime'], function (datetime) {
+﻿define(['datetime', 'jQuery'], function (datetime, $) {
+
+    function renderNoHealthAlertsMessage(page) {
+
+        var html = '<p style="padding:0 .5em;display:flex;align-items:center;">';
+
+        html += '<iron-icon icon="check" style="margin-right:.5em;background-color: #52B54B;border-radius:1em;color: #fff;"></iron-icon>';
+
+        html += Globalize.translate('HealthMonitorNoAlerts') + '</p>';
+
+        page.querySelector('.healthMonitor').innerHTML = html;
+    }
+
+    function refreshHealthMonitor(page) {
+
+        renderNoHealthAlertsMessage(page);
+    }
 
     window.DashboardPage = {
 
@@ -47,6 +63,8 @@
             $('.swaggerLink', page).attr('href', apiClient.getUrl('swagger-ui/index.html', {
                 api_key: ApiClient.accessToken()
             }));
+
+            refreshHealthMonitor(page);
         },
 
         onPageHide: function () {
@@ -800,30 +818,32 @@
             }
         },
 
-        //myproduction-change-start
-		//Removed Emby Premiere subscription
-		//renderSupporterIcon: function (page, pluginSecurityInfo) {
+        renderSupporterIcon: function (page, pluginSecurityInfo) {
 
-        //    var imgUrl, text;
+            //myproduction-change-start
+			//Removed Emby Premiere subscription
+			//renderSupporterIcon: function (page, pluginSecurityInfo) {
 
-        //    if (!AppInfo.enableSupporterMembership) {
-        //        $('.supporterIconContainer', page).remove();
-        //    }
-        //    else if (pluginSecurityInfo.IsMBSupporter) {
+			//    var imgUrl, text;
 
-        //        imgUrl = "css/images/supporter/supporterbadge.png";
-        //        text = Globalize.translate('MessageThankYouForSupporting');
+			//    if (!AppInfo.enableSupporterMembership) {
+			//        $('.supporterIconContainer', page).remove();
+			//    }
+			//    else if (pluginSecurityInfo.IsMBSupporter) {
 
-        //        $('.supporterIconContainer', page).html('<a class="imageLink supporterIcon" href="http://emby.media/premiere" target="_blank" title="' + text + '"><img src="' + imgUrl + '" style="height:32px;vertical-align: middle; margin-right: .5em;" /></a><span style="position:relative;top:2px;text-decoration:none;">' + text + '</span>');
-        //    } else {
+			//        imgUrl = "css/images/supporter/supporterbadge.png";
+			//        text = Globalize.translate('MessageThankYouForSupporting');
 
-        //        imgUrl = "css/images/supporter/nonsupporterbadge.png";
-        //        text = Globalize.translate('MessagePleaseSupportProject');
+			//        $('.supporterIconContainer', page).html('<a class="imageLink supporterIcon" href="http://emby.media/premiere" target="_blank" title="' + text + '"><img src="' + imgUrl + '" style="height:32px;vertical-align: middle; margin-right: .5em;" /></a><span style="position:relative;top:2px;text-decoration:none;">' + text + '</span>');
+			//    } else {
 
-        //        $('.supporterIconContainer', page).html('<a class="imageLink supporterIcon" href="http://emby.media/premiere" target="_blank" title="' + text + '"><img src="' + imgUrl + '" style="height:32px;vertical-align: middle; margin-right: .5em;" /><span style="position:relative;top:2px;text-decoration:none;">' + text + '</span></a>');
-        //    }
-        //},
-		//myproduction-change-end
+			//        imgUrl = "css/images/supporter/nonsupporterbadge.png";
+			//        text = Globalize.translate('MessagePleaseSupportProject');
+
+			//        $('.supporterIconContainer', page).html('<a class="imageLink supporterIcon" href="http://emby.media/premiere" target="_blank" title="' + text + '"><img src="' + imgUrl + '" style="height:32px;vertical-align: middle; margin-right: .5em;" /><span style="position:relative;top:2px;text-decoration:none;">' + text + '</span></a>');
+			//    }
+			//},
+			//myproduction-change-end
 
         renderHasPendingRestart: function (page, hasPendingRestart) {
 
@@ -1301,29 +1321,24 @@
 
     })(jQuery, document, window);
 
-    (function () {
+    pageClassOn('pageshow', "type-interior", function () {
 
-        $(document).on('pageshow', ".type-interior", function () {
+        var page = this;
 
-            var page = this;
+        Dashboard.getPluginSecurityInfo().then(function (pluginSecurityInfo) {
 
-            Dashboard.getPluginSecurityInfo().then(function (pluginSecurityInfo) {
+            if (!page.querySelector('.customSupporterPromotion')) {
 
-                if (!$('.customSupporterPromotion', page).length) {
-                    $('.supporterPromotion', page).remove();
+                $('.supporterPromotion', page).remove();
 
-                    if (!pluginSecurityInfo.IsMBSupporter && AppInfo.enableSupporterMembership) {
+                if (!pluginSecurityInfo.IsMBSupporter && AppInfo.enableSupporterMembership) {
 
-                        var html = '<div class="supporterPromotion"><a class="clearLink" href="http://emby.media/premiere" target="_blank"><paper-button raised class="block" style="text-transform:none;background-color:#52B54B;color:#fff;"><div>' + Globalize.translate('HeaderSupportTheTeam') + '</div><div style="font-weight:normal;margin-top:5px;">' + Globalize.translate('TextEnjoyBonusFeatures') + '</div></paper-button></a></div>';
+                    var html = '<div class="supporterPromotionContainer"><div class="supporterPromotion"><a class="clearLink" href="http://emby.media/premiere" target="_blank"><button is="emby-button" type="button" class="raised block" style="text-transform:none;background-color:#52B54B;color:#fff;"><div>' + Globalize.translate('HeaderSupportTheTeam') + '</div><div style="font-weight:normal;margin-top:5px;">' + Globalize.translate('TextEnjoyBonusFeatures') + '</div></button></a></div></div>';
 
-                        $('.content-primary', page).append(html);
-                    }
+                    page.querySelector('.content-primary').insertAdjacentHTML('afterbegin', html);
                 }
-
-            });
-
+            }
         });
 
-    })();
-
+    });
 });

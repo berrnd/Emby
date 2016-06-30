@@ -381,7 +381,8 @@ namespace MediaBrowser.Server.Startup.Common
                 new OmdbEpisodeProviderMigration(ServerConfigurationManager),
                 new MovieDbEpisodeProviderMigration(ServerConfigurationManager),
                 new DbMigration(ServerConfigurationManager, TaskManager),
-                new FolderViewSettingMigration(ServerConfigurationManager, UserManager)
+                new FolderViewSettingMigration(ServerConfigurationManager, UserManager),
+                new CollectionGroupingMigration(ServerConfigurationManager, UserManager)
             };
 
             foreach (var task in migrations)
@@ -831,19 +832,57 @@ namespace MediaBrowser.Server.Startup.Common
 
         private string CertificatePath { get; set; }
 
-        private IEnumerable<string> GetUrlPrefixes()
+        private string NormalizeConfiguredLocalAddress(string address)
         {
-            var prefixes = new List<string>
-                {
-                    "http://+:" + ServerConfigurationManager.Configuration.HttpServerPortNumber + "/"
-                };
+            var index = address.Trim('/').IndexOf('/');
 
-            if (!string.IsNullOrWhiteSpace(CertificatePath))
+            if (index != -1)
             {
-                prefixes.Add("https://+:" + ServerConfigurationManager.Configuration.HttpsPortNumber + "/");
+                address = address.Substring(index + 1);
             }
 
-            return prefixes;
+            return address.Trim('/');
+        }
+        private IEnumerable<string> GetUrlPrefixes()
+        {
+            var hosts = ServerConfigurationManager
+                .Configuration
+                .LocalNetworkAddresses
+                .Select(NormalizeConfiguredLocalAddress)
+                .ToList();
+
+            if (hosts.Count == 0)
+            {
+                hosts.Add("+");
+            }
+
+            if (!hosts.Contains("+", StringComparer.OrdinalIgnoreCase))
+            {
+                if (!hosts.Contains("localhost", StringComparer.OrdinalIgnoreCase))
+                {
+                    hosts.Add("localhost");
+                }
+
+                if (!hosts.Contains("127.0.0.1", StringComparer.OrdinalIgnoreCase))
+                {
+                    hosts.Add("127.0.0.1");
+                }
+            }
+
+            return hosts.SelectMany(i =>
+            {
+                var prefixes = new List<string>
+                {
+                    "http://"+i+":" + ServerConfigurationManager.Configuration.HttpServerPortNumber + "/"
+                };
+
+                if (!string.IsNullOrWhiteSpace(CertificatePath))
+                {
+                    prefixes.Add("https://" + i + ":" + ServerConfigurationManager.Configuration.HttpsPortNumber + "/");
+                }
+
+                return prefixes;
+            });
         }
 
         /// <summary>

@@ -1762,6 +1762,7 @@ var AppInfo = {};
             itemHelper: embyWebComponentsBowerPath + '/itemhelper',
             itemShortcuts: embyWebComponentsBowerPath + "/shortcuts",
             imageLoader: embyWebComponentsBowerPath + "/images/imagehelper",
+            serverNotifications: embyWebComponentsBowerPath + '/servernotifications',
             webAnimations: bowerPath + '/web-animations-js/web-animations-next-lite.min'
         };
 
@@ -1792,6 +1793,7 @@ var AppInfo = {};
         define("libjass", [bowerPath + "/libjass/libjass", "css!" + bowerPath + "/libjass/libjass"], returnFirstDependency);
 
         define("emby-button", [embyWebComponentsBowerPath + "/emby-button/emby-button"], returnFirstDependency);
+        define("alphaPicker", [embyWebComponentsBowerPath + "/alphapicker/alphapicker"], returnFirstDependency);
         define("paper-icon-button-light", [embyWebComponentsBowerPath + "/emby-button/paper-icon-button-light"]);
 
         define("emby-input", [embyWebComponentsBowerPath + "/emby-input/emby-input"], returnFirstDependency);
@@ -2439,7 +2441,7 @@ var AppInfo = {};
 
         defineRoute({
             path: '/dashboardhosting.html',
-            dependencies: ['paper-checkbox', 'paper-input', 'emby-button'],
+            dependencies: ['paper-checkbox', 'emby-input', 'emby-button'],
             autoFocus: false,
             roles: 'admin',
             controller: 'scripts/dashboardhosting'
@@ -2582,7 +2584,7 @@ var AppInfo = {};
 
         defineRoute({
             path: '/itemlist.html',
-            dependencies: ['paper-checkbox', 'scripts/alphapicker'],
+            dependencies: ['paper-checkbox'],
             autoFocus: false,
             controller: 'scripts/itemlistpage',
             transition: 'fade'
@@ -2744,7 +2746,7 @@ var AppInfo = {};
 
         defineRoute({
             path: '/movies.html',
-            dependencies: ['paper-checkbox', 'scripts/alphapicker', 'emby-button'],
+            dependencies: ['paper-checkbox', 'emby-button'],
             autoFocus: false,
             controller: 'scripts/moviesrecommended',
             transition: 'fade'
@@ -2752,7 +2754,7 @@ var AppInfo = {};
 
         defineRoute({
             path: '/music.html',
-            dependencies: ['scripts/alphapicker'],
+            dependencies: [],
             controller: 'scripts/musicrecommended',
             autoFocus: false,
             transition: 'fade'
@@ -2837,7 +2839,7 @@ var AppInfo = {};
 
         defineRoute({
             path: '/nowplaying.html',
-            dependencies: ['paper-icon-button-light', 'paper-slider', 'emby-button'],
+            dependencies: ['paper-icon-button-light', 'paper-slider', 'emby-button', 'emby-input'],
             controller: 'scripts/nowplayingpage',
             autoFocus: false,
             transition: 'fade'
