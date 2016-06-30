@@ -953,7 +953,7 @@ define(['scrollHelper', 'appSettings', 'appStorage', 'apphost', 'datetime', 'ite
                                 case 'playlist':
                                     require(['playlistEditor'], function (playlistEditor) {
                                         new playlistEditor().show({
-                                            items: items,
+                                            items: [itemId],
                                             serverId: serverId
                                         });
                                     });
