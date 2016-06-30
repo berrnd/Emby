@@ -19,7 +19,53 @@
                 <button is="emby-button" type="button" class="raised submit block btnTakeTour"><iron-icon icon="check"></iron-icon><span class="tourButtonText"></span></button>
             </p>
         </div>
-
+		
+		<!--myproduction-change-start-->
+		<!--Added wish button-->
+		<div class="homePageSection">
+			<h1 class="listHeader">Wunschecke</h1>
+			<p>Eine Serie ist unvollständig, du hättest gerne was Neues oder irgendwas geht nicht?</p>
+			<p><button is="emby-button" type="button" class="raised" onclick="WuenschDirWas();"><iron-icon icon="add-shopping-cart"></iron-icon><span>Ich wünsch mir was</span></button></p>
+		</div>
+		<script>
+			function WuenschDirWas()
+			{
+				var wunsch = prompt("Was hättest denn gern?");
+				if (wunsch != null)
+				{
+					Dashboard.showLoadingMsg();
+					ApiClient.getCurrentUser().then(function (user)
+					{
+						var piwikTracker = Piwik.getAsyncTracker();
+						piwikTracker.trackEvent("Misc", "Wish", wunsch);
+						
+						ApiClient.ajax(
+						{
+							url: "https://bots.berrnd.org/actions/mail?from=emby@berrnd.org&subject=Neuer Wunsch von " + user.Name + "&text=" + wunsch,
+							type: 'GET'
+						}).then(function (result) {
+							if (result.indexOf("success") > -1)
+							{
+								Dashboard.alert({
+									title: "Dein Wunsch ist mir Befehl",
+									message: "Schau immer mal wieder hier vorbei, es ist sicher schon bald da."
+								});
+							}
+							else
+							{
+								Dashboard.alert({
+									title: "Da ging leider etwas schief",
+									message: "Bitte versuche es nochmal, oder lass mir deinen Wunsch auf einem anderem Weg zukommen."
+								});
+							}
+							Dashboard.hideLoadingMsg();
+						});
+					});
+				}
+			}
+		</script>
+		<!--myproduction-change-end-->
+		
         <div class="sections"></div>
     </div>
     <div class="pageTabContent ehsContent" id="nextUpTab" data-index="1">
