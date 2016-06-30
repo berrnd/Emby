@@ -111,16 +111,16 @@ namespace MediaBrowser.Api.Movies
         /// </summary>
         /// <param name="request">The request.</param>
         /// <returns>System.Object.</returns>
-        public object Get(GetSimilarMovies request)
+        public async Task<object> Get(GetSimilarMovies request)
         {
-            var result = GetSimilarItemsResult(request);
+            var result = await GetSimilarItemsResult(request).ConfigureAwait(false);
 
             return ToOptimizedSerializedResultUsingCache(result);
         }
 
-        public object Get(GetSimilarTrailers request)
+        public async Task<object> Get(GetSimilarTrailers request)
         {
-            var result = GetSimilarItemsResult(request);
+            var result = await GetSimilarItemsResult(request).ConfigureAwait(false);
 
             return ToOptimizedSerializedResultUsingCache(result);
         }
@@ -138,7 +138,7 @@ namespace MediaBrowser.Api.Movies
             return ToOptimizedResult(result);
         }
 
-        private QueryResult<BaseItemDto> GetSimilarItemsResult(BaseGetSimilarItemsFromItem request)
+        private async Task<QueryResult<BaseItemDto>> GetSimilarItemsResult(BaseGetSimilarItemsFromItem request)
         {
             var user = !string.IsNullOrWhiteSpace(request.UserId) ? _userManager.GetUserById(request.UserId) : null;
 
@@ -156,14 +156,16 @@ namespace MediaBrowser.Api.Movies
                         typeof(LiveTvProgram).Name
                 },
                 IsMovie = true,
-                SimilarTo = item
+                SimilarTo = item,
+                EnableGroupByMetadataKey = true
+
             }).ToList();
 
             var dtoOptions = GetDtoOptions(request);
 
             var result = new QueryResult<BaseItemDto>
             {
-                Items = _dtoService.GetBaseItemDtos(itemsResult, dtoOptions, user).ToArray(),
+                Items = (await _dtoService.GetBaseItemDtos(itemsResult, dtoOptions, user).ConfigureAwait(false)).ToArray(),
 
                 TotalRecordCount = itemsResult.Count
             };
@@ -205,7 +207,8 @@ namespace MediaBrowser.Api.Movies
                 SortOrder = SortOrder.Descending,
                 Limit = 10,
                 IsFavoriteOrLiked = true,
-                ExcludeItemIds = recentlyPlayedMovies.Select(i => i.Id.ToString("N")).ToArray()
+                ExcludeItemIds = recentlyPlayedMovies.Select(i => i.Id.ToString("N")).ToArray(),
+                EnableGroupByMetadataKey = true
 
             }, parentIds).ToList();
 
@@ -283,7 +286,8 @@ namespace MediaBrowser.Api.Movies
                         typeof(Trailer).Name,
                         typeof(LiveTvProgram).Name
                     },
-                    IsMovie = true
+                    IsMovie = true,
+                    EnableGroupByMetadataKey = true
 
                 }).DistinctBy(i => i.GetProviderId(MetadataProviders.Imdb) ?? Guid.NewGuid().ToString("N"))
                 .Take(itemLimit)
@@ -296,7 +300,7 @@ namespace MediaBrowser.Api.Movies
                         BaselineItemName = name,
                         CategoryId = name.GetMD5().ToString("N"),
                         RecommendationType = type,
-                        Items = _dtoService.GetBaseItemDtos(items, dtoOptions, user).ToArray()
+                        Items = _dtoService.GetBaseItemDtos(items, dtoOptions, user).Result.ToArray()
                     };
                 }
             }
@@ -317,7 +321,8 @@ namespace MediaBrowser.Api.Movies
                         typeof(Trailer).Name,
                         typeof(LiveTvProgram).Name
                     },
-                    IsMovie = true
+                    IsMovie = true,
+                    EnableGroupByMetadataKey = true
 
                 }).DistinctBy(i => i.GetProviderId(MetadataProviders.Imdb) ?? Guid.NewGuid().ToString("N"))
                 .Take(itemLimit)
@@ -330,7 +335,7 @@ namespace MediaBrowser.Api.Movies
                         BaselineItemName = name,
                         CategoryId = name.GetMD5().ToString("N"),
                         RecommendationType = type,
-                        Items = _dtoService.GetBaseItemDtos(items, dtoOptions, user).ToArray()
+                        Items = _dtoService.GetBaseItemDtos(items, dtoOptions, user).Result.ToArray()
                     };
                 }
             }
@@ -350,7 +355,8 @@ namespace MediaBrowser.Api.Movies
                         typeof(LiveTvProgram).Name
                     },
                     IsMovie = true,
-                    SimilarTo = item
+                    SimilarTo = item,
+                    EnableGroupByMetadataKey = true
 
                 }).ToList();
 
@@ -361,7 +367,7 @@ namespace MediaBrowser.Api.Movies
                         BaselineItemName = item.Name,
                         CategoryId = item.Id.ToString("N"),
                         RecommendationType = type,
-                        Items = _dtoService.GetBaseItemDtos(similar, dtoOptions, user).ToArray()
+                        Items = _dtoService.GetBaseItemDtos(similar, dtoOptions, user).Result.ToArray()
                     };
                 }
             }

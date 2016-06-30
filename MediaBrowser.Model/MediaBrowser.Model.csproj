@@ -227,7 +227,6 @@
     <Compile Include="Entities\ProviderIdsExtensions.cs" />
     <Compile Include="Entities\ScrollDirection.cs" />
     <Compile Include="Entities\SortOrder.cs" />
-    <Compile Include="Entities\VideoSize.cs" />
     <Compile Include="Events\GenericEventArgs.cs" />
     <Compile Include="Extensions\DoubleHelper.cs" />
     <Compile Include="Extensions\IHasPropertyChangedEvent.cs" />
@@ -396,6 +395,7 @@
     <Compile Include="Sync\SyncProfileOption.cs" />
     <Compile Include="Sync\SyncQualityOption.cs" />
     <Compile Include="Sync\SyncTarget.cs" />
+    <Compile Include="System\Architecture.cs" />
     <Compile Include="System\LogFile.cs" />
     <Compile Include="System\PublicSystemInfo.cs" />
     <Compile Include="Updates\CheckForUpdateResult.cs" />

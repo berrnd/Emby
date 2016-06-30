@@ -19,43 +19,40 @@ namespace MediaBrowser.Server.Implementations.Persistence
         /// <summary>
         /// Connects to db.
         /// </summary>
-        /// <param name="dbPath">The db path.</param>
-        /// <param name="logger">The logger.</param>
-        /// <returns>Task{IDbConnection}.</returns>
-        /// <exception cref="System.ArgumentNullException">dbPath</exception>
-        public static async Task<IDbConnection> ConnectToDb(string dbPath, ILogger logger)
+        public static async Task<IDbConnection> ConnectToDb(string dbPath, bool isReadOnly, bool enablePooling, int? cacheSize, ILogger logger)
         {
             if (string.IsNullOrEmpty(dbPath))
             {
                 throw new ArgumentNullException("dbPath");
             }
 
-            logger.Info("Sqlite {0} opening {1}", SQLiteConnection.SQLiteVersion, dbPath);
+            SQLiteConnection.SetMemoryStatus(false);
 
             var connectionstr = new SQLiteConnectionStringBuilder
             {
                 PageSize = 4096,
-                CacheSize = 2000,
+                CacheSize = cacheSize ?? 2000,
                 SyncMode = SynchronizationModes.Normal,
                 DataSource = dbPath,
-                JournalMode = SQLiteJournalModeEnum.Wal
+                JournalMode = SQLiteJournalModeEnum.Wal,
+
+                // This is causing crashing under linux
+                Pooling = enablePooling && Environment.OSVersion.Platform == PlatformID.Win32NT,
+                ReadOnly = isReadOnly
             };
 
-            var connection = new SQLiteConnection(connectionstr.ConnectionString);
+            var connectionString = connectionstr.ConnectionString;
+
+            if (!enablePooling)
+            {
+                logger.Info("Sqlite {0} opening {1}", SQLiteConnection.SQLiteVersion, connectionString);
+            }
+
+            var connection = new SQLiteConnection(connectionString);
 
             await connection.OpenAsync().ConfigureAwait(false);
 
             return connection;
-        }
-
-        public static void BindFunction(this SQLiteConnection connection, SQLiteFunction function)
-        {
-            var attributes = function.GetType().GetCustomAttributes(typeof(SQLiteFunctionAttribute), true).Cast<SQLiteFunctionAttribute>().ToArray();
-            if (attributes.Length == 0)
-            {
-                throw new InvalidOperationException("SQLiteFunction doesn't have SQLiteFunctionAttribute");
-            }
-            connection.BindFunction(attributes[0], function);
         }
     }
 }

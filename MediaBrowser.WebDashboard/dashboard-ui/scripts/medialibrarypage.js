@@ -1,4 +1,4 @@
-﻿define(['jQuery'], function ($) {
+﻿define(['jQuery', 'emby-icons'], function ($) {
 
     function changeCollectionType(page, virtualFolder) {
 
@@ -227,10 +227,8 @@
 
             ImageEditor.show(virtualFolder.ItemId, {
                 theme: 'a'
-            }).then(function (hasChanged) {
-                if (hasChanged) {
-                    reloadLibrary(page);
-                }
+            }).then(function () {
+                reloadLibrary(page);
             });
         });
     }

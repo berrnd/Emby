@@ -6,12 +6,16 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-
 using Emby.XmlTv.Classes;
+using Emby.XmlTv.Entities;
+using MediaBrowser.Common.Extensions;
 using MediaBrowser.Common.Net;
 using MediaBrowser.Controller.Configuration;
+using MediaBrowser.Model.Logging;
 
 namespace MediaBrowser.Server.Implementations.LiveTv.Listings
 {
@@ -19,11 +23,13 @@ namespace MediaBrowser.Server.Implementations.LiveTv.Listings
     {
         private readonly IServerConfigurationManager _config;
         private readonly IHttpClient _httpClient;
+        private readonly ILogger _logger;
 
-        public XmlTvListingsProvider(IServerConfigurationManager config, IHttpClient httpClient)
+        public XmlTvListingsProvider(IServerConfigurationManager config, IHttpClient httpClient, ILogger logger)
         {
             _config = config;
             _httpClient = httpClient;
+            _logger = logger;
         }
 
         public string Name
@@ -43,30 +49,58 @@ namespace MediaBrowser.Server.Implementations.LiveTv.Listings
 
         private async Task<string> GetXml(string path, CancellationToken cancellationToken)
         {
+            _logger.Info("xmltv path: {0}", path);
+
             if (!path.StartsWith("http", StringComparison.OrdinalIgnoreCase))
             {
                 return path;
             }
 
-            var cacheFilename = DateTime.UtcNow.DayOfYear.ToString(CultureInfo.InvariantCulture) + "_" + DateTime.UtcNow.Hour.ToString(CultureInfo.InvariantCulture) + ".xml";
+            var cacheFilename = DateTime.UtcNow.DayOfYear.ToString(CultureInfo.InvariantCulture) + "-" + DateTime.UtcNow.Hour.ToString(CultureInfo.InvariantCulture) + ".xml";
             var cacheFile = Path.Combine(_config.ApplicationPaths.CachePath, "xmltv", cacheFilename);
             if (File.Exists(cacheFile))
             {
                 return cacheFile;
             }
 
+            _logger.Info("Downloading xmltv listings from {0}", path);
+
             var tempFile = await _httpClient.GetTempFile(new HttpRequestOptions
             {
                 CancellationToken = cancellationToken,
-                Url = path
+                Url = path,
+                Progress = new Progress<Double>(),
+                DecompressionMethod = DecompressionMethods.GZip,
+
+                // It's going to come back gzipped regardless of this value
+                // So we need to make sure the decompression method is set to gzip
+                EnableHttpCompression = true
 
             }).ConfigureAwait(false);
-            File.Copy(tempFile, cacheFile, true);
 
+            Directory.CreateDirectory(Path.GetDirectoryName(cacheFile));
+
+            using (var stream = File.OpenRead(tempFile))
+            {
+                using (var reader = new StreamReader(stream, Encoding.UTF8))
+                {
+                    using (var fileStream = File.OpenWrite(cacheFile))
+                    {
+                        using (var writer = new StreamWriter(fileStream))
+                        {
+                            while (!reader.EndOfStream)
+                            {
+                                writer.WriteLine(reader.ReadLine());
+                            }
+                        }
+                    }
+                }
+            }
+
+            _logger.Debug("Returning xmltv path {0}", cacheFile);
             return cacheFile;
         }
 
-        // TODO: Should this method be async?
         public async Task<IEnumerable<ProgramInfo>> GetProgramsAsync(ListingsProviderInfo info, string channelNumber, string channelName, DateTime startDateUtc, DateTime endDateUtc, CancellationToken cancellationToken)
         {
             var path = await GetXml(info.Path, cancellationToken).ConfigureAwait(false);
@@ -76,20 +110,20 @@ namespace MediaBrowser.Server.Implementations.LiveTv.Listings
             return results.Select(p => new ProgramInfo()
             {
                 ChannelId = p.ChannelId,
-                EndDate = p.EndDate,
+                EndDate = GetDate(p.EndDate),
                 EpisodeNumber = p.Episode == null ? null : p.Episode.Episode,
                 EpisodeTitle = p.Episode == null ? null : p.Episode.Title,
                 Genres = p.Categories,
                 Id = String.Format("{0}_{1:O}", p.ChannelId, p.StartDate), // Construct an id from the channel and start date,
-                StartDate = p.StartDate,
+                StartDate = GetDate(p.StartDate),
                 Name = p.Title,
                 Overview = p.Description,
                 ShortOverview = p.Description,
                 ProductionYear = !p.CopyrightDate.HasValue ? (int?)null : p.CopyrightDate.Value.Year,
                 SeasonNumber = p.Episode == null ? null : p.Episode.Series,
-                IsSeries = p.IsSeries,
+                IsSeries = p.Episode != null,
                 IsRepeat = p.IsRepeat,
-                // IsPremiere = !p.PreviouslyShown.HasValue,
+                IsPremiere = p.Premiere != null,
                 IsKids = p.Categories.Any(c => info.KidsCategories.Contains(c, StringComparer.InvariantCultureIgnoreCase)),
                 IsMovie = p.Categories.Any(c => info.MovieCategories.Contains(c, StringComparer.InvariantCultureIgnoreCase)),
                 IsNews = p.Categories.Any(c => info.NewsCategories.Contains(c, StringComparer.InvariantCultureIgnoreCase)),
@@ -97,14 +131,25 @@ namespace MediaBrowser.Server.Implementations.LiveTv.Listings
                 ImageUrl = p.Icon != null && !String.IsNullOrEmpty(p.Icon.Source) ? p.Icon.Source : null,
                 HasImage = p.Icon != null && !String.IsNullOrEmpty(p.Icon.Source),
                 OfficialRating = p.Rating != null && !String.IsNullOrEmpty(p.Rating.Value) ? p.Rating.Value : null,
-                CommunityRating = p.StarRating.HasValue ? p.StarRating.Value : (float?)null
+                CommunityRating = p.StarRating.HasValue ? p.StarRating.Value : (float?)null,
+                SeriesId = p.Episode != null ? p.Title.GetMD5().ToString("N") : null
             });
         }
 
-        public Task AddMetadata(ListingsProviderInfo info, List<ChannelInfo> channels, CancellationToken cancellationToken)
+        private DateTime GetDate(DateTime date)
+        {
+            if (date.Kind != DateTimeKind.Utc)
+            {
+                date = DateTime.SpecifyKind(date, DateTimeKind.Utc);
+            }
+            return date;
+        }
+
+        public async Task AddMetadata(ListingsProviderInfo info, List<ChannelInfo> channels, CancellationToken cancellationToken)
         {
             // Add the channel image url
-            var reader = new XmlTvReader(info.Path, GetLanguage(), null);
+            var path = await GetXml(info.Path, cancellationToken).ConfigureAwait(false);
+            var reader = new XmlTvReader(path, GetLanguage(), null);
             var results = reader.GetChannels().ToList();
 
             if (channels != null)
@@ -120,8 +165,6 @@ namespace MediaBrowser.Server.Implementations.LiveTv.Listings
                     }
                 });
             }
-
-            return Task.FromResult(true);
         }
 
         public Task Validate(ListingsProviderInfo info, bool validateLogin, bool validateListings)
@@ -135,19 +178,33 @@ namespace MediaBrowser.Server.Implementations.LiveTv.Listings
             return Task.FromResult(true);
         }
 
-        public Task<List<NameIdPair>> GetLineups(ListingsProviderInfo info, string country, string location)
+        public async Task<List<NameIdPair>> GetLineups(ListingsProviderInfo info, string country, string location)
         {
             // In theory this should never be called because there is always only one lineup
-            var reader = new XmlTvReader(info.Path, GetLanguage(), null);
+            var path = await GetXml(info.Path, CancellationToken.None).ConfigureAwait(false);
+            var reader = new XmlTvReader(path, GetLanguage(), null);
             var results = reader.GetChannels();
 
             // Should this method be async?
-            return Task.FromResult(results.Select(c => new NameIdPair() { Id = c.Id, Name = c.DisplayName }).ToList());
+            return results.Select(c => new NameIdPair() { Id = c.Id, Name = c.DisplayName }).ToList();
         }
 
         public async Task<List<ChannelInfo>> GetChannels(ListingsProviderInfo info, CancellationToken cancellationToken)
         {
-            return new List<ChannelInfo>();
+            // In theory this should never be called because there is always only one lineup
+            var path = await GetXml(info.Path, cancellationToken).ConfigureAwait(false);
+            var reader = new XmlTvReader(path, GetLanguage(), null);
+            var results = reader.GetChannels();
+
+            // Should this method be async?
+            return results.Select(c => new ChannelInfo()
+            {
+                Id = c.Id,
+                Name = c.DisplayName,
+                ImageUrl = c.Icon != null && !String.IsNullOrEmpty(c.Icon.Source) ? c.Icon.Source : null,
+                Number = c.Id
+
+            }).ToList();
         }
     }
 }

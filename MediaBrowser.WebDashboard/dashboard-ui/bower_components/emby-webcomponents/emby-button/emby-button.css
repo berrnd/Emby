@@ -51,21 +51,42 @@
         margin: 0;
     }
 
+        [is="emby-button"].fab i {
+            height: 40px;
+            width: 40px;
+            vertical-align: middle;
+            font-size: 40px;
+        }
+
     [is="emby-button"].noflex {
         display: inline-block;
+        white-space: nowrap;
     }
 
-    [is="emby-button"].fab.mini {
+    [is="emby-button"].fab.mini:not(.autoSize) {
         min-width: 40px !important;
         min-height: 40px !important;
         height: 3.3vh !important;
         width: 3.3vh !important;
-        padding: .4em;
     }
+
+    [is="emby-button"].fab.mini {
+        padding: 8px;
+    }
+
+        [is="emby-button"].fab.mini i {
+            height: 24px !important;
+            width: 24px !important;
+            font-size: 24px !important;
+        }
 
     [is="emby-button"].fab iron-icon {
         width: 100%;
         height: 100%;
+        vertical-align: middle;
+    }
+
+    [is="emby-button"].fab i {
         vertical-align: middle;
     }
 
@@ -85,6 +106,23 @@
     [is="emby-button"] iron-icon + span {
         margin-left: .5em;
     }
+
+    [is="emby-button"] i + span {
+        margin-left: .5em;
+    }
+
+    [is="emby-button"]:not(.autoSize) i {
+        font-size: 24px;
+        width: 24px;
+        height: 24px;
+    }
+
+[is=emby-button].autoSize {
+    width: auto !important;
+    height: auto !important;
+    min-height: initial !important;
+    min-width: initial !important;
+}
 
 [is=paper-icon-button-light] {
     position: relative;
@@ -121,18 +159,40 @@
     text-transform: uppercase;
     border-radius: 50%;
     -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+    justify-content: center;
 }
+
+    [is=paper-icon-button-light].autoSize {
+        width: auto !important;
+        height: auto !important;
+    }
 
     [is=paper-icon-button-light][disabled] {
         opacity: .3;
     }
 
+    [is=paper-icon-button-light] i {
+        width: 24px;
+        height: 24px;
+        font-size: 24px;
+        /* Make sure its on top of the ripple */
+        position: relative;
+        z-index: 1;
+        vertical-align: middle;
+    }
+
 .layout-tv [is=paper-icon-button-light] {
-    width: 4vh;
-    height: 4vh;
-    min-width: 40px;
-    min-height: 40px;
+    width: auto;
+    height: auto;
+    min-width: initial;
+    min-height: initial;
 }
+
+    .layout-tv [is=paper-icon-button-light] i {
+        width: 3.7vh;
+        height: 3.7vh;
+        font-size: 3.7vh;
+    }
 
 [is=paper-icon-button-light] iron-icon {
     width: 100%;

@@ -69,7 +69,14 @@ namespace MediaBrowser.Controller.Entities
         [IgnoreDataMember]
         public string PreferredMetadataLanguage { get; set; }
 
+        public long? Size { get; set; }
+        public string Container { get; set; }
+        public string ShortOverview { get; set; }
+
         public List<ItemImageInfo> ImageInfos { get; set; }
+
+        [IgnoreDataMember]
+        public bool IsVirtualItem { get; set; }
 
         /// <summary>
         /// Gets or sets the album.
@@ -2086,7 +2093,7 @@ namespace MediaBrowser.Controller.Entities
             return path;
         }
 
-        public virtual void FillUserDataDtoValues(UserItemDataDto dto, UserItemData userData, User user)
+        public virtual Task FillUserDataDtoValues(UserItemDataDto dto, UserItemData userData, BaseItemDto itemDto, User user)
         {
             if (RunTimeTicks.HasValue)
             {
@@ -2102,6 +2109,8 @@ namespace MediaBrowser.Controller.Entities
                     }
                 }
             }
+
+            return Task.FromResult(true);
         }
 
         protected Task RefreshMetadataForOwnedVideo(MetadataRefreshOptions options, string path, CancellationToken cancellationToken)

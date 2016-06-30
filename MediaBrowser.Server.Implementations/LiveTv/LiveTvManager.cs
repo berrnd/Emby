@@ -140,10 +140,13 @@ namespace MediaBrowser.Server.Implementations.LiveTv
         {
             var user = string.IsNullOrEmpty(query.UserId) ? null : _userManager.GetUserById(query.UserId);
 
+            var topFolder = await GetInternalLiveTvFolder(cancellationToken).ConfigureAwait(false);
+
             var channels = _libraryManager.GetItemList(new InternalItemsQuery
             {
                 IncludeItemTypes = new[] { typeof(LiveTvChannel).Name },
-                SortBy = new[] { ItemSortBy.SortName }
+                SortBy = new[] { ItemSortBy.SortName },
+                TopParentIds = new[] { topFolder.Id.ToString("N") }
 
             }).Cast<LiveTvChannel>();
 
@@ -653,7 +656,7 @@ namespace MediaBrowser.Server.Implementations.LiveTv
             item.Audio = info.Audio;
             item.ChannelId = channel.Id.ToString("N");
             item.CommunityRating = item.CommunityRating ?? info.CommunityRating;
-            item.EndDate = info.EndDate;
+
             item.EpisodeTitle = info.EpisodeTitle;
             item.ExternalId = info.Id;
             item.Genres = info.Genres;
@@ -670,7 +673,19 @@ namespace MediaBrowser.Server.Implementations.LiveTv
             item.OfficialRating = item.OfficialRating ?? info.OfficialRating;
             item.Overview = item.Overview ?? info.Overview;
             item.RunTimeTicks = (info.EndDate - info.StartDate).Ticks;
+
+            if (item.StartDate != info.StartDate)
+            {
+                forceUpdate = true;
+            }
             item.StartDate = info.StartDate;
+
+            if (item.EndDate != info.EndDate)
+            {
+                forceUpdate = true;
+            }
+            item.EndDate = info.EndDate;
+
             item.HomePageUrl = info.HomePageUrl;
 
             item.ProductionYear = info.ProductionYear;
@@ -891,6 +906,14 @@ namespace MediaBrowser.Server.Implementations.LiveTv
         {
             var user = string.IsNullOrEmpty(query.UserId) ? null : _userManager.GetUserById(query.UserId);
 
+            var topFolder = await GetInternalLiveTvFolder(cancellationToken).ConfigureAwait(false);
+
+            if (query.SortBy.Length == 0)
+            {
+                // Unless something else was specified, order by start date to take advantage of a specialized index
+                query.SortBy = new[] { ItemSortBy.StartDate };
+            }
+
             var internalQuery = new InternalItemsQuery(user)
             {
                 IncludeItemTypes = new[] { typeof(LiveTvProgram).Name },
@@ -907,7 +930,8 @@ namespace MediaBrowser.Server.Implementations.LiveTv
                 Limit = query.Limit,
                 SortBy = query.SortBy,
                 SortOrder = query.SortOrder ?? SortOrder.Ascending,
-                EnableTotalRecordCount = query.EnableTotalRecordCount
+                EnableTotalRecordCount = query.EnableTotalRecordCount,
+                TopParentIds = new[] { topFolder.Id.ToString("N") }
             };
 
             if (query.HasAired.HasValue)
@@ -924,7 +948,7 @@ namespace MediaBrowser.Server.Implementations.LiveTv
 
             var queryResult = _libraryManager.QueryItems(internalQuery);
 
-            var returnArray = _dtoService.GetBaseItemDtos(queryResult.Items, options, user).ToArray();
+            var returnArray = (await _dtoService.GetBaseItemDtos(queryResult.Items, options, user).ConfigureAwait(false)).ToArray();
 
             var result = new QueryResult<BaseItemDto>
             {
@@ -939,6 +963,8 @@ namespace MediaBrowser.Server.Implementations.LiveTv
         {
             var user = _userManager.GetUserById(query.UserId);
 
+            var topFolder = await GetInternalLiveTvFolder(cancellationToken).ConfigureAwait(false);
+
             var internalQuery = new InternalItemsQuery(user)
             {
                 IncludeItemTypes = new[] { typeof(LiveTvProgram).Name },
@@ -947,12 +973,13 @@ namespace MediaBrowser.Server.Implementations.LiveTv
                 IsSports = query.IsSports,
                 IsKids = query.IsKids,
                 EnableTotalRecordCount = query.EnableTotalRecordCount,
-                SortBy = new[] { ItemSortBy.StartDate }
+                SortBy = new[] { ItemSortBy.StartDate },
+                TopParentIds = new[] { topFolder.Id.ToString("N") }
             };
 
             if (query.Limit.HasValue)
             {
-                internalQuery.Limit = Math.Max(query.Limit.Value * 5, 300);
+                internalQuery.Limit = Math.Max(query.Limit.Value * 4, 200);
             }
 
             if (query.HasAired.HasValue)
@@ -1001,7 +1028,7 @@ namespace MediaBrowser.Server.Implementations.LiveTv
 
             var user = _userManager.GetUserById(query.UserId);
 
-            var returnArray = _dtoService.GetBaseItemDtos(internalResult.Items, options, user).ToArray();
+            var returnArray = (await _dtoService.GetBaseItemDtos(internalResult.Items, options, user).ConfigureAwait(false)).ToArray();
 
             var result = new QueryResult<BaseItemDto>
             {
@@ -1405,7 +1432,8 @@ namespace MediaBrowser.Server.Implementations.LiveTv
                 ExcludeLocationTypes = new[] { LocationType.Virtual },
                 Limit = Math.Min(200, query.Limit ?? int.MaxValue),
                 SortBy = new[] { ItemSortBy.DateCreated },
-                SortOrder = SortOrder.Descending
+                SortOrder = SortOrder.Descending,
+                EnableTotalRecordCount = query.EnableTotalRecordCount
             });
         }
 
@@ -1638,7 +1666,7 @@ namespace MediaBrowser.Server.Implementations.LiveTv
 
             var internalResult = await GetInternalRecordings(query, cancellationToken).ConfigureAwait(false);
 
-            var returnArray = _dtoService.GetBaseItemDtos(internalResult.Items, options, user).ToArray();
+            var returnArray = (await _dtoService.GetBaseItemDtos(internalResult.Items, options, user).ConfigureAwait(false)).ToArray();
 
             return new QueryResult<BaseItemDto>
             {
@@ -1664,6 +1692,18 @@ namespace MediaBrowser.Server.Implementations.LiveTv
             });
             var results = await Task.WhenAll(tasks).ConfigureAwait(false);
             var timers = results.SelectMany(i => i.ToList());
+
+            if (query.IsActive.HasValue)
+            {
+                if (query.IsActive.Value)
+                {
+                    timers = timers.Where(i => i.Item1.Status == RecordingStatus.InProgress);
+                }
+                else
+                {
+                    timers = timers.Where(i => i.Item1.Status != RecordingStatus.InProgress);
+                }
+            }
 
             if (!string.IsNullOrEmpty(query.ChannelId))
             {
@@ -1893,7 +1933,8 @@ namespace MediaBrowser.Server.Implementations.LiveTv
                 MaxStartDate = now,
                 MinEndDate = now,
                 Limit = channelIds.Length,
-                SortBy = new[] { "StartDate" }
+                SortBy = new[] { "StartDate" },
+                TopParentIds = new[] { GetInternalLiveTvFolder(CancellationToken.None).Result.Id.ToString("N") }
 
             }, new string[] { }).ToList();
 

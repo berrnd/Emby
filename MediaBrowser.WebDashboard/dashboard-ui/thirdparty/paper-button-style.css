@@ -1,10 +1,14 @@
-﻿button[is="emby-button"].blue {
+﻿button[is="emby-button"]:not(.fab).blue {
     color: #03a9f4;
 }
 
-    button[is="emby-button"].blue:hover {
+    button[is="emby-button"]:not(.fab).blue:hover {
         background: #e1f5f3;
     }
+
+button[is="emby-button"].fab.blue, paper-fab.blue {
+    background: #03a9f4;
+}
 
 button[is="emby-button"].menuButton {
     color: #212121;
@@ -219,14 +223,6 @@ paper-fab.white {
         color: #fff;
     }
 
-paper-fab.blue {
-    background: #03a9f4;
-}
-
-    paper-fab.blue paper-material.keyboard-focus {
-        background: #01579b !important;
-    }
-
 paper-fab.square {
     border-radius: 5px;
 }
@@ -235,45 +231,16 @@ paper-fab.accent {
     background-color: #52B54B;
 }
 
-paper-fab.green {
-    background-color: #81c784;
+.fab.green {
+    background-color: #81c784 !important;
 }
 
-paper-fab.orange {
-    background-color: #ffd54f;
+.fab.orange {
+    background-color: #ffd54f !important;
 }
 
-paper-fab.blue {
-    background-color: #4fc3f7;
-}
-
-paper-fab.red {
-    background-color: #e57373;
-}
-
-paper-slider {
-    width: 100%;
-}
-
-.paper-slider-0 #sliderKnobInner.paper-slider {
-    background-color: #52B54B;
-    border-color: #52B54B;
-}
-
-.paper-slider-0 paper-ripple.paper-slider {
-    color: #52B54B;
-}
-
-.paper-slider-0 #sliderKnobInner.paper-slider::before {
-    background-color: #388E3C !important;
-}
-
-.paper-progress-0 #primaryProgress.paper-progress {
-    background-color: #52B54B;
-}
-
-.paper-progress-0 #secondaryProgress.paper-progress {
-    background-color: #92B54B;
+.fab.red {
+    background-color: #e57373 !important;
 }
 
 paper-menu-item {
@@ -361,15 +328,15 @@ paper-input label, paper-textarea label {
     color: #ccc;
 }
 
-.ui-body-a .inputLabel {
+.ui-body-a .inputLabel, .ui-body-a .textareaLabel {
     color: #555;
 }
 
-    .ui-body-a .inputLabel.focused:not(.blank) {
+    .ui-body-a .inputLabel.focused:not(.blank), .ui-body-a .textareaLabel.focused:not(.blank) {
         color: green;
     }
 
-.ui-body-b .selectLabelUnfocused, .ui-body-b .inputLabel {
+.ui-body-b .selectLabelUnfocused, .ui-body-b .inputLabel, .ui-body-b .textareaLabel {
     color: #ccc;
 }
 
@@ -444,6 +411,11 @@ div.dialogHeader {
     color: #fff;
 }
 
+.ui-body-a .dialogHeader a {
+    color: #fff !important;
+    text-transform: uppercase;
+}
+
 .ui-body-b div.dialogHeader {
     background-color: #101010;
 }
@@ -480,14 +452,10 @@ paper-toggle-button paper-ripple {
     color: #52B54B;
 }
 
-.ui-body-b paper-progress #progressContainer {
-    background-color: #222 !important;
-}
-
-paper-progress.mini #progressContainer {
-    height: 3px !important;
-}
-
 .formDialog.background-theme-b {
     background-color: #181818;
+}
+
+.ui-body-b .listItem .secondary {
+    color: #aaa;
 }

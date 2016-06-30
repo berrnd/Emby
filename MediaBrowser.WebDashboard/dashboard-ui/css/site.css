@@ -1,7 +1,7 @@
 ﻿/* Links */
 .ui-body-b a {
     color: #52B54B /*{b-link-color}*/;
-    font-weight: bold;
+    font-weight: 500;
 }
 
     .ui-body-b a:visited {
@@ -43,10 +43,6 @@ html {
     font-family: 'San Francisco', 'Helvetica Neue', Roboto, 'Open Sans', 'Segoe UI', sans-serif;
     font-size: 14px;
 }
-
-    html.smallerDefault {
-        font-size: 13px;
-    }
 
 body {
     overflow-y: scroll !important;
@@ -244,7 +240,7 @@ div[data-role='page'] {
     white-space: nowrap;
 }
 
-    .checkboxContainer input {
+    .checkboxContainer input:not([is=emby-checkbox]) {
         width: 20px;
         height: 20px;
         vertical-align: middle;
@@ -253,7 +249,7 @@ div[data-role='page'] {
         padding: 0;
     }
 
-    .checkboxContainer label {
+    .checkboxContainer label:not(.mdl-checkbox) {
         vertical-align: middle;
         display: inline-block;
         padding: .7em .5em;
@@ -420,7 +416,7 @@ paper-input + .fieldDescription {
 .sidebarLinkIcon {
     text-align: center;
     vertical-align: middle;
-    margin-right: 2em;
+    margin-right: 1.2em;
 }
 
     .sidebarLinkIcon + span {

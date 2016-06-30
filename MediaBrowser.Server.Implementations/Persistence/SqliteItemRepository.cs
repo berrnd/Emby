@@ -22,6 +22,7 @@ using MediaBrowser.Common.Extensions;
 using MediaBrowser.Controller.Channels;
 using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Controller.Playlists;
+using MediaBrowser.Model.Dto;
 using MediaBrowser.Model.LiveTv;
 
 namespace MediaBrowser.Server.Implementations.Persistence
@@ -94,13 +95,13 @@ namespace MediaBrowser.Server.Implementations.Persistence
         private IDbCommand _updateInheritedRatingCommand;
         private IDbCommand _updateInheritedTagsCommand;
 
-        public const int LatestSchemaVersion = 89;
+        public const int LatestSchemaVersion = 96;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SqliteItemRepository"/> class.
         /// </summary>
-        public SqliteItemRepository(IServerConfigurationManager config, IJsonSerializer jsonSerializer, ILogManager logManager)
-            : base(logManager)
+        public SqliteItemRepository(IServerConfigurationManager config, IJsonSerializer jsonSerializer, ILogManager logManager, IDbConnector connector)
+            : base(logManager, connector)
         {
             if (config == null)
             {
@@ -115,19 +116,33 @@ namespace MediaBrowser.Server.Implementations.Persistence
             _jsonSerializer = jsonSerializer;
 
             _criticReviewsPath = Path.Combine(_config.ApplicationPaths.DataPath, "critic-reviews");
+            DbFilePath = Path.Combine(_config.ApplicationPaths.DataPath, "library.db");
         }
 
         private const string ChaptersTableName = "Chapters2";
+
+        protected override async Task<IDbConnection> CreateConnection(bool isReadOnly = false)
+        {
+            var connection = await DbConnector.Connect(DbFilePath, false, false, 10000).ConfigureAwait(false);
+
+            connection.RunQueries(new[]
+            {
+                "pragma temp_store = memory",
+                "pragma default_temp_store = memory",
+                "PRAGMA locking_mode=EXCLUSIVE"
+
+            }, Logger);
+
+            return connection;
+        }
 
         /// <summary>
         /// Opens the connection to the database
         /// </summary>
         /// <returns>Task.</returns>
-        public async Task Initialize(IDbConnector dbConnector)
+        public async Task Initialize(SqliteUserDataRepository userDataRepo)
         {
-            var dbFile = Path.Combine(_config.ApplicationPaths.DataPath, "library.db");
-
-            _connection = await dbConnector.Connect(dbFile).ConfigureAwait(false);
+            _connection = await CreateConnection(false).ConfigureAwait(false);
 
             var createMediaStreamsTableCommand
                = "create table if not exists mediastreams (ItemId GUID, StreamIndex INT, StreamType TEXT, Codec TEXT, Language TEXT, ChannelLayout TEXT, Profile TEXT, AspectRatio TEXT, Path TEXT, IsInterlaced BIT, BitRate INT NULL, Channels INT NULL, SampleRate INT NULL, IsDefault BIT, IsForced BIT, IsExternal BIT, Height INT NULL, Width INT NULL, AverageFrameRate FLOAT NULL, RealFrameRate FLOAT NULL, Level FLOAT NULL, PixelFormat TEXT, BitDepth INT NULL, IsAnamorphic BIT NULL, RefFrames INT NULL, CodecTag TEXT NULL, Comment TEXT NULL, NalLengthSize TEXT NULL, IsAvc BIT NULL, Title TEXT NULL, TimeBase TEXT NULL, CodecTimeBase TEXT NULL, PRIMARY KEY (ItemId, StreamIndex))";
@@ -137,39 +152,34 @@ namespace MediaBrowser.Server.Implementations.Persistence
                                 "create table if not exists TypedBaseItems (guid GUID primary key, type TEXT, data BLOB, ParentId GUID, Path TEXT)",
                                 "create index if not exists idx_PathTypedBaseItems on TypedBaseItems(Path)",
                                 "create index if not exists idx_ParentIdTypedBaseItems on TypedBaseItems(ParentId)",
-                                "create index if not exists idx_TypedBaseItems2 on TypedBaseItems(Type,Guid)",
 
                                 "create table if not exists AncestorIds (ItemId GUID, AncestorId GUID, AncestorIdText TEXT, PRIMARY KEY (ItemId, AncestorId))",
                                 "create index if not exists idx_AncestorIds1 on AncestorIds(AncestorId)",
                                 "create index if not exists idx_AncestorIds2 on AncestorIds(AncestorIdText)",
 
-                                "create table if not exists UserDataKeys (ItemId GUID, UserDataKey TEXT, PRIMARY KEY (ItemId, UserDataKey))",
-                                "create index if not exists idx_UserDataKeys1 on UserDataKeys(ItemId)",
+                                "create table if not exists UserDataKeys (ItemId GUID, UserDataKey TEXT Priority INT, PRIMARY KEY (ItemId, UserDataKey))",
 
-                                "create table if not exists ItemValues (ItemId GUID, Type INT, Value TEXT)",
-                                "create index if not exists idx_ItemValues on ItemValues(ItemId)",
-                                "create index if not exists idx_ItemValues2 on ItemValues(ItemId,Type)",
+                                "create table if not exists ItemValues (ItemId GUID, Type INT, Value TEXT, CleanValue TEXT)",
 
                                 "create table if not exists ProviderIds (ItemId GUID, Name TEXT, Value TEXT, PRIMARY KEY (ItemId, Name))",
-                                "create index if not exists Idx_ProviderIds on ProviderIds(ItemId)",
+                                // covering index
+                                "create index if not exists Idx_ProviderIds1 on ProviderIds(ItemId,Name,Value)",
 
                                 "create table if not exists Images (ItemId GUID NOT NULL, Path TEXT NOT NULL, ImageType INT NOT NULL, DateModified DATETIME, IsPlaceHolder BIT NOT NULL, SortOrder INT)",
                                 "create index if not exists idx_Images on Images(ItemId)",
 
                                 "create table if not exists People (ItemId GUID, Name TEXT NOT NULL, Role TEXT, PersonType TEXT, SortOrder int, ListOrder int)",
-                                "create index if not exists idxPeopleItemId on People(ItemId)",
+
+                                "drop index if exists idxPeopleItemId",
+                                "create index if not exists idxPeopleItemId1 on People(ItemId,ListOrder)",
                                 "create index if not exists idxPeopleName on People(Name)",
 
                                 "create table if not exists "+ChaptersTableName+" (ItemId GUID, ChapterIndex INT, StartPositionTicks BIGINT, Name TEXT, ImagePath TEXT, PRIMARY KEY (ItemId, ChapterIndex))",
-                                "create index if not exists idx_"+ChaptersTableName+"1 on "+ChaptersTableName+"(ItemId)",
 
                                 createMediaStreamsTableCommand,
+
                                 "create index if not exists idx_mediastreams1 on mediastreams(ItemId)",
 
-                                //pragmas
-                                "pragma temp_store = memory",
-
-                                "pragma shrink_memory"
                                };
 
             _connection.RunQueries(queries, Logger);
@@ -254,16 +264,66 @@ namespace MediaBrowser.Server.Implementations.Persistence
             _connection.AddColumn(Logger, "TypedBaseItems", "Album", "Text");
             _connection.AddColumn(Logger, "TypedBaseItems", "IsVirtualItem", "BIT");
             _connection.AddColumn(Logger, "TypedBaseItems", "SeriesName", "Text");
+            _connection.AddColumn(Logger, "TypedBaseItems", "UserDataKey", "Text");
 
             _connection.AddColumn(Logger, "UserDataKeys", "Priority", "INT");
+            _connection.AddColumn(Logger, "ItemValues", "CleanValue", "Text");
 
             string[] postQueries =
-                {
+
+                                {
+                // obsolete
+                "drop index if exists idx_TypedBaseItems",
+                "drop index if exists idx_mediastreams",
+                "drop index if exists idx_"+ChaptersTableName,
+                "drop index if exists idx_UserDataKeys1",
+                "drop index if exists idx_UserDataKeys2",
+                "drop index if exists idx_TypeTopParentId3",
+                "drop index if exists idx_TypeTopParentId2",
+                "drop index if exists idx_TypeTopParentId4",
+                "drop index if exists idx_Type",
+                "drop index if exists idx_TypeTopParentId",
+                "drop index if exists idx_GuidType",
+                "drop index if exists idx_TopParentId",
+                "drop index if exists idx_TypeTopParentId6",
+                "drop index if exists idx_ItemValues2",
+                "drop index if exists Idx_ProviderIds",
+                "drop index if exists idx_ItemValues3",
+                "drop index if exists idx_ItemValues4",
+                "drop index if exists idx_ItemValues5",
+
                 "create index if not exists idx_PresentationUniqueKey on TypedBaseItems(PresentationUniqueKey)",
-                "create index if not exists idx_Type on TypedBaseItems(Type)",
-                "create index if not exists idx_TopParentId on TypedBaseItems(TopParentId)",
-                "create index if not exists idx_TypeTopParentId on TypedBaseItems(Type,TopParentId)"
-            };
+                "create index if not exists idx_GuidTypeIsFolderIsVirtualItem on TypedBaseItems(Guid,Type,IsFolder,IsVirtualItem)",
+                //"create index if not exists idx_GuidMediaTypeIsFolderIsVirtualItem on TypedBaseItems(Guid,MediaType,IsFolder,IsVirtualItem)",
+                "create index if not exists idx_CleanNameType on TypedBaseItems(CleanName,Type)",
+
+                // covering index
+                "create index if not exists idx_TopParentIdGuid on TypedBaseItems(TopParentId,Guid)",
+
+                // live tv programs
+                "create index if not exists idx_TypeTopParentIdStartDate on TypedBaseItems(Type,TopParentId,StartDate)",
+
+                // covering index for getitemvalues
+                "create index if not exists idx_TypeTopParentIdGuid on TypedBaseItems(Type,TopParentId,Guid)",
+
+                // used by movie suggestions
+                "create index if not exists idx_TypeTopParentIdGroup on TypedBaseItems(Type,TopParentId,PresentationUniqueKey)",
+                "create index if not exists idx_TypeTopParentId5 on TypedBaseItems(TopParentId,IsVirtualItem)",
+
+                // latest items
+                "create index if not exists idx_TypeTopParentId9 on TypedBaseItems(TopParentId,Type,IsVirtualItem,PresentationUniqueKey,DateCreated)",
+                "create index if not exists idx_TypeTopParentId8 on TypedBaseItems(TopParentId,IsFolder,IsVirtualItem,PresentationUniqueKey,DateCreated)",
+
+                // resume
+                "create index if not exists idx_TypeTopParentId7 on TypedBaseItems(TopParentId,MediaType,IsVirtualItem,PresentationUniqueKey)",
+
+                // items by name
+                "create index if not exists idx_ItemValues6 on ItemValues(ItemId,Type,CleanValue)",
+                "create index if not exists idx_ItemValues7 on ItemValues(Type,CleanValue,ItemId)",
+
+                // covering index
+                "create index if not exists idx_UserDataKeys3 on UserDataKeys(ItemId,Priority,UserDataKey)"
+                };
 
             _connection.RunQueries(postQueries, Logger);
 
@@ -272,6 +332,8 @@ namespace MediaBrowser.Server.Implementations.Persistence
             new MediaStreamColumns(_connection, Logger).AddColumns();
 
             DataExtensions.Attach(_connection, Path.Combine(_config.ApplicationPaths.DataPath, "userdata_v2.db"), "UserDataDb");
+            await userDataRepo.Initialize(_connection, WriteLock).ConfigureAwait(false);
+            //await Vacuum(_connection).ConfigureAwait(false);
         }
 
         private readonly string[] _retriveItemColumns =
@@ -453,7 +515,8 @@ namespace MediaBrowser.Server.Implementations.Persistence
                 "DateLastMediaAdded",
                 "Album",
                 "IsVirtualItem",
-                "SeriesName"
+                "SeriesName",
+                "UserDataKey"
             };
             _saveItemCommand = _connection.CreateCommand();
             _saveItemCommand.CommandText = "replace into TypedBaseItems (" + string.Join(",", saveColumns.ToArray()) + ") values (";
@@ -556,10 +619,11 @@ namespace MediaBrowser.Server.Implementations.Persistence
             _deleteItemValuesCommand.Parameters.Add(_deleteItemValuesCommand, "@Id");
 
             _saveItemValuesCommand = _connection.CreateCommand();
-            _saveItemValuesCommand.CommandText = "insert into ItemValues (ItemId, Type, Value) values (@ItemId, @Type, @Value)";
+            _saveItemValuesCommand.CommandText = "insert into ItemValues (ItemId, Type, Value, CleanValue) values (@ItemId, @Type, @Value, @CleanValue)";
             _saveItemValuesCommand.Parameters.Add(_saveItemValuesCommand, "@ItemId");
             _saveItemValuesCommand.Parameters.Add(_saveItemValuesCommand, "@Type");
             _saveItemValuesCommand.Parameters.Add(_saveItemValuesCommand, "@Value");
+            _saveItemValuesCommand.Parameters.Add(_saveItemValuesCommand, "@CleanValue");
 
             // provider ids
             _deleteProviderIdsCommand = _connection.CreateCommand();
@@ -869,15 +933,7 @@ namespace MediaBrowser.Server.Implementations.Persistence
 
                     _saveItemCommand.GetParameter(index++).Value = item.Album;
 
-                    var season = item as Season;
-                    if (season != null && season.IsVirtualItem.HasValue)
-                    {
-                        _saveItemCommand.GetParameter(index++).Value = season.IsVirtualItem.Value;
-                    }
-                    else
-                    {
-                        _saveItemCommand.GetParameter(index++).Value = null;
-                    }
+                    _saveItemCommand.GetParameter(index++).Value = item.IsVirtualItem || (!item.IsFolder && item.LocationType == LocationType.Virtual);
 
                     var hasSeries = item as IHasSeries;
                     if (hasSeries != null)
@@ -888,6 +944,8 @@ namespace MediaBrowser.Server.Implementations.Persistence
                     {
                         _saveItemCommand.GetParameter(index++).Value = null;
                     }
+
+                    _saveItemCommand.GetParameter(index++).Value = item.GetUserDataKeys().FirstOrDefault();
 
                     _saveItemCommand.Transaction = transaction;
 
@@ -901,7 +959,7 @@ namespace MediaBrowser.Server.Implementations.Persistence
                     UpdateUserDataKeys(item.Id, item.GetUserDataKeys().Distinct(StringComparer.OrdinalIgnoreCase).ToList(), transaction);
                     UpdateImages(item.Id, item.ImageInfos, transaction);
                     UpdateProviderIds(item.Id, item.ProviderIds, transaction);
-                    UpdateItemValues(item.Id, GetItemValues(item), transaction);
+                    UpdateItemValues(item.Id, GetItemValuesToSave(item), transaction);
                 }
 
                 transaction.Commit();
@@ -1306,10 +1364,9 @@ namespace MediaBrowser.Server.Implementations.Persistence
                 item.CriticRatingSummary = reader.GetString(57);
             }
 
-            var season = item as Season;
-            if (season != null && !reader.IsDBNull(58))
+            if (!reader.IsDBNull(58))
             {
-                season.IsVirtualItem = reader.GetBoolean(58);
+                item.IsVirtualItem = reader.GetBoolean(58);
             }
 
             return item;
@@ -1461,7 +1518,7 @@ namespace MediaBrowser.Server.Implementations.Persistence
         /// or
         /// cancellationToken
         /// </exception>
-        public async Task SaveChapters(Guid id, IEnumerable<ChapterInfo> chapters, CancellationToken cancellationToken)
+        public async Task SaveChapters(Guid id, List<ChapterInfo> chapters, CancellationToken cancellationToken)
         {
             CheckDisposed();
 
@@ -1565,7 +1622,7 @@ namespace MediaBrowser.Server.Implementations.Persistence
                 return false;
             }
 
-            if (query.SimilarTo != null)
+            if (query.SimilarTo != null && query.User != null)
             {
                 return true;
             }
@@ -1651,14 +1708,14 @@ namespace MediaBrowser.Server.Implementations.Persistence
                 builder.Append("+(Select Case When Abs(COALESCE(ProductionYear, 0) - @ItemProductionYear) < 5 Then 2 Else 0 End )");
 
                 //// genres
-                builder.Append("+ ((Select count(value) from ItemValues where ItemId=Guid and Type=2 and value in (select value from itemvalues where ItemId=@SimilarItemId and type=2)) * 10)");
+                builder.Append("+ ((Select count(CleanValue) from ItemValues where ItemId=Guid and Type=2 and CleanValue in (select CleanValue from itemvalues where ItemId=@SimilarItemId and type=2)) * 10)");
 
                 //// tags
-                builder.Append("+ ((Select count(value) from ItemValues where ItemId=Guid and Type=4 and value in (select value from itemvalues where ItemId=@SimilarItemId and type=4)) * 10)");
+                builder.Append("+ ((Select count(CleanValue) from ItemValues where ItemId=Guid and Type=4 and CleanValue in (select CleanValue from itemvalues where ItemId=@SimilarItemId and type=4)) * 10)");
 
-                builder.Append("+ ((Select count(value) from ItemValues where ItemId=Guid and Type=5 and value in (select value from itemvalues where ItemId=@SimilarItemId and type=5)) * 10)");
+                builder.Append("+ ((Select count(CleanValue) from ItemValues where ItemId=Guid and Type=5 and CleanValue in (select CleanValue from itemvalues where ItemId=@SimilarItemId and type=5)) * 10)");
 
-                builder.Append("+ ((Select count(value) from ItemValues where ItemId=Guid and Type=3 and value in (select value from itemvalues where ItemId=@SimilarItemId and type=3)) * 3)");
+                builder.Append("+ ((Select count(CleanValue) from ItemValues where ItemId=Guid and Type=3 and CleanValue in (select CleanValue from itemvalues where ItemId=@SimilarItemId and type=3)) * 3)");
 
                 //builder.Append("+ ((Select count(Name) from People where ItemId=Guid and Name in (select Name from People where ItemId=@SimilarItemId)) * 3)");
 
@@ -1688,10 +1745,37 @@ namespace MediaBrowser.Server.Implementations.Persistence
                 return string.Empty;
             }
 
-            return " left join UserDataDb.UserData on (select UserDataKey from UserDataKeys where ItemId=Guid order by Priority LIMIT 1)=UserDataDb.UserData.Key";
+            if (_config.Configuration.SchemaVersion >= 96)
+            {
+                return " left join UserDataDb.UserData on UserDataKey=UserDataDb.UserData.Key And (UserId=@UserId)";
+            }
+
+            return " left join UserDataDb.UserData on (select UserDataKey from UserDataKeys where ItemId=Guid order by Priority LIMIT 1)=UserDataDb.UserData.Key And (UserId=@UserId)";
         }
 
-        public IEnumerable<BaseItem> GetItemList(InternalItemsQuery query)
+        private string GetGroupBy(InternalItemsQuery query)
+        {
+            var groups = new List<string>();
+
+            if (EnableGroupByPresentationUniqueKey(query))
+            {
+                groups.Add("PresentationUniqueKey");
+            }
+
+            if (groups.Count > 0)
+            {
+                return " Group by " + string.Join(",", groups.ToArray());
+            }
+
+            return string.Empty;
+        }
+
+        private string GetFromText(string alias = "A")
+        {
+            return " from TypedBaseItems " + alias;
+        }
+
+        public List<BaseItem> GetItemList(InternalItemsQuery query)
         {
             if (query == null)
             {
@@ -1702,9 +1786,17 @@ namespace MediaBrowser.Server.Implementations.Persistence
 
             var now = DateTime.UtcNow;
 
+            var list = new List<BaseItem>();
+
+            // Hack for right now since we currently don't support filtering out these duplicates within a query
+            if (query.Limit.HasValue && query.EnableGroupByMetadataKey)
+            {
+                query.Limit = query.Limit.Value + 4;
+            }
+
             using (var cmd = _connection.CreateCommand())
             {
-                cmd.CommandText = "select " + string.Join(",", GetFinalColumnsToSelect(query, _retriveItemColumns, cmd)) + " from TypedBaseItems";
+                cmd.CommandText = "select " + string.Join(",", GetFinalColumnsToSelect(query, _retriveItemColumns, cmd)) + GetFromText();
                 cmd.CommandText += GetJoinUserDataText(query);
 
                 if (EnableJoinUserData(query))
@@ -1720,22 +1812,22 @@ namespace MediaBrowser.Server.Implementations.Persistence
 
                 cmd.CommandText += whereText;
 
-                if (EnableGroupByPresentationUniqueKey(query))
-                {
-                    cmd.CommandText += " Group by PresentationUniqueKey";
-                }
+                cmd.CommandText += GetGroupBy(query);
 
                 cmd.CommandText += GetOrderByText(query);
 
                 if (query.Limit.HasValue || query.StartIndex.HasValue)
                 {
-                    var limit = query.Limit ?? int.MaxValue;
+                    var offset = query.StartIndex ?? 0;
 
-                    cmd.CommandText += " LIMIT " + limit.ToString(CultureInfo.InvariantCulture);
-
-                    if (query.StartIndex.HasValue)
+                    if (query.Limit.HasValue || offset > 0)
                     {
-                        cmd.CommandText += " OFFSET " + query.StartIndex.Value.ToString(CultureInfo.InvariantCulture);
+                        cmd.CommandText += " LIMIT " + (query.Limit ?? int.MaxValue).ToString(CultureInfo.InvariantCulture);
+                    }
+
+                    if (offset > 0)
+                    {
+                        cmd.CommandText += " OFFSET " + offset.ToString(CultureInfo.InvariantCulture);
                     }
                 }
 
@@ -1748,11 +1840,61 @@ namespace MediaBrowser.Server.Implementations.Persistence
                         var item = GetItem(reader);
                         if (item != null)
                         {
-                            yield return item;
+                            list.Add(item);
                         }
                     }
                 }
             }
+
+            // Hack for right now since we currently don't support filtering out these duplicates within a query
+            if (query.EnableGroupByMetadataKey)
+            {
+                var limit = query.Limit ?? int.MaxValue;
+                limit -= 4;
+                var newList = new List<BaseItem>();
+
+                foreach (var item in list)
+                {
+                    AddItem(newList, item);
+
+                    if (newList.Count >= limit)
+                    {
+                        break;
+                    }
+                }
+
+                list = newList;
+            }
+
+            return list;
+        }
+
+        private void AddItem(List<BaseItem> items, BaseItem newItem)
+        {
+            var providerIds = newItem.ProviderIds.ToList();
+
+            for (var i = 0; i < items.Count; i++)
+            {
+                var item = items[i];
+
+                foreach (var providerId in providerIds)
+                {
+                    if (providerId.Key == MetadataProviders.TmdbCollection.ToString())
+                    {
+                        continue;
+                    }
+                    if (item.GetProviderId(providerId.Key) == providerId.Value)
+                    {
+                        if (newItem.SourceType == SourceType.Library)
+                        {
+                            items[i] = newItem;
+                        }
+                        return;
+                    }
+                }
+            }
+
+            items.Add(newItem);
         }
 
         private void LogQueryTime(string methodName, IDbCommand cmd, DateTime startDate)
@@ -1762,7 +1904,7 @@ namespace MediaBrowser.Server.Implementations.Persistence
             var slowThreshold = 1000;
 
 #if DEBUG
-            slowThreshold = 100;
+            slowThreshold = 50;
 #endif
 
             if (elapsed >= slowThreshold)
@@ -1790,11 +1932,21 @@ namespace MediaBrowser.Server.Implementations.Persistence
 
             CheckDisposed();
 
+            if (!query.EnableTotalRecordCount || (!query.Limit.HasValue && (query.StartIndex ?? 0) == 0))
+            {
+                var list = GetItemList(query);
+                return new QueryResult<BaseItem>
+                {
+                    Items = list.ToArray(),
+                    TotalRecordCount = list.Count
+                };
+            }
+
             var now = DateTime.UtcNow;
 
             using (var cmd = _connection.CreateCommand())
             {
-                cmd.CommandText = "select " + string.Join(",", GetFinalColumnsToSelect(query, _retriveItemColumns, cmd)) + " from TypedBaseItems";
+                cmd.CommandText = "select " + string.Join(",", GetFinalColumnsToSelect(query, _retriveItemColumns, cmd)) + GetFromText();
                 cmd.CommandText += GetJoinUserDataText(query);
 
                 if (EnableJoinUserData(query))
@@ -1814,32 +1966,41 @@ namespace MediaBrowser.Server.Implementations.Persistence
 
                 cmd.CommandText += whereText;
 
-                if (EnableGroupByPresentationUniqueKey(query))
-                {
-                    cmd.CommandText += " Group by PresentationUniqueKey";
-                }
+                cmd.CommandText += GetGroupBy(query);
 
                 cmd.CommandText += GetOrderByText(query);
 
                 if (query.Limit.HasValue || query.StartIndex.HasValue)
                 {
-                    var limit = query.Limit ?? int.MaxValue;
+                    var offset = query.StartIndex ?? 0;
 
-                    cmd.CommandText += " LIMIT " + limit.ToString(CultureInfo.InvariantCulture);
-
-                    if (query.StartIndex.HasValue)
+                    if (query.Limit.HasValue || offset > 0)
                     {
-                        cmd.CommandText += " OFFSET " + query.StartIndex.Value.ToString(CultureInfo.InvariantCulture);
+                        cmd.CommandText += " LIMIT " + (query.Limit ?? int.MaxValue).ToString(CultureInfo.InvariantCulture);
                     }
+
+                    if (offset > 0)
+                    {
+                        cmd.CommandText += " OFFSET " + offset.ToString(CultureInfo.InvariantCulture);
+                    }
+                }
+
+                cmd.CommandText += ";";
+
+                var isReturningZeroItems = query.Limit.HasValue && query.Limit <= 0;
+
+                if (isReturningZeroItems)
+                {
+                    cmd.CommandText = "";
                 }
 
                 if (EnableGroupByPresentationUniqueKey(query))
                 {
-                    cmd.CommandText += "; select count (distinct PresentationUniqueKey) from TypedBaseItems";
+                    cmd.CommandText += " select count (distinct PresentationUniqueKey)" + GetFromText();
                 }
                 else
                 {
-                    cmd.CommandText += "; select count (guid) from TypedBaseItems";
+                    cmd.CommandText += " select count (guid)" + GetFromText();
                 }
 
                 cmd.CommandText += GetJoinUserDataText(query);
@@ -1852,18 +2013,28 @@ namespace MediaBrowser.Server.Implementations.Persistence
                 {
                     LogQueryTime("GetItems", cmd, now);
 
-                    while (reader.Read())
+                    if (isReturningZeroItems)
                     {
-                        var item = GetItem(reader);
-                        if (item != null)
+                        if (reader.Read())
                         {
-                            list.Add(item);
+                            count = reader.GetInt32(0);
                         }
                     }
-
-                    if (reader.NextResult() && reader.Read())
+                    else
                     {
-                        count = reader.GetInt32(0);
+                        while (reader.Read())
+                        {
+                            var item = GetItem(reader);
+                            if (item != null)
+                            {
+                                list.Add(item);
+                            }
+                        }
+
+                        if (reader.NextResult() && reader.Read())
+                        {
+                            count = reader.GetInt32(0);
+                        }
                     }
                 }
 
@@ -1883,11 +2054,11 @@ namespace MediaBrowser.Server.Implementations.Persistence
                 {
                     if (query.User != null)
                     {
-                        query.SortBy = new[] { "SimilarityScore", "IsPlayed", "Random" };
+                        query.SortBy = new[] { "SimilarityScore", ItemSortBy.IsPlayed, ItemSortBy.Random };
                     }
                     else
                     {
-                        query.SortBy = new[] { "SimilarityScore", "Random" };
+                        query.SortBy = new[] { "SimilarityScore", ItemSortBy.Random };
                     }
                     query.SortOrder = SortOrder.Descending;
                 }
@@ -1902,7 +2073,7 @@ namespace MediaBrowser.Server.Implementations.Persistence
 
             return " ORDER BY " + string.Join(",", query.SortBy.Select(i =>
             {
-                var columnMap = MapOrderByField(i);
+                var columnMap = MapOrderByField(i, query);
                 var columnAscending = isAscending;
                 if (columnMap.Item2)
                 {
@@ -1915,7 +2086,7 @@ namespace MediaBrowser.Server.Implementations.Persistence
             }).ToArray());
         }
 
-        private Tuple<string, bool> MapOrderByField(string name)
+        private Tuple<string, bool> MapOrderByField(string name, InternalItemsQuery query)
         {
             if (string.Equals(name, ItemSortBy.AirTime, StringComparison.OrdinalIgnoreCase))
             {
@@ -1960,11 +2131,11 @@ namespace MediaBrowser.Server.Implementations.Persistence
             }
             if (string.Equals(name, ItemSortBy.Artist, StringComparison.OrdinalIgnoreCase))
             {
-                return new Tuple<string, bool>("(select value from itemvalues where ItemId=Guid and Type=0 LIMIT 1)", false);
+                return new Tuple<string, bool>("(select CleanValue from itemvalues where ItemId=Guid and Type=0 LIMIT 1)", false);
             }
             if (string.Equals(name, ItemSortBy.AlbumArtist, StringComparison.OrdinalIgnoreCase))
             {
-                return new Tuple<string, bool>("(select value from itemvalues where ItemId=Guid and Type=1 LIMIT 1)", false);
+                return new Tuple<string, bool>("(select CleanValue from itemvalues where ItemId=Guid and Type=1 LIMIT 1)", false);
             }
             if (string.Equals(name, ItemSortBy.OfficialRating, StringComparison.OrdinalIgnoreCase))
             {
@@ -1972,7 +2143,11 @@ namespace MediaBrowser.Server.Implementations.Persistence
             }
             if (string.Equals(name, ItemSortBy.Studio, StringComparison.OrdinalIgnoreCase))
             {
-                return new Tuple<string, bool>("(select value from itemvalues where ItemId=Guid and Type=3 LIMIT 1)", false);
+                return new Tuple<string, bool>("(select CleanValue from itemvalues where ItemId=Guid and Type=3 LIMIT 1)", false);
+            }
+            if (string.Equals(name, ItemSortBy.SeriesDatePlayed, StringComparison.OrdinalIgnoreCase))
+            {
+                return new Tuple<string, bool>("(Select MAX(LastPlayedDate) from TypedBaseItems B" + GetJoinUserDataText(query) + " where B.Guid in (Select ItemId from AncestorIds where AncestorId in (select guid from typedbaseitems c where C.Type = 'MediaBrowser.Controller.Entities.TV.Series' And C.Guid in (Select AncestorId from AncestorIds where ItemId=A.Guid))))", false);
             }
 
             return new Tuple<string, bool>(name, false);
@@ -1991,7 +2166,7 @@ namespace MediaBrowser.Server.Implementations.Persistence
 
             using (var cmd = _connection.CreateCommand())
             {
-                cmd.CommandText = "select " + string.Join(",", GetFinalColumnsToSelect(query, new[] { "guid" }, cmd)) + " from TypedBaseItems";
+                cmd.CommandText = "select " + string.Join(",", GetFinalColumnsToSelect(query, new[] { "guid" }, cmd)) + GetFromText();
                 cmd.CommandText += GetJoinUserDataText(query);
 
                 if (EnableJoinUserData(query))
@@ -2007,22 +2182,22 @@ namespace MediaBrowser.Server.Implementations.Persistence
 
                 cmd.CommandText += whereText;
 
-                if (EnableGroupByPresentationUniqueKey(query))
-                {
-                    cmd.CommandText += " Group by PresentationUniqueKey";
-                }
+                cmd.CommandText += GetGroupBy(query);
 
                 cmd.CommandText += GetOrderByText(query);
 
                 if (query.Limit.HasValue || query.StartIndex.HasValue)
                 {
-                    var limit = query.Limit ?? int.MaxValue;
+                    var offset = query.StartIndex ?? 0;
 
-                    cmd.CommandText += " LIMIT " + limit.ToString(CultureInfo.InvariantCulture);
-
-                    if (query.StartIndex.HasValue)
+                    if (query.Limit.HasValue || offset > 0)
                     {
-                        cmd.CommandText += " OFFSET " + query.StartIndex.Value.ToString(CultureInfo.InvariantCulture);
+                        cmd.CommandText += " LIMIT " + (query.Limit ?? int.MaxValue).ToString(CultureInfo.InvariantCulture);
+                    }
+
+                    if (offset > 0)
+                    {
+                        cmd.CommandText += " OFFSET " + offset.ToString(CultureInfo.InvariantCulture);
                     }
                 }
 
@@ -2067,22 +2242,22 @@ namespace MediaBrowser.Server.Implementations.Persistence
 
                 cmd.CommandText += whereText;
 
-                if (EnableGroupByPresentationUniqueKey(query))
-                {
-                    cmd.CommandText += " Group by PresentationUniqueKey";
-                }
+                cmd.CommandText += GetGroupBy(query);
 
                 cmd.CommandText += GetOrderByText(query);
 
                 if (query.Limit.HasValue || query.StartIndex.HasValue)
                 {
-                    var limit = query.Limit ?? int.MaxValue;
+                    var offset = query.StartIndex ?? 0;
 
-                    cmd.CommandText += " LIMIT " + limit.ToString(CultureInfo.InvariantCulture);
-
-                    if (query.StartIndex.HasValue)
+                    if (query.Limit.HasValue || offset > 0)
                     {
-                        cmd.CommandText += " OFFSET " + query.StartIndex.Value.ToString(CultureInfo.InvariantCulture);
+                        cmd.CommandText += " LIMIT " + (query.Limit ?? int.MaxValue).ToString(CultureInfo.InvariantCulture);
+                    }
+
+                    if (offset > 0)
+                    {
+                        cmd.CommandText += " OFFSET " + offset.ToString(CultureInfo.InvariantCulture);
                     }
                 }
 
@@ -2130,11 +2305,21 @@ namespace MediaBrowser.Server.Implementations.Persistence
 
             CheckDisposed();
 
+            if (!query.EnableTotalRecordCount || (!query.Limit.HasValue && (query.StartIndex ?? 0) == 0))
+            {
+                var list = GetItemIdsList(query);
+                return new QueryResult<Guid>
+                {
+                    Items = list.ToArray(),
+                    TotalRecordCount = list.Count
+                };
+            }
+
             var now = DateTime.UtcNow;
 
             using (var cmd = _connection.CreateCommand())
             {
-                cmd.CommandText = "select " + string.Join(",", GetFinalColumnsToSelect(query, new[] { "guid" }, cmd)) + " from TypedBaseItems";
+                cmd.CommandText = "select " + string.Join(",", GetFinalColumnsToSelect(query, new[] { "guid" }, cmd)) + GetFromText();
 
                 var whereClauses = GetWhereClauses(query, cmd);
                 cmd.CommandText += GetJoinUserDataText(query);
@@ -2150,32 +2335,32 @@ namespace MediaBrowser.Server.Implementations.Persistence
 
                 cmd.CommandText += whereText;
 
-                if (EnableGroupByPresentationUniqueKey(query))
-                {
-                    cmd.CommandText += " Group by PresentationUniqueKey";
-                }
+                cmd.CommandText += GetGroupBy(query);
 
                 cmd.CommandText += GetOrderByText(query);
 
                 if (query.Limit.HasValue || query.StartIndex.HasValue)
                 {
-                    var limit = query.Limit ?? int.MaxValue;
+                    var offset = query.StartIndex ?? 0;
 
-                    cmd.CommandText += " LIMIT " + limit.ToString(CultureInfo.InvariantCulture);
-
-                    if (query.StartIndex.HasValue)
+                    if (query.Limit.HasValue || offset > 0)
                     {
-                        cmd.CommandText += " OFFSET " + query.StartIndex.Value.ToString(CultureInfo.InvariantCulture);
+                        cmd.CommandText += " LIMIT " + (query.Limit ?? int.MaxValue).ToString(CultureInfo.InvariantCulture);
+                    }
+
+                    if (offset > 0)
+                    {
+                        cmd.CommandText += " OFFSET " + offset.ToString(CultureInfo.InvariantCulture);
                     }
                 }
 
                 if (EnableGroupByPresentationUniqueKey(query))
                 {
-                    cmd.CommandText += "; select count (distinct PresentationUniqueKey) from TypedBaseItems";
+                    cmd.CommandText += "; select count (distinct PresentationUniqueKey)" + GetFromText();
                 }
                 else
                 {
-                    cmd.CommandText += "; select count (guid) from TypedBaseItems";
+                    cmd.CommandText += "; select count (guid)" + GetFromText();
                 }
 
                 cmd.CommandText += GetJoinUserDataText(query);
@@ -2207,13 +2392,13 @@ namespace MediaBrowser.Server.Implementations.Persistence
             }
         }
 
-        private List<string> GetWhereClauses(InternalItemsQuery query, IDbCommand cmd)
+        private List<string> GetWhereClauses(InternalItemsQuery query, IDbCommand cmd, string paramSuffix = "")
         {
             var whereClauses = new List<string>();
 
             if (EnableJoinUserData(query))
             {
-                whereClauses.Add("(UserId is null or UserId=@UserId)");
+                //whereClauses.Add("(UserId is null or UserId=@UserId)");
             }
             if (query.IsCurrentSchema.HasValue)
             {
@@ -2283,8 +2468,8 @@ namespace MediaBrowser.Server.Implementations.Persistence
             var includeTypes = query.IncludeItemTypes.SelectMany(MapIncludeItemTypes).ToArray();
             if (includeTypes.Length == 1)
             {
-                whereClauses.Add("type=@type");
-                cmd.Parameters.Add(cmd, "@type", DbType.String).Value = includeTypes[0];
+                whereClauses.Add("type=@type" + paramSuffix);
+                cmd.Parameters.Add(cmd, "@type" + paramSuffix, DbType.String).Value = includeTypes[0];
             }
             else if (includeTypes.Length > 1)
             {
@@ -2366,6 +2551,11 @@ namespace MediaBrowser.Server.Implementations.Persistence
             {
                 whereClauses.Add("ParentIndexNumber=@ParentIndexNumber");
                 cmd.Parameters.Add(cmd, "@ParentIndexNumber", DbType.Int32).Value = query.ParentIndexNumber.Value;
+            }
+            if (query.ParentIndexNumberNotEquals.HasValue)
+            {
+                whereClauses.Add("(ParentIndexNumber<>@ParentIndexNumberNotEquals or ParentIndexNumber is null)");
+                cmd.Parameters.Add(cmd, "@ParentIndexNumberNotEquals", DbType.Int32).Value = query.ParentIndexNumberNotEquals.Value;
             }
             if (query.MinEndDate.HasValue)
             {
@@ -2455,6 +2645,12 @@ namespace MediaBrowser.Server.Implementations.Persistence
                 }
             }
 
+            if (query.PersonIds.Length > 0)
+            {
+                // Todo: improve without having to do this
+                query.Person = query.PersonIds.Select(i => RetrieveItem(new Guid(i))).Where(i => i != null).Select(i => i.Name).FirstOrDefault();
+            }
+
             if (!string.IsNullOrWhiteSpace(query.Person))
             {
                 whereClauses.Add("Guid in (select ItemId from People where Name=@PersonName)");
@@ -2465,6 +2661,12 @@ namespace MediaBrowser.Server.Implementations.Persistence
             {
                 whereClauses.Add("SlugName=@SlugName");
                 cmd.Parameters.Add(cmd, "@SlugName", DbType.String).Value = query.SlugName;
+            }
+
+            if (!string.IsNullOrWhiteSpace(query.MinSortName))
+            {
+                whereClauses.Add("SortName>=@MinSortName");
+                cmd.Parameters.Add(cmd, "@MinSortName", DbType.String).Value = query.MinSortName;
             }
 
             if (!string.IsNullOrWhiteSpace(query.Name))
@@ -2583,12 +2785,18 @@ namespace MediaBrowser.Server.Implementations.Persistence
                 var index = 0;
                 foreach (var artist in query.ArtistNames)
                 {
-                    clauses.Add("@ArtistName" + index + " in (select value from itemvalues where ItemId=Guid and Type <= 1)");
-                    cmd.Parameters.Add(cmd, "@ArtistName" + index, DbType.String).Value = artist;
+                    clauses.Add("@ArtistName" + index + " in (select CleanValue from itemvalues where ItemId=Guid and Type <= 1)");
+                    cmd.Parameters.Add(cmd, "@ArtistName" + index, DbType.String).Value = artist.RemoveDiacritics();
                     index++;
                 }
                 var clause = "(" + string.Join(" OR ", clauses.ToArray()) + ")";
                 whereClauses.Add(clause);
+            }
+
+            if (query.GenreIds.Length > 0)
+            {
+                // Todo: improve without having to do this
+                query.Genres = query.GenreIds.Select(i => RetrieveItem(new Guid(i))).Where(i => i != null).Select(i => i.Name).ToArray();
             }
 
             if (query.Genres.Length > 0)
@@ -2597,8 +2805,8 @@ namespace MediaBrowser.Server.Implementations.Persistence
                 var index = 0;
                 foreach (var item in query.Genres)
                 {
-                    clauses.Add("@Genre" + index + " in (select value from itemvalues where ItemId=Guid and Type=2)");
-                    cmd.Parameters.Add(cmd, "@Genre" + index, DbType.String).Value = item;
+                    clauses.Add("@Genre" + index + " in (select CleanValue from itemvalues where ItemId=Guid and Type=2)");
+                    cmd.Parameters.Add(cmd, "@Genre" + index, DbType.String).Value = item.RemoveDiacritics();
                     index++;
                 }
                 var clause = "(" + string.Join(" OR ", clauses.ToArray()) + ")";
@@ -2611,12 +2819,18 @@ namespace MediaBrowser.Server.Implementations.Persistence
                 var index = 0;
                 foreach (var item in query.Tags)
                 {
-                    clauses.Add("@Tag" + index + " in (select value from itemvalues where ItemId=Guid and Type=4)");
-                    cmd.Parameters.Add(cmd, "@Tag" + index, DbType.String).Value = item;
+                    clauses.Add("@Tag" + index + " in (select CleanValue from itemvalues where ItemId=Guid and Type=4)");
+                    cmd.Parameters.Add(cmd, "@Tag" + index, DbType.String).Value = item.RemoveDiacritics();
                     index++;
                 }
                 var clause = "(" + string.Join(" OR ", clauses.ToArray()) + ")";
                 whereClauses.Add(clause);
+            }
+
+            if (query.StudioIds.Length > 0)
+            {
+                // Todo: improve without having to do this
+                query.Studios = query.StudioIds.Select(i => RetrieveItem(new Guid(i))).Where(i => i != null).Select(i => i.Name).ToArray();
             }
 
             if (query.Studios.Length > 0)
@@ -2625,8 +2839,8 @@ namespace MediaBrowser.Server.Implementations.Persistence
                 var index = 0;
                 foreach (var item in query.Studios)
                 {
-                    clauses.Add("@Studio" + index + " in (select value from itemvalues where ItemId=Guid and Type=3)");
-                    cmd.Parameters.Add(cmd, "@Studio" + index, DbType.String).Value = item;
+                    clauses.Add("@Studio" + index + " in (select CleanValue from itemvalues where ItemId=Guid and Type=3)");
+                    cmd.Parameters.Add(cmd, "@Studio" + index, DbType.String).Value = item.RemoveDiacritics();
                     index++;
                 }
                 var clause = "(" + string.Join(" OR ", clauses.ToArray()) + ")";
@@ -2639,8 +2853,8 @@ namespace MediaBrowser.Server.Implementations.Persistence
                 var index = 0;
                 foreach (var item in query.Keywords)
                 {
-                    clauses.Add("@Keyword" + index + " in (select value from itemvalues where ItemId=Guid and Type=5)");
-                    cmd.Parameters.Add(cmd, "@Keyword" + index, DbType.String).Value = item;
+                    clauses.Add("@Keyword" + index + " in (select CleanValue from itemvalues where ItemId=Guid and Type=5)");
+                    cmd.Parameters.Add(cmd, "@Keyword" + index, DbType.String).Value = item.RemoveDiacritics();
                     index++;
                 }
                 var clause = "(" + string.Join(" OR ", clauses.ToArray()) + ")";
@@ -2719,8 +2933,15 @@ namespace MediaBrowser.Server.Implementations.Persistence
 
             if (query.LocationTypes.Length == 1)
             {
-                whereClauses.Add("LocationType=@LocationType");
-                cmd.Parameters.Add(cmd, "@LocationType", DbType.String).Value = query.LocationTypes[0].ToString();
+                if (query.LocationTypes[0] == LocationType.Virtual && _config.Configuration.SchemaVersion >= 90)
+                {
+                    query.IsVirtualItem = true;
+                }
+                else
+                {
+                    whereClauses.Add("LocationType=@LocationType");
+                    cmd.Parameters.Add(cmd, "@LocationType", DbType.String).Value = query.LocationTypes[0].ToString();
+                }
             }
             else if (query.LocationTypes.Length > 1)
             {
@@ -2730,14 +2951,26 @@ namespace MediaBrowser.Server.Implementations.Persistence
             }
             if (query.ExcludeLocationTypes.Length == 1)
             {
-                whereClauses.Add("LocationType<>@ExcludeLocationTypes");
-                cmd.Parameters.Add(cmd, "@ExcludeLocationTypes", DbType.String).Value = query.ExcludeLocationTypes[0].ToString();
+                if (query.ExcludeLocationTypes[0] == LocationType.Virtual && _config.Configuration.SchemaVersion >= 90)
+                {
+                    query.IsVirtualItem = false;
+                }
+                else
+                {
+                    whereClauses.Add("LocationType<>@ExcludeLocationTypes");
+                    cmd.Parameters.Add(cmd, "@ExcludeLocationTypes", DbType.String).Value = query.ExcludeLocationTypes[0].ToString();
+                }
             }
             else if (query.ExcludeLocationTypes.Length > 1)
             {
                 var val = string.Join(",", query.ExcludeLocationTypes.Select(i => "'" + i + "'").ToArray());
 
                 whereClauses.Add("LocationType not in (" + val + ")");
+            }
+            if (query.IsVirtualItem.HasValue)
+            {
+                whereClauses.Add("IsVirtualItem=@IsVirtualItem");
+                cmd.Parameters.Add(cmd, "@IsVirtualItem", DbType.Boolean).Value = query.IsVirtualItem.Value;
             }
             if (query.MediaTypes.Length == 1)
             {
@@ -2749,6 +2982,20 @@ namespace MediaBrowser.Server.Implementations.Persistence
                 var val = string.Join(",", query.MediaTypes.Select(i => "'" + i + "'").ToArray());
 
                 whereClauses.Add("MediaType in (" + val + ")");
+            }
+            if (query.ItemIds.Length > 0)
+            {
+                var excludeIds = new List<string>();
+
+                var index = 0;
+                foreach (var id in query.ItemIds)
+                {
+                    excludeIds.Add("Guid = @IncludeId" + index);
+                    cmd.Parameters.Add(cmd, "@IncludeId" + index, DbType.Guid).Value = new Guid(id);
+                    index++;
+                }
+
+                whereClauses.Add(string.Join(" OR ", excludeIds.ToArray()));
             }
             if (query.ExcludeItemIds.Length > 0)
             {
@@ -3416,7 +3663,311 @@ namespace MediaBrowser.Server.Implementations.Persistence
             }
         }
 
-        private List<Tuple<int, string>> GetItemValues(BaseItem item)
+        public QueryResult<Tuple<BaseItem, ItemCounts>> GetArtists(InternalItemsQuery query)
+        {
+            return GetItemValues(query, 0, typeof(MusicArtist).FullName);
+        }
+
+        public QueryResult<Tuple<BaseItem, ItemCounts>> GetAlbumArtists(InternalItemsQuery query)
+        {
+            return GetItemValues(query, 1, typeof(MusicArtist).FullName);
+        }
+
+        public QueryResult<Tuple<BaseItem, ItemCounts>> GetStudios(InternalItemsQuery query)
+        {
+            return GetItemValues(query, 3, typeof(Studio).FullName);
+        }
+
+        public QueryResult<Tuple<BaseItem, ItemCounts>> GetGenres(InternalItemsQuery query)
+        {
+            return GetItemValues(query, 2, typeof(Genre).FullName);
+        }
+
+        public QueryResult<Tuple<BaseItem, ItemCounts>> GetGameGenres(InternalItemsQuery query)
+        {
+            return GetItemValues(query, 2, typeof(GameGenre).FullName);
+        }
+
+        public QueryResult<Tuple<BaseItem, ItemCounts>> GetMusicGenres(InternalItemsQuery query)
+        {
+            return GetItemValues(query, 2, typeof(MusicGenre).FullName);
+        }
+
+        private QueryResult<Tuple<BaseItem, ItemCounts>> GetItemValues(InternalItemsQuery query, int itemValueType, string returnType)
+        {
+            if (query == null)
+            {
+                throw new ArgumentNullException("query");
+            }
+
+            if (!query.Limit.HasValue)
+            {
+                query.EnableTotalRecordCount = false;
+            }
+
+            CheckDisposed();
+
+            var now = DateTime.UtcNow;
+
+            using (var cmd = _connection.CreateCommand())
+            {
+                var itemCountColumns = new List<Tuple<string, string>>();
+
+                var typesToCount = query.IncludeItemTypes.ToList();
+
+                if (typesToCount.Count > 0)
+                {
+                    var itemCountColumnQuery = "select group_concat(type, '|')" + GetFromText("B");
+
+                    var typeSubQuery = new InternalItemsQuery(query.User)
+                    {
+                        ExcludeItemTypes = query.ExcludeItemTypes,
+                        IncludeItemTypes = query.IncludeItemTypes,
+                        MediaTypes = query.MediaTypes,
+                        AncestorIds = query.AncestorIds,
+                        ExcludeItemIds = query.ExcludeItemIds,
+                        ItemIds = query.ItemIds,
+                        TopParentIds = query.TopParentIds,
+                        ParentId = query.ParentId,
+                        IsPlayed = query.IsPlayed
+                    };
+                    var whereClauses = GetWhereClauses(typeSubQuery, cmd, "itemTypes");
+
+                    whereClauses.Add("guid in (select ItemId from ItemValues where ItemValues.CleanValue=A.CleanName AND Type=@ItemValueType)");
+
+                    var typeWhereText = whereClauses.Count == 0 ?
+                        string.Empty :
+                        " where " + string.Join(" AND ", whereClauses.ToArray());
+
+                    itemCountColumnQuery += typeWhereText;
+
+                    //itemCountColumnQuery += ")";
+
+                    itemCountColumns.Add(new Tuple<string, string>("itemTypes", "(" + itemCountColumnQuery + ") as itemTypes"));
+                }
+
+                var columns = _retriveItemColumns.ToList();
+                columns.AddRange(itemCountColumns.Select(i => i.Item2).ToArray());
+
+                cmd.CommandText = "select " + string.Join(",", GetFinalColumnsToSelect(query, columns.ToArray(), cmd)) + GetFromText();
+                cmd.CommandText += GetJoinUserDataText(query);
+
+                var innerQuery = new InternalItemsQuery(query.User)
+                {
+                    ExcludeItemTypes = query.ExcludeItemTypes,
+                    IncludeItemTypes = query.IncludeItemTypes,
+                    MediaTypes = query.MediaTypes,
+                    AncestorIds = query.AncestorIds,
+                    ExcludeItemIds = query.ExcludeItemIds,
+                    ItemIds = query.ItemIds,
+                    TopParentIds = query.TopParentIds,
+                    ParentId = query.ParentId,
+                    IsPlayed = query.IsPlayed
+                };
+
+                var innerWhereClauses = GetWhereClauses(innerQuery, cmd);
+
+                var innerWhereText = innerWhereClauses.Count == 0 ?
+                    string.Empty :
+                    " where " + string.Join(" AND ", innerWhereClauses.ToArray());
+
+                var whereText = " where Type=@SelectType";
+
+                if (typesToCount.Count == 0)
+                {
+                    whereText += " And CleanName In (Select CleanValue from ItemValues where Type=@ItemValueType AND ItemId in (select guid from TypedBaseItems" + innerWhereText + "))";
+                }
+                else
+                {
+                    //whereText += " And itemTypes not null";
+                    whereText += " And CleanName In (Select CleanValue from ItemValues where Type=@ItemValueType AND ItemId in (select guid from TypedBaseItems" + innerWhereText + "))";
+                }
+
+                var outerQuery = new InternalItemsQuery(query.User)
+                {
+                    IsFavorite = query.IsFavorite,
+                    IsFavoriteOrLiked = query.IsFavoriteOrLiked,
+                    IsLiked = query.IsLiked,
+                    IsLocked = query.IsLocked,
+                    NameLessThan = query.NameLessThan,
+                    NameStartsWith = query.NameStartsWith,
+                    NameStartsWithOrGreater = query.NameStartsWithOrGreater,
+                    AlbumArtistStartsWithOrGreater = query.AlbumArtistStartsWithOrGreater,
+                    Tags = query.Tags,
+                    OfficialRatings = query.OfficialRatings,
+                    Genres = query.GenreIds,
+                    Years = query.Years
+                };
+
+                var outerWhereClauses = GetWhereClauses(outerQuery, cmd);
+
+                whereText += outerWhereClauses.Count == 0 ?
+                    string.Empty :
+                    " AND " + string.Join(" AND ", outerWhereClauses.ToArray());
+                //cmd.CommandText += GetGroupBy(query);
+
+                cmd.CommandText += whereText;
+                cmd.CommandText += " group by PresentationUniqueKey";
+
+                cmd.Parameters.Add(cmd, "@SelectType", DbType.String).Value = returnType;
+                cmd.Parameters.Add(cmd, "@ItemValueType", DbType.Int32).Value = itemValueType;
+
+                if (EnableJoinUserData(query))
+                {
+                    cmd.Parameters.Add(cmd, "@UserId", DbType.Guid).Value = query.User.Id;
+                }
+
+                cmd.CommandText += " order by SortName";
+
+                if (query.Limit.HasValue || query.StartIndex.HasValue)
+                {
+                    var offset = query.StartIndex ?? 0;
+
+                    if (query.Limit.HasValue || offset > 0)
+                    {
+                        cmd.CommandText += " LIMIT " + (query.Limit ?? int.MaxValue).ToString(CultureInfo.InvariantCulture);
+                    }
+
+                    if (offset > 0)
+                    {
+                        cmd.CommandText += " OFFSET " + offset.ToString(CultureInfo.InvariantCulture);
+                    }
+                }
+
+                cmd.CommandText += ";";
+
+                var isReturningZeroItems = query.Limit.HasValue && query.Limit <= 0;
+
+                if (isReturningZeroItems)
+                {
+                    cmd.CommandText = "";
+                }
+
+                if (query.EnableTotalRecordCount)
+                {
+                    cmd.CommandText += "select count (distinct PresentationUniqueKey)" + GetFromText();
+
+                    cmd.CommandText += GetJoinUserDataText(query);
+                    cmd.CommandText += whereText;
+                }
+                else
+                {
+                    cmd.CommandText = cmd.CommandText.TrimEnd(';');
+                }
+
+                var list = new List<Tuple<BaseItem, ItemCounts>>();
+                var count = 0;
+
+                var commandBehavior = isReturningZeroItems || !query.EnableTotalRecordCount
+                    ? (CommandBehavior.SequentialAccess | CommandBehavior.SingleResult)
+                    : CommandBehavior.SequentialAccess;
+
+                Logger.Debug("GetItemValues: " + cmd.CommandText);
+
+                using (var reader = cmd.ExecuteReader(commandBehavior))
+                {
+                    LogQueryTime("GetItemValues", cmd, now);
+
+                    if (isReturningZeroItems)
+                    {
+                        if (reader.Read())
+                        {
+                            count = reader.GetInt32(0);
+                        }
+                    }
+                    else
+                    {
+                        while (reader.Read())
+                        {
+                            var item = GetItem(reader);
+                            if (item != null)
+                            {
+                                var countStartColumn = columns.Count - 1;
+
+                                list.Add(new Tuple<BaseItem, ItemCounts>(item, GetItemCounts(reader, countStartColumn, typesToCount)));
+                            }
+                        }
+
+                        if (reader.NextResult() && reader.Read())
+                        {
+                            count = reader.GetInt32(0);
+                        }
+                    }
+                }
+
+                if (count == 0)
+                {
+                    count = list.Count;
+                }
+
+                return new QueryResult<Tuple<BaseItem, ItemCounts>>
+                {
+                    Items = list.ToArray(),
+                    TotalRecordCount = count
+                };
+
+            }
+        }
+
+        private ItemCounts GetItemCounts(IDataReader reader, int countStartColumn, List<string> typesToCount)
+        {
+            var counts = new ItemCounts();
+
+            if (typesToCount.Count == 0)
+            {
+                return counts;
+            }
+
+            var typeString = reader.IsDBNull(countStartColumn) ? null : reader.GetString(countStartColumn);
+
+            if (string.IsNullOrWhiteSpace(typeString))
+            {
+                return counts;
+            }
+
+            var allTypes = typeString.Split(new[] { '|' }, StringSplitOptions.RemoveEmptyEntries)
+                .ToLookup(i => i).ToList();
+
+            foreach (var type in allTypes)
+            {
+                var value = type.ToList().Count;
+                var typeName = type.Key;
+
+                if (string.Equals(typeName, typeof(Series).FullName, StringComparison.OrdinalIgnoreCase))
+                {
+                    counts.SeriesCount = value;
+                }
+                else if (string.Equals(typeName, typeof(Episode).FullName, StringComparison.OrdinalIgnoreCase))
+                {
+                    counts.EpisodeCount = value;
+                }
+                else if (string.Equals(typeName, typeof(Movie).FullName, StringComparison.OrdinalIgnoreCase))
+                {
+                    counts.MovieCount = value;
+                }
+                else if (string.Equals(typeName, typeof(MusicAlbum).FullName, StringComparison.OrdinalIgnoreCase))
+                {
+                    counts.AlbumCount = value;
+                }
+                else if (string.Equals(typeName, typeof(Audio).FullName, StringComparison.OrdinalIgnoreCase))
+                {
+                    counts.SongCount = value;
+                }
+                else if (string.Equals(typeName, typeof(Game).FullName, StringComparison.OrdinalIgnoreCase))
+                {
+                    counts.GameCount = value;
+                }
+                else if (string.Equals(typeName, typeof(Trailer).FullName, StringComparison.OrdinalIgnoreCase))
+                {
+                    counts.TrailerCount = value;
+                }
+                counts.ItemCount += value;
+            }
+
+            return counts;
+        }
+
+        private List<Tuple<int, string>> GetItemValuesToSave(BaseItem item)
         {
             var list = new List<Tuple<int, string>>();
 
@@ -3542,6 +4093,14 @@ namespace MediaBrowser.Server.Implementations.Persistence
                 _saveItemValuesCommand.GetParameter(0).Value = itemId;
                 _saveItemValuesCommand.GetParameter(1).Value = pair.Item1;
                 _saveItemValuesCommand.GetParameter(2).Value = pair.Item2;
+                if (pair.Item2 == null)
+                {
+                    _saveItemValuesCommand.GetParameter(3).Value = null;
+                }
+                else
+                {
+                    _saveItemValuesCommand.GetParameter(3).Value = pair.Item2.RemoveDiacritics();
+                }
                 _saveItemValuesCommand.Transaction = transaction;
 
                 _saveItemValuesCommand.ExecuteNonQuery();
@@ -3734,7 +4293,7 @@ namespace MediaBrowser.Server.Implementations.Persistence
             return list;
         }
 
-        public async Task SaveMediaStreams(Guid id, IEnumerable<MediaStream> streams, CancellationToken cancellationToken)
+        public async Task SaveMediaStreams(Guid id, List<MediaStream> streams, CancellationToken cancellationToken)
         {
             CheckDisposed();
 

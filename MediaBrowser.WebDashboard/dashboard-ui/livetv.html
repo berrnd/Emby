@@ -5,7 +5,7 @@
         <button class="pageTabButton" data-index="1">${TabGuide}</button>
         <button class="pageTabButton" data-index="2">${TabChannels}</button>
         <button class="pageTabButton" data-index="3">${TabRecordings}</button>
-        <button  class="pageTabButton" data-index="4">${TabSeries}</button>
+        <button class="pageTabButton" data-index="4">${TabSeries}</button>
     </div>
     <div class="is-active pageTabContent ehsContent" id="suggestionsTab" data-index="0">
         <div id="activePrograms" class="homePageSection">
@@ -46,9 +46,9 @@
     <div class="pageTabContent ehsContent fullWidth flexPageTabContent absolutePageTabContent" id="guideTab" data-index="1" style="width:auto;padding-top:0; padding-bottom: 0;">
     </div>
     <div class="pageTabContent ehsContent" id="channelsTab" data-index="2">
-        <div class="viewSettings">
-            <div class="listTopPaging">
-            </div>
+        <div style="text-align: center; display: flex; flex-wrap: wrap; align-items: center; justify-content: center;padding:.7em .5em;">
+            <div class="paging"></div>
+            <button is="paper-icon-button-light" class="btnFilter autoSize" title="${ButtonFilter}"><i class="md-icon">filter_list</i></button>
         </div>
         <div id="items" class="itemsContainer"></div>
     </div>
@@ -61,7 +61,10 @@
         <div id="latestRecordings" class="homePageSection hide">
             <div>
                 <h1 class="listHeader" style="display: inline-block; vertical-align: middle;">${HeaderLatestRecordings}</h1>
-                <button is="emby-button" type="button" class="raised submit mini categorySyncButton" data-category="Latest"><iron-icon icon="sync"></iron-icon><span>${ButtonSync}</span></button>
+                <button is="emby-button" type="button" class="raised submit mini categorySyncButton" data-category="Latest">
+                    <i class="md-icon">sync</i>
+                    <span>${ButtonSync}</span>
+                </button>
             </div>
             <div class="recordingItems itemsContainer"></div>
             <br />
@@ -71,9 +74,10 @@
             <br />
         </div>
         <div id="recordingGroups" class="hide homePageSection">
-            <h1 class="listHeader">
-                <a href="livetvrecordinglist.html">${HeaderAllRecordings}<img src="css/images/rightarrow.png" class="headerArrowImage" /></a>
-            </h1>
+            <div>
+                <h1 class="listHeader" style="display: inline-block; vertical-align: middle;">${HeaderAllRecordings}</h1>
+                <a href="livetvrecordinglist.html" class="clearLink" style="margin-left: 1em; vertical-align: middle;"><button is="emby-button" type="button" class="raised more mini noIcon">${ButtonMoreItems}</button></a>
+            </div>
             <div id="recordingGroupItems"></div>
         </div>
     </div>

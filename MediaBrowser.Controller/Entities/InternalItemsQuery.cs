@@ -46,6 +46,7 @@ namespace MediaBrowser.Controller.Entities
         public string NameStartsWith { get; set; }
         public string NameLessThan { get; set; }
         public string NameContains { get; set; }
+        public string MinSortName { get; set; }
 
         public string PresentationUniqueKey { get; set; }
         public string Path { get; set; }
@@ -110,6 +111,7 @@ namespace MediaBrowser.Controller.Entities
 
         internal List<Guid> ItemIdsFromPersonFilters { get; set; }
         public int? ParentIndexNumber { get; set; }
+        public int? ParentIndexNumberNotEquals { get; set; }
         public int? IndexNumber { get; set; }
         public int? MinParentalRating { get; set; }
         public int? MaxParentalRating { get; set; }
@@ -117,6 +119,7 @@ namespace MediaBrowser.Controller.Entities
         public bool? IsCurrentSchema { get; set; }
         public bool? HasDeadParentId { get; set; }
         public bool? IsOffline { get; set; }
+        public bool? IsVirtualItem { get; set; }
 
         public Guid? ParentId { get; set; }
         public string[] AncestorIds { get; set; }
@@ -140,7 +143,8 @@ namespace MediaBrowser.Controller.Entities
         public bool GroupByPresentationUniqueKey { get; set; }
         public bool EnableTotalRecordCount { get; set; }
         public bool ForceDirect { get; set; }
-        public Dictionary<string,string> ExcludeProviderIds { get; set; }
+        public Dictionary<string, string> ExcludeProviderIds { get; set; }
+        public bool EnableGroupByMetadataKey { get; set; }
 
         public InternalItemsQuery()
         {

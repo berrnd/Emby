@@ -13,6 +13,7 @@ using System.Runtime.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using CommonIO;
+using MediaBrowser.Controller.Channels;
 using MediaBrowser.Model.Channels;
 
 namespace MediaBrowser.Controller.Entities
@@ -216,7 +217,7 @@ namespace MediaBrowser.Controller.Entities
         {
             get
             {
-                return LoadChildren().Select(LibraryManager.GetItemById).Where(i => i != null);
+                return LoadChildren();
             }
         }
 
@@ -270,7 +271,7 @@ namespace MediaBrowser.Controller.Entities
         /// Loads our children.  Validation will occur externally.
         /// We want this sychronous.
         /// </summary>
-        protected virtual IEnumerable<Guid> LoadChildren()
+        protected virtual IEnumerable<BaseItem> LoadChildren()
         {
             //just load our children from the repo - the library will be validated and maintained in other processes
             return GetCachedChildren();
@@ -657,13 +658,34 @@ namespace MediaBrowser.Controller.Entities
         /// Get our children from the repo - stubbed for now
         /// </summary>
         /// <returns>IEnumerable{BaseItem}.</returns>
-        protected IEnumerable<Guid> GetCachedChildren()
+        protected IEnumerable<BaseItem> GetCachedChildren()
         {
-            return ItemRepository.GetItemIdsList(new InternalItemsQuery
+            return ItemRepository.GetItemList(new InternalItemsQuery
             {
                 ParentId = Id,
                 GroupByPresentationUniqueKey = false
             });
+        }
+
+        public virtual int GetChildCount(User user)
+        {
+            if (LinkedChildren.Count > 0)
+            {
+                if (!(this is ICollectionFolder))
+                {
+                    return GetChildren(user, true).Count();
+                }
+            }
+
+            var result = GetItems(new InternalItemsQuery(user)
+            {
+                Recursive = false,
+                Limit = 0,
+                ParentId = Id
+
+            }).Result;
+
+            return result.TotalRecordCount;
         }
 
         public QueryResult<BaseItem> QueryRecursive(InternalItemsQuery query)
@@ -756,12 +778,6 @@ namespace MediaBrowser.Controller.Entities
                 return true;
             }
 
-            if (query.PersonIds.Length > 0)
-            {
-                Logger.Debug("Query requires post-filtering due to PersonIds");
-                return true;
-            }
-
             if (query.IsInBoxSet.HasValue)
             {
                 Logger.Debug("Query requires post-filtering due to IsInBoxSet");
@@ -821,20 +837,6 @@ namespace MediaBrowser.Controller.Entities
             if (query.VideoTypes.Length > 0)
             {
                 Logger.Debug("Query requires post-filtering due to VideoTypes");
-                return true;
-            }
-
-            // Apply studio filter
-            if (query.StudioIds.Length > 0)
-            {
-                Logger.Debug("Query requires post-filtering due to StudioIds");
-                return true;
-            }
-
-            // Apply genre filter
-            if (query.GenreIds.Length > 0)
-            {
-                Logger.Debug("Query requires post-filtering due to GenreIds");
                 return true;
             }
 
@@ -1401,72 +1403,61 @@ namespace MediaBrowser.Controller.Entities
                 {
                     return false;
                 }
+                if (this is Channel)
+                {
+                    return false;
+                }
+                if (SourceType != SourceType.Library)
+                {
+                    return false;
+                }
 
                 return true;
             }
         }
 
-        public override void FillUserDataDtoValues(UserItemDataDto dto, UserItemData userData, User user)
+        public override async Task FillUserDataDtoValues(UserItemDataDto dto, UserItemData userData, BaseItemDto itemDto, User user)
         {
             if (!SupportsUserDataFromChildren)
             {
                 return;
             }
 
-            var recursiveItemCount = 0;
-            var unplayed = 0;
-
-            double totalPercentPlayed = 0;
-
-            var itemsResult = GetItems(new InternalItemsQuery(user)
+            var unplayedQueryResult = await GetItems(new InternalItemsQuery(user)
             {
                 Recursive = true,
                 IsFolder = false,
-                ExcludeLocationTypes = new[] { LocationType.Virtual },
-                EnableTotalRecordCount = false
+                IsVirtualItem = false,
+                EnableTotalRecordCount = true,
+                Limit = 0,
+                IsPlayed = false
 
-            }).Result;
+            }).ConfigureAwait(false);
 
-            var children = itemsResult.Items;
-
-            // Loop through each recursive child
-            foreach (var child in children)
+            var allItemsQueryResult = await GetItems(new InternalItemsQuery(user)
             {
-                recursiveItemCount++;
+                Recursive = true,
+                IsFolder = false,
+                IsVirtualItem = false,
+                EnableTotalRecordCount = true,
+                Limit = 0
 
-                var isUnplayed = true;
+            }).ConfigureAwait(false);
 
-                var itemUserData = UserDataManager.GetUserData(user, child);
-
-                // Incrememt totalPercentPlayed
-                if (itemUserData != null)
-                {
-                    if (itemUserData.Played)
-                    {
-                        totalPercentPlayed += 100;
-
-                        isUnplayed = false;
-                    }
-                    else if (itemUserData.PlaybackPositionTicks > 0 && child.RunTimeTicks.HasValue && child.RunTimeTicks.Value > 0)
-                    {
-                        double itemPercent = itemUserData.PlaybackPositionTicks;
-                        itemPercent /= child.RunTimeTicks.Value;
-                        totalPercentPlayed += itemPercent;
-                    }
-                }
-
-                if (isUnplayed)
-                {
-                    unplayed++;
-                }
+            if (itemDto != null)
+            {
+                itemDto.RecursiveItemCount = allItemsQueryResult.TotalRecordCount;
             }
 
-            dto.UnplayedItemCount = unplayed;
+            double recursiveItemCount = allItemsQueryResult.TotalRecordCount;
+            double unplayedCount = unplayedQueryResult.TotalRecordCount;
 
             if (recursiveItemCount > 0)
             {
-                dto.PlayedPercentage = totalPercentPlayed / recursiveItemCount;
+                var unplayedPercentage = (unplayedCount / recursiveItemCount) * 100;
+                dto.PlayedPercentage = 100 - unplayedPercentage;
                 dto.Played = dto.PlayedPercentage.Value >= 100;
+                dto.UnplayedItemCount = unplayedQueryResult.TotalRecordCount;
             }
         }
     }

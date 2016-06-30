@@ -8,6 +8,7 @@
         var muteButton = null;
         var unmuteButton = null;
         var volumeSlider = null;
+        var volumeSliderContainer = null;
         var positionSlider;
         var currentTimeElement;
 
@@ -728,14 +729,14 @@
             html += '<div class="videoTopControlsLogo"></div>';
             html += '<div class="videoAdvancedControls">';
 
-            html += '<button is="paper-icon-button-light" class="previousTrackButton mediaButton videoTrackControl hide" onclick="MediaPlayer.previousTrack();"><iron-icon icon="skip-previous"></iron-icon></button>';
-            html += '<button is="paper-icon-button-light" class="nextTrackButton mediaButton videoTrackControl hide" onclick="MediaPlayer.nextTrack();"><iron-icon icon="skip-next"></iron-icon></button>';
+            html += '<button is="paper-icon-button-light" class="previousTrackButton mediaButton videoTrackControl hide autoSize" onclick="MediaPlayer.previousTrack();"><i class="md-icon">skip_previous</i></button>';
+            html += '<button is="paper-icon-button-light" class="nextTrackButton mediaButton videoTrackControl hide autoSize" onclick="MediaPlayer.nextTrack();"><i class="md-icon">skip_next</i></button>';
 
             // Embedding onclicks due to issues not firing in cordova safari
-            html += '<button is="paper-icon-button-light" class="mediaButton videoAudioButton" onclick="MediaPlayer.showAudioTracksFlyout();"><iron-icon icon="audiotrack"></iron-icon></button>';
-            html += '<button is="paper-icon-button-light" class="mediaButton videoSubtitleButton" onclick="MediaPlayer.showSubtitleMenu();"><iron-icon icon="closed-caption"></iron-icon></button>';
-            html += '<button is="paper-icon-button-light" class="mediaButton videoQualityButton" onclick="MediaPlayer.showQualityFlyout();"><iron-icon icon="settings"></iron-icon></button>';
-            html += '<button is="paper-icon-button-light" class="mediaButton" onclick="MediaPlayer.stop();"><iron-icon icon="close"></iron-icon></button>';
+            html += '<button is="paper-icon-button-light" class="mediaButton videoAudioButton autoSize" onclick="MediaPlayer.showAudioTracksFlyout();"><i class="md-icon">audiotrack</i></button>';
+            html += '<button is="paper-icon-button-light" class="mediaButton videoSubtitleButton autoSize" onclick="MediaPlayer.showSubtitleMenu();"><i class="md-icon">closed_caption</i></button>';
+            html += '<button is="paper-icon-button-light" class="mediaButton videoQualityButton autoSize" onclick="MediaPlayer.showQualityFlyout();"><i class="md-icon">settings</i></button>';
+            html += '<button is="paper-icon-button-light" class="mediaButton autoSize" onclick="MediaPlayer.stop();"><i class="md-icon">close</i></button>';
 
             html += '</div>'; // videoAdvancedControls
             html += '</div>'; // videoTopControls
@@ -752,23 +753,27 @@
             html += '</div>'; // guide
 
             html += '<div class="videoControlButtons">';
-            html += '<button is="paper-icon-button-light" class="previousTrackButton mediaButton videoTrackControl hide" onclick="MediaPlayer.previousTrack();"></iron-icon></button>';
-            html += '<button is="paper-icon-button-light" id="video-playButton" class="mediaButton unpauseButton" onclick="MediaPlayer.unpause();"><iron-icon icon="play-arrow"></iron-icon></button>';
-            html += '<button is="paper-icon-button-light" id="video-pauseButton" class="mediaButton pauseButton" onclick="MediaPlayer.pause();"><iron-icon icon="pause"></iron-icon></button>';
-            html += '<button is="paper-icon-button-light" class="nextTrackButton mediaButton videoTrackControl hide" onclick="MediaPlayer.nextTrack();"><iron-icon icon="skip-next"></iron-icon></button>';
+            html += '<button is="paper-icon-button-light" class="previousTrackButton mediaButton videoTrackControl hide autoSize" onclick="MediaPlayer.previousTrack();"><i class="md-icon">skip_previous</i></button>';
+            html += '<button is="paper-icon-button-light" id="video-playButton" class="mediaButton unpauseButton autoSize" onclick="MediaPlayer.unpause();"><i class="md-icon">play_arrow</i></button>';
+            html += '<button is="paper-icon-button-light" id="video-pauseButton" class="mediaButton pauseButton autoSize" onclick="MediaPlayer.pause();"><i class="md-icon">pause</i></button>';
+            html += '<button is="paper-icon-button-light" class="nextTrackButton mediaButton videoTrackControl hide autoSize" onclick="MediaPlayer.nextTrack();"><i class="md-icon">skip_next</i></button>';
 
-            html += '<paper-slider pin step=".1" min="0" max="100" value="0" class="videoPositionSlider" style="display:inline-block;margin-right:2em;"></paper-slider>';
+            html += '<div class="sliderContainer videoPositionSliderContainer" style="display:inline-flex;margin-right:2em;">';
+            html += '<input type="range" is="emby-slider" pin step=".1" min="0" max="100" value="0" class="videoPositionSlider" />';
+            html += '</div>'; // guide
 
             html += '<div class="currentTime">--:--</div>';
 
-            html += '<button is="paper-icon-button-light" class="muteButton mediaButton" onclick="MediaPlayer.mute();"><iron-icon icon="volume-up"></iron-icon></button>';
-            html += '<button is="paper-icon-button-light" class="unmuteButton mediaButton" onclick="MediaPlayer.unMute();"><iron-icon icon="volume-off"></iron-icon></button>';
+            html += '<button is="paper-icon-button-light" class="muteButton mediaButton autoSize" onclick="MediaPlayer.mute();"><i class="md-icon">volume_up</i></button>';
+            html += '<button is="paper-icon-button-light" class="unmuteButton mediaButton autoSize" onclick="MediaPlayer.unMute();"><i class="md-icon">volume_off</i></button>';
 
-            html += '<paper-slider pin step="1" min="0" max="100" value="0" class="videoVolumeSlider" style="width:100px;vertical-align:middle;margin-left:-1em;margin-right:2em;display:inline-block;"></paper-slider>';
+            html += '<div class="sliderContainer volumeSliderContainer" style="width:100px;vertical-align:middle;;margin-right:2em;display:inline-flex;">';
+            html += '<input type="range" is="emby-slider" pin step="1" min="0" max="100" value="0" class="videoVolumeSlider"/>';
+            html += '</div>'; // guide
 
-            html += '<button is="paper-icon-button-light" class="mediaButton castButton" onclick="MediaController.showPlayerSelection(this, false);" style="height:32px;width:32px;"><iron-icon icon="cast"></iron-icon></button>';
-            html += '<button is="paper-icon-button-light" class="mediaButton fullscreenButton" onclick="MediaPlayer.toggleFullscreen();" id="video-fullscreenButton"><iron-icon icon="fullscreen"></iron-icon></button>';
-            html += '<button is="paper-icon-button-light" class="mediaButton infoButton" onclick="MediaPlayer.toggleInfo();"><iron-icon icon="info"></iron-icon></button>';
+            html += '<button is="paper-icon-button-light" class="mediaButton castButton autoSize" onclick="MediaController.showPlayerSelection(this, false);" style="height:32px;width:32px;"><i class="md-icon">cast</i></button>';
+            html += '<button is="paper-icon-button-light" class="mediaButton fullscreenButton autoSize" onclick="MediaPlayer.toggleFullscreen();" id="video-fullscreenButton"><i class="md-icon">fullscreen</i></button>';
+            html += '<button is="paper-icon-button-light" class="mediaButton infoButton autoSize" onclick="MediaPlayer.toggleInfo();"><i class="md-icon">info</i></button>';
 
             html += '</div>';
 
@@ -801,22 +806,22 @@
             positionSlider = parent.querySelector(".videoPositionSlider", parent);
             positionSlider.addEventListener('change', onPositionSliderChange);
 
-            positionSlider._setPinValue = function (value) {
+            positionSlider.getBubbleText = function (value) {
 
                 var seekableDuration = getSeekableDuration();
                 if (!self.currentMediaSource || !seekableDuration) {
-                    this.pinValue = '--:--';
-                    return;
+                    return '--:--';
                 }
 
                 var ticks = seekableDuration;
                 ticks /= 100;
                 ticks *= value;
 
-                this.pinValue = datetime.getDisplayRunningTime(ticks);
+                return datetime.getDisplayRunningTime(ticks);
             };
 
             volumeSlider = parent.querySelector('.videoVolumeSlider');
+            volumeSliderContainer = parent.querySelector('.volumeSliderContainer');
             volumeSlider.addEventListener('change', function () {
 
                 var vol = this.value;
@@ -849,12 +854,14 @@
 
         function updateVolumeButtons(vol) {
 
-            if (vol) {
-                muteButton.classList.remove('hide');
-                unmuteButton.classList.add('hide');
-            } else {
-                muteButton.classList.add('hide');
-                unmuteButton.classList.remove('hide');
+            if (!AppInfo.hasPhysicalVolumeButtons) {
+                if (vol) {
+                    muteButton.classList.remove('hide');
+                    unmuteButton.classList.add('hide');
+                } else {
+                    muteButton.classList.add('hide');
+                    unmuteButton.classList.remove('hide');
+                }
             }
         }
 
@@ -991,7 +998,7 @@
         self.playVideo = function (item, mediaSource, startPosition, callback) {
 
             // TODO: remove dependency on nowplayingbar
-            requirejs(['videorenderer', 'css!css/nowplayingbar.css', 'css!css/mediaplayer-video.css', 'paper-slider'], function () {
+            requirejs(['videorenderer', 'css!css/nowplayingbar.css', 'css!css/mediaplayer-video.css', 'emby-slider'], function () {
 
                 initVideoElements();
 
@@ -1127,11 +1134,11 @@
             }
 
             if (AppInfo.hasPhysicalVolumeButtons) {
-                volumeSlider.classList.add('hide');
+                volumeSliderContainer.classList.add('hide');
                 videoControls.querySelector('.muteButton').classList.add('hide');
                 videoControls.querySelector('.unmuteButton').classList.add('hide');
             } else {
-                volumeSlider.classList.remove('hide');
+                volumeSliderContainer.classList.remove('hide');
                 videoControls.querySelector('.muteButton').classList.remove('hide');
                 videoControls.querySelector('.unmuteButton').classList.remove('hide');
             }

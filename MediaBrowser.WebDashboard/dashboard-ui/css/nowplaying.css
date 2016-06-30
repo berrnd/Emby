@@ -21,7 +21,7 @@
 .nowPlayingPageTimeContainer {
     min-width: 200px;
     max-width: 280px;
-    margin: 0 auto 1em;
+    margin: 1.5em auto 1em;
 }
 
 .nowPlayingNavButtonContainer {
@@ -91,10 +91,10 @@
     }
 }
 
-.nowPlayingPage .btnCommand, .nowPlayingPage .btnPlayStateCommand {
-    width: 60px;
-    height: 60px;
-    background: #222;
+.nowPlayingPage .btnCommand i, .nowPlayingPage .btnPlayStateCommand i {
+    width: 44px;
+    height: 44px;
+    font-size: 44px;
 }
 
 
@@ -174,21 +174,6 @@
 @media (orientation: landscape) and (min-width: 700px) {
     .nowPlayingInfoButtons {
         margin-left: 3em;
-    }
-}
-
-@media (orientation: landscape) and (max-height: 400px) {
-    .nowPlayingPage .btnCommand, .nowPlayingPage .btnPlayStateCommand {
-        width: 60px;
-        height: 60px;
-    }
-}
-
-@media (orientation: portrait) and (max-height: 600px) {
-
-    .nowPlayingPage .btnCommand, .nowPlayingPage .btnPlayStateCommand {
-        width: 60px;
-        height: 60px;
     }
 }
 

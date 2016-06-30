@@ -818,32 +818,30 @@
             }
         },
 
-        renderSupporterIcon: function (page, pluginSecurityInfo) {
+        //myproduction-change-start
+		//Removed Emby Premiere subscription
+		//renderSupporterIcon: function (page, pluginSecurityInfo) {
 
-            //myproduction-change-start
-			//Removed Emby Premiere subscription
-			//renderSupporterIcon: function (page, pluginSecurityInfo) {
+		//    var imgUrl, text;
 
-			//    var imgUrl, text;
+		//    if (!AppInfo.enableSupporterMembership) {
+		//        $('.supporterIconContainer', page).remove();
+		//    }
+		//    else if (pluginSecurityInfo.IsMBSupporter) {
 
-			//    if (!AppInfo.enableSupporterMembership) {
-			//        $('.supporterIconContainer', page).remove();
-			//    }
-			//    else if (pluginSecurityInfo.IsMBSupporter) {
+		//        imgUrl = "css/images/supporter/supporterbadge.png";
+		//        text = Globalize.translate('MessageThankYouForSupporting');
 
-			//        imgUrl = "css/images/supporter/supporterbadge.png";
-			//        text = Globalize.translate('MessageThankYouForSupporting');
+		//        $('.supporterIconContainer', page).html('<a class="imageLink supporterIcon" href="http://emby.media/premiere" target="_blank" title="' + text + '"><img src="' + imgUrl + '" style="height:32px;vertical-align: middle; margin-right: .5em;" /></a><span style="position:relative;top:2px;text-decoration:none;">' + text + '</span>');
+		//    } else {
 
-			//        $('.supporterIconContainer', page).html('<a class="imageLink supporterIcon" href="http://emby.media/premiere" target="_blank" title="' + text + '"><img src="' + imgUrl + '" style="height:32px;vertical-align: middle; margin-right: .5em;" /></a><span style="position:relative;top:2px;text-decoration:none;">' + text + '</span>');
-			//    } else {
+		//        imgUrl = "css/images/supporter/nonsupporterbadge.png";
+		//        text = Globalize.translate('MessagePleaseSupportProject');
 
-			//        imgUrl = "css/images/supporter/nonsupporterbadge.png";
-			//        text = Globalize.translate('MessagePleaseSupportProject');
-
-			//        $('.supporterIconContainer', page).html('<a class="imageLink supporterIcon" href="http://emby.media/premiere" target="_blank" title="' + text + '"><img src="' + imgUrl + '" style="height:32px;vertical-align: middle; margin-right: .5em;" /><span style="position:relative;top:2px;text-decoration:none;">' + text + '</span></a>');
-			//    }
-			//},
-			//myproduction-change-end
+		//        $('.supporterIconContainer', page).html('<a class="imageLink supporterIcon" href="http://emby.media/premiere" target="_blank" title="' + text + '"><img src="' + imgUrl + '" style="height:32px;vertical-align: middle; margin-right: .5em;" /><span style="position:relative;top:2px;text-decoration:none;">' + text + '</span></a>');
+		//    }
+		//},
+		//myproduction-change-end
 
         renderHasPendingRestart: function (page, hasPendingRestart) {
 

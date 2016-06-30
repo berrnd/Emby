@@ -33,6 +33,7 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using CommonIO;
+using MediaBrowser.Model.Dto;
 using MediaBrowser.Model.Extensions;
 using MediaBrowser.Model.Library;
 using MediaBrowser.Model.Net;
@@ -943,9 +944,7 @@ namespace MediaBrowser.Server.Implementations.Library
         private T CreateItemByName<T>(string path, string name)
             where T : BaseItem, new()
         {
-            var isArtist = typeof(T) == typeof(MusicArtist);
-
-            if (isArtist)
+            if (typeof(T) == typeof(MusicArtist))
             {
                 var existing = GetItemList(new InternalItemsQuery
                 {
@@ -1276,20 +1275,6 @@ namespace MediaBrowser.Server.Implementations.Library
             return item;
         }
 
-        public BaseItem GetMemoryItemById(Guid id)
-        {
-            if (id == Guid.Empty)
-            {
-                throw new ArgumentNullException("id");
-            }
-
-            BaseItem item;
-
-            LibraryItemsCache.TryGetValue(id, out item);
-
-            return item;
-        }
-
         public IEnumerable<BaseItem> GetItemList(InternalItemsQuery query)
         {
             if (query.User != null)
@@ -1297,9 +1282,7 @@ namespace MediaBrowser.Server.Implementations.Library
                 AddUserToQuery(query, query.User);
             }
 
-            var result = ItemRepository.GetItemIdsList(query);
-
-            return result.Select(GetItemById).Where(i => i != null);
+            return ItemRepository.GetItemList(query);
         }
 
         public QueryResult<BaseItem> QueryItems(InternalItemsQuery query)
@@ -1309,7 +1292,15 @@ namespace MediaBrowser.Server.Implementations.Library
                 AddUserToQuery(query, query.User);
             }
 
-            return ItemRepository.GetItems(query);
+            if (query.EnableTotalRecordCount)
+            {
+                return ItemRepository.GetItems(query);
+            }
+
+            return new QueryResult<BaseItem>
+            {
+                Items = ItemRepository.GetItemList(query).ToArray()
+            };
         }
 
         public List<Guid> GetItemIds(InternalItemsQuery query)
@@ -1322,13 +1313,106 @@ namespace MediaBrowser.Server.Implementations.Library
             return ItemRepository.GetItemIdsList(query);
         }
 
+        public QueryResult<Tuple<BaseItem, ItemCounts>> GetStudios(InternalItemsQuery query)
+        {
+            if (query.User != null)
+            {
+                AddUserToQuery(query, query.User);
+            }
+
+            SetTopParentOrAncestorIds(query);
+            return ItemRepository.GetStudios(query);
+        }
+
+        public QueryResult<Tuple<BaseItem, ItemCounts>> GetGenres(InternalItemsQuery query)
+        {
+            if (query.User != null)
+            {
+                AddUserToQuery(query, query.User);
+            }
+
+            SetTopParentOrAncestorIds(query);
+            return ItemRepository.GetGenres(query);
+        }
+
+        public QueryResult<Tuple<BaseItem, ItemCounts>> GetGameGenres(InternalItemsQuery query)
+        {
+            if (query.User != null)
+            {
+                AddUserToQuery(query, query.User);
+            }
+
+            SetTopParentOrAncestorIds(query);
+            return ItemRepository.GetGameGenres(query);
+        }
+
+        public QueryResult<Tuple<BaseItem, ItemCounts>> GetMusicGenres(InternalItemsQuery query)
+        {
+            if (query.User != null)
+            {
+                AddUserToQuery(query, query.User);
+            }
+
+            SetTopParentOrAncestorIds(query);
+            return ItemRepository.GetMusicGenres(query);
+        }
+
+        public QueryResult<Tuple<BaseItem, ItemCounts>> GetArtists(InternalItemsQuery query)
+        {
+            if (query.User != null)
+            {
+                AddUserToQuery(query, query.User);
+            }
+
+            SetTopParentOrAncestorIds(query);
+            return ItemRepository.GetArtists(query);
+        }
+
+        private void SetTopParentOrAncestorIds(InternalItemsQuery query)
+        {
+            if (query.AncestorIds.Length == 0)
+            {
+                return;
+            }
+
+            var parents = query.AncestorIds.Select(i => GetItemById(new Guid(i))).ToList();
+
+            if (parents.All(i =>
+            {
+                if (i is ICollectionFolder || i is UserView)
+                {
+                    return true;
+                }
+
+                //_logger.Debug("Query requires ancestor query due to type: " + i.GetType().Name);
+                return false;
+
+            }))
+            {
+                // Optimize by querying against top level views
+                query.TopParentIds = parents.SelectMany(i => GetTopParentsForQuery(i, query.User)).Select(i => i.Id.ToString("N")).ToArray();
+                query.AncestorIds = new string[] { };
+            }
+        }
+
+        public QueryResult<Tuple<BaseItem, ItemCounts>> GetAlbumArtists(InternalItemsQuery query)
+        {
+            if (query.User != null)
+            {
+                AddUserToQuery(query, query.User);
+            }
+
+            SetTopParentOrAncestorIds(query);
+            return ItemRepository.GetAlbumArtists(query);
+        }
+
         public IEnumerable<BaseItem> GetItemList(InternalItemsQuery query, IEnumerable<string> parentIds)
         {
             var parents = parentIds.Select(i => GetItemById(new Guid(i))).Where(i => i != null).ToList();
 
             SetTopParentIdsOrAncestors(query, parents);
 
-            return GetItemIds(query).Select(GetItemById).Where(i => i != null);
+            return ItemRepository.GetItemList(query);
         }
 
         public QueryResult<BaseItem> GetItemsResult(InternalItemsQuery query)
@@ -1350,18 +1434,12 @@ namespace MediaBrowser.Server.Implementations.Library
 
             if (query.EnableTotalRecordCount)
             {
-                var initialResult = ItemRepository.GetItemIds(query);
-
-                return new QueryResult<BaseItem>
-                {
-                    TotalRecordCount = initialResult.TotalRecordCount,
-                    Items = initialResult.Items.Select(GetItemById).Where(i => i != null).ToArray()
-                };
+                return ItemRepository.GetItems(query);
             }
 
             return new QueryResult<BaseItem>
             {
-                Items = ItemRepository.GetItemIdsList(query).Select(GetItemById).Where(i => i != null).ToArray()
+                Items = ItemRepository.GetItemList(query).ToArray()
             };
         }
 
@@ -1383,7 +1461,7 @@ namespace MediaBrowser.Server.Implementations.Library
                     return true;
                 }
 
-                _logger.Debug("Query requires ancestor query due to type: " + i.GetType().Name);
+                //_logger.Debug("Query requires ancestor query due to type: " + i.GetType().Name);
                 return false;
 
             }))
@@ -2713,6 +2791,31 @@ namespace MediaBrowser.Server.Implementations.Library
             }
 
             _fileSystem.CreateShortcut(lnk, path);
+
+            RemoveContentTypeOverrides(path);
+        }
+
+        private void RemoveContentTypeOverrides(string path)
+        {
+            var removeList = new List<NameValuePair>();
+
+            foreach (var contentType in ConfigurationManager.Configuration.ContentTypes)
+            {
+                if (string.Equals(path, contentType.Name, StringComparison.OrdinalIgnoreCase)
+                    || _fileSystem.ContainsSubPath(path, contentType.Name))
+                {
+                    removeList.Add(contentType);
+                }
+            }
+
+            if (removeList.Count > 0)
+            {
+                ConfigurationManager.Configuration.ContentTypes = ConfigurationManager.Configuration.ContentTypes
+                    .Except(removeList)
+                        .ToArray();
+
+                ConfigurationManager.SaveConfiguration();
+            }
         }
 
         public void RemoveMediaPath(string virtualFolderName, string mediaPath)

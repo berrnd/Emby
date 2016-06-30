@@ -8,7 +8,7 @@
 }
 
 .background-theme-b, .dialog.background-theme-b {
-    background-color: #181818;
+    background-color: #19191A;
     /*background: radial-gradient(circle, #282828, #141414);*/
 }
 
@@ -210,6 +210,10 @@
     font-weight: normal !important;
 }
 
+.itemOverview {
+    white-space: pre-wrap;
+}
+
 a.itemTag:hover {
     background-color: #2489ce;
 }
@@ -324,7 +328,7 @@ span.itemCommunityRating:not(:empty) + .userDataIcons {
 @media all and (min-width: 540px) {
 
     .detailUserDataIcons {
-        margin-left: 1em;
+        margin-left: .5em;
     }
 }
 
@@ -874,6 +878,7 @@ span.itemCommunityRating:not(:empty) + .userDataIcons {
     position: absolute;
     top: 5px;
     right: 5px;
+    font-size: 200%;
 }
 
 .playedIndicator + .syncIndicator {
@@ -899,6 +904,10 @@ span.itemCommunityRating:not(:empty) + .userDataIcons {
     line-height: initial;
     font-weight: 500;
 }
+
+    .playedIndicator i, .syncIndicator i {
+        font-size: 180%;
+    }
 
 .mediaSourceIndicator {
     display: block;
@@ -1010,7 +1019,6 @@ span.itemCommunityRating:not(:empty) + .userDataIcons {
 
 .itemsContainer {
     margin: 0 auto;
-    line-height: 0;
 }
 
 .alphabetPicker {
@@ -1124,6 +1132,20 @@ span.itemCommunityRating:not(:empty) + .userDataIcons {
     }
 }
 
+@media all and (max-height: 530px) {
+
+    .alphabetPicker {
+        font-size: 80%;
+    }
+}
+
+@media all and (max-height: 480px) {
+
+    .alphabetPicker {
+        font-size: 76%;
+    }
+}
+
 @media all and (min-height: 900px) {
 
     .alphabetPicker {
@@ -1151,21 +1173,12 @@ span.itemCommunityRating:not(:empty) + .userDataIcons {
 .itemsListview {
     margin: 0 auto !important;
     max-width: 1000px;
-}
-
-.itemsListview {
     background-color: transparent !important;
     box-shadow: none !important;
 }
 
     .itemsListview .listItem {
-        border-bottom: 1px solid #303030;
-        padding-left: 0;
-        padding-right: 0;
-    }
-
-    .itemsListview .listviewMenuButton {
-        margin-right: 0 !important;
+        border-bottom: 1px solid #2a2a2a;
     }
 
     .itemsListview .ui-li-count {
@@ -1184,50 +1197,6 @@ span.itemCommunityRating:not(:empty) + .userDataIcons {
         left: 55px;
     }
 
-    .itemsListview .content-icon {
-        width: auto !important;
-        padding-right: .7em;
-    }
-
-    .itemsListview.paperList {
-        text-align: left;
-    }
-
-    .itemsListview paper-item-body {
-        min-height: 0 !important;
-    }
-
-    .itemsListview .mediaItem {
-        padding: 7px 0;
-    }
-
-.listviewImage {
-    width: 80px;
-    height: 80px;
-    background-repeat: no-repeat;
-    background-size: contain;
-    background-position: center center;
-}
-
-    .listviewImage.small {
-        width: 70px;
-        height: 70px;
-        background-repeat: no-repeat;
-        background-size: contain;
-        background-position: center center;
-    }
-
-.listViewUserDataButtons {
-    visibility: hidden;
-}
-
-@media all and (min-width: 1200px) {
-
-    .listItem:hover .listViewUserDataButtons {
-        visibility: visible !important;
-    }
-}
-
 @media all and (max-width: 1200px) {
 
     .listViewUserDataButtons {
@@ -1238,10 +1207,6 @@ span.itemCommunityRating:not(:empty) + .userDataIcons {
 .userProfileSettingsForm {
     max-width: 700px;
 }
-
-    .userProfileSettingsForm .detailSectionContent {
-        padding: 0 .5em;
-    }
 
 @media all and (max-width: 700px) {
 

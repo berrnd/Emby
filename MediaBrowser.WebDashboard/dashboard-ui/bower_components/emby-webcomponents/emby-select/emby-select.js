@@ -1,10 +1,15 @@
-﻿define(['layoutManager', 'browser', 'actionsheet', 'css!./emby-select'], function (layoutManager, browser, actionsheet) {
+﻿define(['layoutManager', 'browser', 'actionsheet', 'css!./emby-select', 'registerElement'], function (layoutManager, browser, actionsheet) {
 
     var EmbySelectPrototype = Object.create(HTMLSelectElement.prototype);
 
     function enableNativeMenu() {
 
         if (browser.xboxOne) {
+            return false;
+        }
+
+        // Doesn't seem to work at all
+        if (browser.tizen) {
             return false;
         }
 
@@ -120,13 +125,15 @@
             inputId++;
         }
 
-        this.removeEventListener('mousedown', onMouseDown);
-        this.removeEventListener('keydown', onKeyDown);
         this.removeEventListener('focus', onFocus);
         this.removeEventListener('blur', onBlur);
 
+        this.removeEventListener('mousedown', onMouseDown);
+        this.removeEventListener('keydown', onKeyDown);
+
         this.addEventListener('mousedown', onMouseDown);
         this.addEventListener('keydown', onKeyDown);
+
         this.addEventListener('focus', onFocus);
         this.addEventListener('blur', onBlur);
     };

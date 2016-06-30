@@ -11,28 +11,28 @@ import EWMA from '../utils/ewma';
 
 class EwmaBandWidthEstimator {
 
-  constructor(hls) {
+  constructor(hls,slow,fast) {
     this.hls = hls;
     this.defaultEstimate_ = 5e5; // 500kbps
     this.minWeight_ = 0.001;
     this.minDelayMs_ = 50;
-    this.fast_ = new EWMA(hls.config.abrEwmaFast);
-    this.slow_ = new EWMA(hls.config.abrEwmaSlow);
+    this.slow_ = new EWMA(slow);
+    this.fast_ = new EWMA(fast);
   }
 
   sample(durationMs,numBytes) {
     durationMs = Math.max(durationMs, this.minDelayMs_);
-    var bandwidth = 8000* numBytes / durationMs;
+    var bandwidth = 8000* numBytes / durationMs,
     //console.log('instant bw:'+ Math.round(bandwidth));
     // we weight sample using loading duration....
-    var weigth = durationMs / 1000;
-    this.fast_.sample(weigth,bandwidth);
-    this.slow_.sample(weigth,bandwidth);
+        weight = durationMs / 1000;
+    this.fast_.sample(weight,bandwidth);
+    this.slow_.sample(weight,bandwidth);
   }
 
 
   getEstimate() {
-    if (this.fast_.getTotalWeight() < this.minWeight_) {
+    if (!this.fast_ || this.fast_.getTotalWeight() < this.minWeight_) {
       return this.defaultEstimate_;
     }
     //console.log('slow estimate:'+ Math.round(this.slow_.getEstimate()));

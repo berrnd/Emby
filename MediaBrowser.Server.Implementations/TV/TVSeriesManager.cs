@@ -107,7 +107,6 @@ namespace MediaBrowser.Server.Implementations.TV
             var currentUser = user;
 
             return series
-                .AsParallel()
                 .Select(i => GetNextUp(i, currentUser))
                 // Include if an episode was found, and either the series is not unwatched or the specific series was requested
                 .Where(i => i.Item1 != null && (!i.Item3 || !string.IsNullOrWhiteSpace(request.SeriesId)))
@@ -124,58 +123,45 @@ namespace MediaBrowser.Server.Implementations.TV
         /// <returns>Task{Episode}.</returns>
         private Tuple<Episode, DateTime, bool> GetNextUp(Series series, User user)
         {
-            // Get them in display order, then reverse
-            var allEpisodes = series.GetEpisodes(user, false, false)
-                .Where(i => !i.ParentIndexNumber.HasValue || i.ParentIndexNumber.Value != 0)
-                .Reverse()
-                .ToList();
-
-            Episode lastWatched = null;
-            var lastWatchedDate = DateTime.MinValue;
-            Episode nextUp = null;
-
-            var unplayedEpisodes = new List<Episode>();
-
-            // Go back starting with the most recent episodes
-            foreach (var episode in allEpisodes)
+            var lastWatchedEpisode = _libraryManager.GetItemList(new InternalItemsQuery(user)
             {
-                var userData = _userDataManager.GetUserData(user, episode);
+                AncestorWithPresentationUniqueKey = series.PresentationUniqueKey,
+                IncludeItemTypes = new[] { typeof(Episode).Name },
+                SortBy = new[] { ItemSortBy.SortName },
+                SortOrder = SortOrder.Descending,
+                IsPlayed = true,
+                Limit = 1,
+                IsVirtualItem = false,
+                ParentIndexNumberNotEquals = 0
 
-                if (userData.Played)
+            }).FirstOrDefault();
+
+            var firstUnwatchedEpisode = _libraryManager.GetItemList(new InternalItemsQuery(user)
+            {
+                AncestorWithPresentationUniqueKey = series.PresentationUniqueKey,
+                IncludeItemTypes = new[] { typeof(Episode).Name },
+                SortBy = new[] { ItemSortBy.SortName },
+                SortOrder = SortOrder.Ascending,
+                Limit = 1,
+                IsPlayed = false,
+                IsVirtualItem = false,
+                ParentIndexNumberNotEquals = 0,
+                MinSortName = lastWatchedEpisode == null ? null : lastWatchedEpisode.SortName
+
+            }).Cast<Episode>().FirstOrDefault();
+
+            if (lastWatchedEpisode != null)
+            {
+                var userData = _userDataManager.GetUserData(user, lastWatchedEpisode);
+
+                if (userData.LastPlayedDate.HasValue)
                 {
-                    if (lastWatched != null || nextUp == null)
-                    {
-                        break;
-                    }
-
-                    lastWatched = episode;
-                    lastWatchedDate = userData.LastPlayedDate ?? DateTime.MinValue;
+                    return new Tuple<Episode, DateTime, bool>(firstUnwatchedEpisode, userData.LastPlayedDate.Value, false);
                 }
-                else
-                {
-                    unplayedEpisodes.Add(episode);
-
-                    nextUp = episode;
-                }
-            }
-
-            if (lastWatched != null)
-            {
-                return new Tuple<Episode, DateTime, bool>(nextUp, lastWatchedDate, false);
-            }
-
-            Episode firstEpisode = null;
-            // Find the first unplayed episode. Start from the back of the list since they're in reverse order
-            for (var i = unplayedEpisodes.Count - 1; i >= 0; i--)
-            {
-                var unplayedEpisode = unplayedEpisodes[i];
-
-                firstEpisode = unplayedEpisode;
-                break;
             }
 
             // Return the first episode
-            return new Tuple<Episode, DateTime, bool>(firstEpisode, DateTime.MinValue, true);
+            return new Tuple<Episode, DateTime, bool>(firstUnwatchedEpisode, DateTime.MinValue, true);
         }
 
         private QueryResult<BaseItem> GetResult(IEnumerable<BaseItem> items, int? totalRecordLimit, NextUpQuery query)

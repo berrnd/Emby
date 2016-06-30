@@ -92,10 +92,7 @@ namespace MediaBrowser.Controller.Entities.TV
         {
             get
             {
-                return GetRecursiveChildren(i => i is Episode)
-                        .Select(i => i.DateCreated)
-                        .OrderByDescending(i => i)
-                        .FirstOrDefault();
+                return DateLastMediaAdded ?? DateTime.MinValue;
             }
         }
 
@@ -112,6 +109,20 @@ namespace MediaBrowser.Controller.Entities.TV
                 }
                 return base.PresentationUniqueKey;
             }
+        }
+
+        public override int GetChildCount(User user)
+        {
+            var result = LibraryManager.GetItemsResult(new InternalItemsQuery(user)
+            {
+                AncestorWithPresentationUniqueKey = PresentationUniqueKey,
+                IncludeItemTypes = new[] { typeof(Season).Name },
+                SortBy = new[] { ItemSortBy.SortName },
+                IsVirtualItem = false,
+                Limit = 0
+            });
+
+            return result.TotalRecordCount;
         }
 
         /// <summary>
@@ -189,16 +200,25 @@ namespace MediaBrowser.Controller.Entities.TV
 
             var user = query.User;
 
+            if (query.Recursive)
+            {
+                query.AncestorWithPresentationUniqueKey = PresentationUniqueKey;
+                if (query.SortBy.Length == 0)
+                {
+                    query.SortBy = new[] { ItemSortBy.SortName };
+                }
+                if (query.IncludeItemTypes.Length == 0)
+                {
+                    query.IncludeItemTypes = new[] { typeof(Episode).Name, typeof(Season).Name };
+                }
+                query.IsVirtualItem = false;
+                return Task.FromResult(LibraryManager.GetItemsResult(query));
+            }
+
             Func<BaseItem, bool> filter = i => UserViewBuilder.Filter(i, user, query, UserDataManager, LibraryManager);
 
-            IEnumerable<BaseItem> items;
-
-            items = query.Recursive
-               ? GetSeasons(user).Cast<BaseItem>().Concat(GetEpisodes(user)).Where(filter)
-               : GetSeasons(user).Where(filter);
-
+            var items = GetSeasons(user).Where(filter);
             var result = PostFilterAndSort(items, query);
-
             return Task.FromResult(result);
         }
 
@@ -240,6 +260,7 @@ namespace MediaBrowser.Controller.Entities.TV
                 AncestorWithPresentationUniqueKey = PresentationUniqueKey,
                 IncludeItemTypes = new[] { typeof(Episode).Name, typeof(Season).Name },
                 SortBy = new[] { ItemSortBy.SortName }
+
             }).ToList();
 
             var allSeriesEpisodes = allItems.OfType<Episode>().ToList();

@@ -461,7 +461,7 @@ namespace MediaBrowser.Server.Implementations.LiveTv.EmbyTV
             return CreateTimer(info, cancellationToken);
         }
 
-        public  Task CreateSeriesTimerAsync(SeriesTimerInfo info, CancellationToken cancellationToken)
+        public Task CreateSeriesTimerAsync(SeriesTimerInfo info, CancellationToken cancellationToken)
         {
             return CreateSeriesTimer(info, cancellationToken);
         }
@@ -979,64 +979,57 @@ namespace MediaBrowser.Server.Implementations.LiveTv.EmbyTV
 
             var recordPath = GetRecordingPath(timer, info);
             var recordingStatus = RecordingStatus.New;
+            var isResourceOpen = false;
+            SemaphoreSlim semaphore = null;
 
             try
             {
                 var result = await GetChannelStreamInternal(timer.ChannelId, null, CancellationToken.None).ConfigureAwait(false);
+                isResourceOpen = true;
+                semaphore = result.Item3;
                 var mediaStreamInfo = result.Item1;
-                var isResourceOpen = true;
 
-                // Unfortunately due to the semaphore we have to have a nested try/finally
-                try
+                // HDHR doesn't seem to release the tuner right away after first probing with ffmpeg
+                //await Task.Delay(3000, cancellationToken).ConfigureAwait(false);
+
+                var recorder = await GetRecorder().ConfigureAwait(false);
+
+                recordPath = recorder.GetOutputPath(mediaStreamInfo, recordPath);
+                recordPath = EnsureFileUnique(recordPath, timer.Id);
+
+                _libraryMonitor.ReportFileSystemChangeBeginning(recordPath);
+                _fileSystem.CreateDirectory(Path.GetDirectoryName(recordPath));
+                activeRecordingInfo.Path = recordPath;
+
+                var duration = recordingEndDate - DateTime.UtcNow;
+
+                _logger.Info("Beginning recording. Will record for {0} minutes.", duration.TotalMinutes.ToString(CultureInfo.InvariantCulture));
+
+                _logger.Info("Writing file to path: " + recordPath);
+                _logger.Info("Opening recording stream from tuner provider");
+
+                Action onStarted = () =>
                 {
-                    // HDHR doesn't seem to release the tuner right away after first probing with ffmpeg
-                    //await Task.Delay(3000, cancellationToken).ConfigureAwait(false);
+                    timer.Status = RecordingStatus.InProgress;
+                    _timerProvider.AddOrUpdate(timer, false);
 
-                    var recorder = await GetRecorder().ConfigureAwait(false);
+                    result.Item3.Release();
+                    isResourceOpen = false;
+                };
 
-                    recordPath = recorder.GetOutputPath(mediaStreamInfo, recordPath);
-                    recordPath = EnsureFileUnique(recordPath, timer.Id);
+                var pathWithDuration = result.Item2.ApplyDuration(mediaStreamInfo.Path, duration);
 
-                    _libraryMonitor.ReportFileSystemChangeBeginning(recordPath);
-                    _fileSystem.CreateDirectory(Path.GetDirectoryName(recordPath));
-                    activeRecordingInfo.Path = recordPath;
-
-                    var duration = recordingEndDate - DateTime.UtcNow;
-
-                    _logger.Info("Beginning recording. Will record for {0} minutes.", duration.TotalMinutes.ToString(CultureInfo.InvariantCulture));
-
-                    _logger.Info("Writing file to path: " + recordPath);
-                    _logger.Info("Opening recording stream from tuner provider");
-
-                    Action onStarted = () =>
-                    {
-                        result.Item3.Release();
-                        isResourceOpen = false;
-                    };
-
-                    var pathWithDuration = result.Item2.ApplyDuration(mediaStreamInfo.Path, duration);
-
-                    // If it supports supplying duration via url
-                    if (!string.Equals(pathWithDuration, mediaStreamInfo.Path, StringComparison.OrdinalIgnoreCase))
-                    {
-                        mediaStreamInfo.Path = pathWithDuration;
-                        mediaStreamInfo.RunTimeTicks = duration.Ticks;
-                    }
-
-                    await recorder.Record(mediaStreamInfo, recordPath, duration, onStarted, cancellationToken).ConfigureAwait(false);
-
-                    recordingStatus = RecordingStatus.Completed;
-                    _logger.Info("Recording completed: {0}", recordPath);
-                }
-                finally
+                // If it supports supplying duration via url
+                if (!string.Equals(pathWithDuration, mediaStreamInfo.Path, StringComparison.OrdinalIgnoreCase))
                 {
-                    if (isResourceOpen)
-                    {
-                        result.Item3.Release();
-                    }
-
-                    _libraryMonitor.ReportFileSystemChangeComplete(recordPath, true);
+                    mediaStreamInfo.Path = pathWithDuration;
+                    mediaStreamInfo.RunTimeTicks = duration.Ticks;
                 }
+
+                await recorder.Record(mediaStreamInfo, recordPath, duration, onStarted, cancellationToken).ConfigureAwait(false);
+
+                recordingStatus = RecordingStatus.Completed;
+                _logger.Info("Recording completed: {0}", recordPath);
             }
             catch (OperationCanceledException)
             {
@@ -1050,21 +1043,32 @@ namespace MediaBrowser.Server.Implementations.LiveTv.EmbyTV
             }
             finally
             {
+                if (isResourceOpen && semaphore != null)
+                {
+                    semaphore.Release();
+                }
+
+                _libraryMonitor.ReportFileSystemChangeComplete(recordPath, true);
+
                 ActiveRecordingInfo removed;
                 _activeRecordings.TryRemove(timer.Id, out removed);
             }
 
             if (recordingStatus == RecordingStatus.Completed)
             {
-                OnSuccessfulRecording(info.IsSeries, recordPath);
+                timer.Status = RecordingStatus.Completed;
                 _timerProvider.Delete(timer);
+
+                OnSuccessfulRecording(info.IsSeries, recordPath);
             }
             else if (DateTime.UtcNow < timer.EndDate)
             {
                 const int retryIntervalSeconds = 60;
                 _logger.Info("Retrying recording in {0} seconds.", retryIntervalSeconds);
 
-                _timerProvider.StartTimer(timer, TimeSpan.FromSeconds(retryIntervalSeconds));
+                timer.Status = RecordingStatus.New;
+                timer.StartDate = DateTime.UtcNow.AddSeconds(retryIntervalSeconds);
+                _timerProvider.AddOrUpdate(timer);
             }
             else
             {
@@ -1116,7 +1120,7 @@ namespace MediaBrowser.Server.Implementations.LiveTv.EmbyTV
 
                 if (regInfo.IsValid)
                 {
-                    return new EncodedRecorder(_logger, _fileSystem, _mediaEncoder, _config.ApplicationPaths, _jsonSerializer, config);
+                    return new EncodedRecorder(_logger, _fileSystem, _mediaEncoder, _config.ApplicationPaths, _jsonSerializer, config, _httpClient);
                 }
             }
 

@@ -1,4 +1,4 @@
-﻿define(['layoutManager', 'browser', 'css!./emby-input'], function (layoutManager, browser) {
+﻿define(['layoutManager', 'browser', 'css!./emby-input', 'registerElement'], function (layoutManager, browser) {
 
     var EmbyInputPrototype = Object.create(HTMLInputElement.prototype);
 
@@ -9,10 +9,12 @@
 
         var descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
 
-        if (descriptor.configurable) {
+        // descriptor returning null in webos
+        if (descriptor && descriptor.configurable) {
             var baseSetMethod = descriptor.set;
             descriptor.set = function (value) {
                 baseSetMethod.call(this, value);
+
                 this.dispatchEvent(new CustomEvent('valueset', {
                     bubbles: false,
                     cancelable: false
@@ -45,7 +47,7 @@
         label.innerHTML = this.getAttribute('label') || '';
         label.classList.add('inputLabel');
 
-        if (!supportsFloatingLabel) {
+        if (!supportsFloatingLabel || this.type == 'date') {
             label.classList.add('nofloat');
         }
 
@@ -78,6 +80,10 @@
         this.addEventListener('valueset', onChange);
 
         onChange.call(this);
+
+        this.label = function (text) {
+            label.innerHTML = text;
+        };
     };
 
     document.registerElement('emby-input', {
