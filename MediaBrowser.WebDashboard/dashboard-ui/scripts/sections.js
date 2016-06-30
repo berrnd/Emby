@@ -133,9 +133,12 @@
 
             var html = '<br/>';
 
-            if (index) {
-                html += '<h1 class="listHeader">' + Globalize.translate('HeaderMyMedia') + '</h1>';
-            }
+			//myproduction-change-start
+			//Always show header and changed headline
+            //if (index) {
+                html += '<h1 class="listHeader">Medien</h1>';
+            //}
+			//myproduction-change-end
             html += '<div>';
             html += getLibraryButtonsHtml(items);
             html += '</div>';
