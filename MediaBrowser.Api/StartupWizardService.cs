@@ -117,8 +117,8 @@ namespace MediaBrowser.Api
             config.EnableCustomPathSubFolders = true;
             config.EnableStandaloneMusicKeys = true;
             config.EnableCaseSensitiveItemIds = true;
-            config.EnableFolderView = true;
-            config.SchemaVersion = 96;
+            //config.EnableFolderView = true;
+            config.SchemaVersion = 97;
         }
 
         public void Post(UpdateStartupConfiguration request)

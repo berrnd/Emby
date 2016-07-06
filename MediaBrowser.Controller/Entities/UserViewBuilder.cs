@@ -20,6 +20,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Model.Configuration;
+using MoreLinq;
 
 namespace MediaBrowser.Controller.Entities
 {
@@ -550,7 +551,7 @@ namespace MediaBrowser.Controller.Entities
             query.Limit = GetSpecialItemsLimit();
             query.IncludeItemTypes = new[] { typeof(Movie).Name };
 
-            return _libraryManager.GetItemsResult(query);
+            return ConvertToResult(_libraryManager.GetItemList(query));
         }
 
         private QueryResult<BaseItem> GetMovieResume(Folder parent, User user, InternalItemsQuery query)
@@ -564,7 +565,17 @@ namespace MediaBrowser.Controller.Entities
             query.Limit = GetSpecialItemsLimit();
             query.IncludeItemTypes = new[] { typeof(Movie).Name };
 
-            return _libraryManager.GetItemsResult(query);
+            return ConvertToResult(_libraryManager.GetItemList(query));
+        }
+
+        private QueryResult<BaseItem> ConvertToResult(IEnumerable<BaseItem> items)
+        {
+            var arr = items.ToArray();
+            return new QueryResult<BaseItem>
+            {
+                Items = arr,
+                TotalRecordCount = arr.Length
+            };
         }
 
         private async Task<QueryResult<BaseItem>> GetMovieGenres(Folder parent, User user, InternalItemsQuery query)
@@ -667,7 +678,7 @@ namespace MediaBrowser.Controller.Entities
             query.IncludeItemTypes = new[] { typeof(Episode).Name };
             query.ExcludeLocationTypes = new[] { LocationType.Virtual };
 
-            return _libraryManager.GetItemsResult(query);
+            return ConvertToResult(_libraryManager.GetItemList(query));
         }
 
         private QueryResult<BaseItem> GetTvNextUp(Folder parent, InternalItemsQuery query)
@@ -696,7 +707,7 @@ namespace MediaBrowser.Controller.Entities
             query.Limit = GetSpecialItemsLimit();
             query.IncludeItemTypes = new[] { typeof(Episode).Name };
 
-            return _libraryManager.GetItemsResult(query);
+            return ConvertToResult(_libraryManager.GetItemList(query));
         }
 
         private QueryResult<BaseItem> GetTvSeries(Folder parent, User user, InternalItemsQuery query)
@@ -1190,7 +1201,7 @@ namespace MediaBrowser.Controller.Entities
         {
             var user = query.User;
 
-            items = libraryManager.ReplaceVideosWithPrimaryVersions(items);
+            items = items.DistinctBy(i => i.PresentationUniqueKey, StringComparer.OrdinalIgnoreCase);
 
             if (query.SortBy.Length > 0)
             {

@@ -7,6 +7,7 @@ using MediaBrowser.Model.Querying;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using MediaBrowser.Controller.Configuration;
 
 namespace MediaBrowser.Server.Implementations.TV
 {
@@ -15,12 +16,14 @@ namespace MediaBrowser.Server.Implementations.TV
         private readonly IUserManager _userManager;
         private readonly IUserDataManager _userDataManager;
         private readonly ILibraryManager _libraryManager;
+        private readonly IServerConfigurationManager _config;
 
-        public TVSeriesManager(IUserManager userManager, IUserDataManager userDataManager, ILibraryManager libraryManager)
+        public TVSeriesManager(IUserManager userManager, IUserDataManager userDataManager, ILibraryManager libraryManager, IServerConfigurationManager config)
         {
             _userManager = userManager;
             _userDataManager = userDataManager;
             _libraryManager = libraryManager;
+            _config = config;
         }
 
         public QueryResult<BaseItem> GetNextUp(NextUpQuery request)
@@ -32,9 +35,7 @@ namespace MediaBrowser.Server.Implementations.TV
                 throw new ArgumentException("User not found");
             }
 
-            var parentIds = string.IsNullOrEmpty(request.ParentId)
-                ? new string[] { }
-                : new[] { request.ParentId };
+            var parentIdGuid = string.IsNullOrWhiteSpace(request.ParentId) ? (Guid?)null : new Guid(request.ParentId);
 
             string presentationUniqueKey = null;
             int? limit = null;
@@ -44,7 +45,7 @@ namespace MediaBrowser.Server.Implementations.TV
 
                 if (series != null)
                 {
-                    presentationUniqueKey = series.PresentationUniqueKey;
+                    presentationUniqueKey = GetUniqueSeriesKey(series);
                     limit = 1;
                 }
             }
@@ -54,9 +55,11 @@ namespace MediaBrowser.Server.Implementations.TV
                 IncludeItemTypes = new[] { typeof(Series).Name },
                 SortOrder = SortOrder.Ascending,
                 PresentationUniqueKey = presentationUniqueKey,
-                Limit = limit
+                Limit = limit,
+                ParentId = parentIdGuid,
+                Recursive = true
 
-            }, parentIds).Cast<Series>();
+            }).Cast<Series>();
 
             // Avoid implicitly captured closure
             var episodes = GetNextUpEpisodes(request, user, items);
@@ -81,7 +84,7 @@ namespace MediaBrowser.Server.Implementations.TV
 
                 if (series != null)
                 {
-                    presentationUniqueKey = series.PresentationUniqueKey;
+                    presentationUniqueKey = GetUniqueSeriesKey(series);
                     limit = 1;
                 }
             }
@@ -115,6 +118,15 @@ namespace MediaBrowser.Server.Implementations.TV
                 .Select(i => i.Item1);
         }
 
+        private string GetUniqueSeriesKey(BaseItem series)
+        {
+            if (_config.Configuration.SchemaVersion < 97)
+            {
+                return series.Id.ToString("N");
+            }
+            return series.PresentationUniqueKey;
+        }
+
         /// <summary>
         /// Gets the next up.
         /// </summary>
@@ -125,7 +137,7 @@ namespace MediaBrowser.Server.Implementations.TV
         {
             var lastWatchedEpisode = _libraryManager.GetItemList(new InternalItemsQuery(user)
             {
-                AncestorWithPresentationUniqueKey = series.PresentationUniqueKey,
+                AncestorWithPresentationUniqueKey = GetUniqueSeriesKey(series),
                 IncludeItemTypes = new[] { typeof(Episode).Name },
                 SortBy = new[] { ItemSortBy.SortName },
                 SortOrder = SortOrder.Descending,
@@ -138,7 +150,7 @@ namespace MediaBrowser.Server.Implementations.TV
 
             var firstUnwatchedEpisode = _libraryManager.GetItemList(new InternalItemsQuery(user)
             {
-                AncestorWithPresentationUniqueKey = series.PresentationUniqueKey,
+                AncestorWithPresentationUniqueKey = GetUniqueSeriesKey(series),
                 IncludeItemTypes = new[] { typeof(Episode).Name },
                 SortBy = new[] { ItemSortBy.SortName },
                 SortOrder = SortOrder.Ascending,
@@ -150,14 +162,13 @@ namespace MediaBrowser.Server.Implementations.TV
 
             }).Cast<Episode>().FirstOrDefault();
 
-            if (lastWatchedEpisode != null)
+            if (lastWatchedEpisode != null && firstUnwatchedEpisode != null)
             {
                 var userData = _userDataManager.GetUserData(user, lastWatchedEpisode);
 
-                if (userData.LastPlayedDate.HasValue)
-                {
-                    return new Tuple<Episode, DateTime, bool>(firstUnwatchedEpisode, userData.LastPlayedDate.Value, false);
-                }
+                var lastWatchedDate = userData.LastPlayedDate ?? DateTime.MinValue.AddDays(1);
+
+                return new Tuple<Episode, DateTime, bool>(firstUnwatchedEpisode, lastWatchedDate, false);
             }
 
             // Return the first episode

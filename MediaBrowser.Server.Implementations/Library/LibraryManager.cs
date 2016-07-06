@@ -33,6 +33,7 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using CommonIO;
+using MediaBrowser.Model.Channels;
 using MediaBrowser.Model.Dto;
 using MediaBrowser.Model.Extensions;
 using MediaBrowser.Model.Library;
@@ -558,16 +559,6 @@ namespace MediaBrowser.Server.Implementations.Library
             key = type.FullName + key;
 
             return key.GetMD5();
-        }
-
-        public IEnumerable<BaseItem> ReplaceVideosWithPrimaryVersions(IEnumerable<BaseItem> items)
-        {
-            if (items == null)
-            {
-                throw new ArgumentNullException("items");
-            }
-
-            return items.DistinctBy(i => i.PresentationUniqueKey, StringComparer.OrdinalIgnoreCase);
         }
 
         /// <summary>
@@ -1312,9 +1303,36 @@ namespace MediaBrowser.Server.Implementations.Library
 
         public IEnumerable<BaseItem> GetItemList(InternalItemsQuery query)
         {
+            if (query.Recursive && query.ParentId.HasValue)
+            {
+                var parent = GetItemById(query.ParentId.Value);
+                if (parent != null)
+                {
+                    SetTopParentIdsOrAncestors(query, new List<BaseItem> { parent });
+                    query.ParentId = null;
+                }
+            }
+
             if (query.User != null)
             {
                 AddUserToQuery(query, query.User);
+            }
+
+            return ItemRepository.GetItemList(query);
+        }
+
+        public IEnumerable<BaseItem> GetItemList(InternalItemsQuery query, IEnumerable<string> parentIds)
+        {
+            var parents = parentIds.Select(i => GetItemById(new Guid(i))).Where(i => i != null).ToList();
+
+            SetTopParentIdsOrAncestors(query, parents);
+
+            if (query.AncestorIds.Length == 0 && query.TopParentIds.Length == 0)
+            {
+                if (query.User != null)
+                {
+                    AddUserToQuery(query, query.User);
+                }
             }
 
             return ItemRepository.GetItemList(query);
@@ -1441,15 +1459,6 @@ namespace MediaBrowser.Server.Implementations.Library
             return ItemRepository.GetAlbumArtists(query);
         }
 
-        public IEnumerable<BaseItem> GetItemList(InternalItemsQuery query, IEnumerable<string> parentIds)
-        {
-            var parents = parentIds.Select(i => GetItemById(new Guid(i))).Where(i => i != null).ToList();
-
-            SetTopParentIdsOrAncestors(query, parents);
-
-            return ItemRepository.GetItemList(query);
-        }
-
         public QueryResult<BaseItem> GetItemsResult(InternalItemsQuery query)
         {
             if (query.Recursive && query.ParentId.HasValue)
@@ -1476,15 +1485,6 @@ namespace MediaBrowser.Server.Implementations.Library
             {
                 Items = ItemRepository.GetItemList(query).ToArray()
             };
-        }
-
-        public QueryResult<BaseItem> GetItemsResult(InternalItemsQuery query, IEnumerable<string> parentIds)
-        {
-            var parents = parentIds.Select(i => GetItemById(new Guid(i))).Where(i => i != null).ToList();
-
-            SetTopParentIdsOrAncestors(query, parents);
-
-            return GetItemsResult(query);
         }
 
         private void SetTopParentIdsOrAncestors(InternalItemsQuery query, List<BaseItem> parents)
@@ -1538,8 +1538,13 @@ namespace MediaBrowser.Server.Implementations.Library
                 }
                 if (string.Equals(view.ViewType, CollectionType.Channels))
                 {
-                    // TODO: Return channels
-                    return new[] { view };
+                    var channelResult = BaseItem.ChannelManager.GetChannelsInternal(new ChannelQuery
+                    {
+                        UserId = user.Id.ToString("N")
+
+                    }, CancellationToken.None).Result;
+                    
+                    return channelResult.Items;
                 }
 
                 // Translate view into folders

@@ -1655,7 +1655,7 @@ namespace MediaBrowser.Controller.Entities
 
             if (datePlayed.HasValue)
             {
-                // Incremenet
+                // Increment
                 data.PlayCount++;
             }
 
@@ -1667,7 +1667,7 @@ namespace MediaBrowser.Controller.Entities
                 data.PlaybackPositionTicks = 0;
             }
 
-            data.LastPlayedDate = datePlayed ?? data.LastPlayedDate;
+            data.LastPlayedDate = datePlayed ?? data.LastPlayedDate ?? DateTime.UtcNow;
             data.Played = true;
 
             await UserDataManager.SaveUserData(user.Id, this, data, UserDataSaveReason.TogglePlayed, CancellationToken.None).ConfigureAwait(false);
@@ -2175,7 +2175,7 @@ namespace MediaBrowser.Controller.Entities
         {
             get
             {
-                if (GetParent() is AggregateFolder || this is BasePluginFolder)
+                if (GetParent() is AggregateFolder || this is BasePluginFolder || this is Channel)
                 {
                     return true;
                 }

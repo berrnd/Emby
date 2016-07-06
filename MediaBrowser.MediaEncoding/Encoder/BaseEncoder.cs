@@ -81,7 +81,7 @@ namespace MediaBrowser.MediaEncoding.Encoder
                     UseShellExecute = false,
 
                     // Must consume both stdout and stderr or deadlocks may occur
-                    RedirectStandardOutput = true,
+                    //RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     RedirectStandardInput = true,
 
@@ -133,7 +133,7 @@ namespace MediaBrowser.MediaEncoding.Encoder
             cancellationToken.Register(() => Cancel(process, encodingJob));
 
             // MUST read both stdout and stderr asynchronously or a deadlock may occurr
-            process.BeginOutputReadLine();
+            //process.BeginOutputReadLine();
 
             // Important - don't await the log task or we won't be able to kill ffmpeg when the user stops playback
             new JobLogger(Logger).StartStreamingLog(encodingJob, process.StandardError.BaseStream, encodingJob.LogFileStream);
@@ -377,7 +377,7 @@ namespace MediaBrowser.MediaEncoding.Encoder
                             if (MediaEncoder.SupportsDecoder("h264_qsv"))
                             {
                                 // Seeing stalls and failures with decoding. Not worth it compared to encoding.
-                                //return "-c:v h264_qsv ";
+                                return "-c:v h264_qsv ";
                             }
                             break;
                         case "mpeg2video":
@@ -607,10 +607,10 @@ namespace MediaBrowser.MediaEncoding.Encoder
 
             }
 
-            // h264 (libnvenc)
-            else if (string.Equals(videoCodec, "libnvenc", StringComparison.OrdinalIgnoreCase))
+            // h264 (h264_nvenc)
+            else if (string.Equals(videoCodec, "h264_nvenc", StringComparison.OrdinalIgnoreCase))
             {
-                param = "-preset high-performance";
+                param = "-preset llhq";
             }
 
             // webm
@@ -672,17 +672,20 @@ namespace MediaBrowser.MediaEncoding.Encoder
 
             if (!string.IsNullOrEmpty(state.Options.Profile))
             {
-                param += " -profile:v " + state.Options.Profile;
+                if (!string.Equals(videoCodec, "h264_omx", StringComparison.OrdinalIgnoreCase))
+                {
+                    // not supported by h264_omx
+                    param += " -profile:v " + state.Options.Profile;
+                }
             }
 
             var levelString = state.Options.Level.HasValue ? state.Options.Level.Value.ToString(CultureInfo.InvariantCulture) : null;
 
             if (!string.IsNullOrEmpty(levelString))
             {
-                var h264Encoder = EncodingJobFactory.GetH264Encoder(state, GetEncodingOptions());
-
-                // h264_qsv and libnvenc expect levels to be expressed as a decimal. libx264 supports decimal and non-decimal format
-                if (String.Equals(h264Encoder, "h264_qsv", StringComparison.OrdinalIgnoreCase) || String.Equals(h264Encoder, "libnvenc", StringComparison.OrdinalIgnoreCase))
+                // h264_qsv and h264_nvenc expect levels to be expressed as a decimal. libx264 supports decimal and non-decimal format
+                if (string.Equals(videoCodec, "h264_qsv", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(videoCodec, "h264_nvenc", StringComparison.OrdinalIgnoreCase))
                 {
                     switch (levelString)
                     {
@@ -718,13 +721,20 @@ namespace MediaBrowser.MediaEncoding.Encoder
                             break;
                     }
                 }
-                else
+                else if (!string.Equals(videoCodec, "h264_omx", StringComparison.OrdinalIgnoreCase))
                 {
                     param += " -level " + levelString;
                 }
             }
 
-            return "-pix_fmt yuv420p " + param;
+            if (!string.Equals(videoCodec, "h264_omx", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(videoCodec, "h264_qsv", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(videoCodec, "h264_nvenc", StringComparison.OrdinalIgnoreCase))
+            {
+                param = "-pix_fmt yuv420p " + param;
+            }
+
+            return param;
         }
 
         protected string GetVideoBitrateParam(EncodingJob state, string videoCodec)

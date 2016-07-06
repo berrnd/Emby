@@ -192,6 +192,7 @@ namespace MediaBrowser.Model.Configuration
 
         public int MigrationVersion { get; set; }
         public int SchemaVersion { get; set; }
+        public int SqliteCacheSize { get; set; }
 
         public bool DownloadImagesInAdvance { get; set; }
 
@@ -211,6 +212,7 @@ namespace MediaBrowser.Model.Configuration
         {
             LocalNetworkAddresses = new string[] { };
             Migrations = new string[] { };
+            SqliteCacheSize = 0;
 
             EnableCustomPathSubFolders = true;
             EnableLocalizedGuids = true;
