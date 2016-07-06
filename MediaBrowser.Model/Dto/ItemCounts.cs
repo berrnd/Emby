@@ -1,4 +1,6 @@
-﻿namespace MediaBrowser.Model.Dto
+﻿using System;
+
+namespace MediaBrowser.Model.Dto
 {
     /// <summary>
     /// Class LibrarySummary
@@ -63,8 +65,9 @@
         public int ItemCount { get; set; }
 
         //myproduction-change-start
-        //Added TotalRunTimeTicks to ItemCounts
+        //Added TotalRunTimeTicks and NewestItemDate to ItemCounts
         public long? TotalRunTimeTicks { get; set; }
+        public DateTime? NewestItemDate { get; set; }
         //myproduction-change-end
     }
 }

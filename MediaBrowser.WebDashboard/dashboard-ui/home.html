@@ -43,26 +43,8 @@
 				document.getElementById("statisticsTotalRunTime").textContent = germanDuration(itemCounts.TotalRunTimeTicks);
 				document.getElementById("statisticsTotalFileSize").textContent = "TODO_ADD_TOTAL_FILE_SIZE";
 				document.getElementById("statisticsSectionMediaSummaryData").classList.remove("hide");
-			});
-			
-			var newestMediaItemQuery =
-			{
-				SortBy: "DateCreated",
-				SortOrder: "Descending",
-				Recursive: true,
-				Fields: "DateCreated",
-				IsMissing: false,
-				IsVirtualUnaired: false,
-				ImageTypeLimit: 0,
-				StartIndex: 0,
-				Limit: 1
-			}
-			
-			ApiClient.getItems(Dashboard.getCurrentUserId(), newestMediaItemQuery).then(function (newestItems)
-			{
-				var newestItemDate = new Date(newestItems.Items[0].DateCreated);
-				document.getElementById("statisticsNewestItemDate").textContent = germanDate(newestItemDate);
-				
+
+				document.getElementById("statisticsNewestItemDate").textContent = germanDate(new Date(itemCounts.NewestItemDate));
 				document.getElementById("statisticsSectionNewestItem").classList.remove("hide");
 			});
 			

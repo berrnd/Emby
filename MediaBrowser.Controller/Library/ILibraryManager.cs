@@ -570,8 +570,9 @@ namespace MediaBrowser.Controller.Library
         QueryResult<Tuple<BaseItem, ItemCounts>> GetAlbumArtists(InternalItemsQuery query);
 
         //myproduction-change-start
-        //Added TotalRunTimeTicks caching
+        //Added TotalRunTimeTicks and NewestItemDate caching
         long? GetTotalRuntimeTicks();
+        DateTime? GetNewestItemDate();
         //myproduction-change-end
     }
 }

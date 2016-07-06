@@ -201,11 +201,12 @@ namespace MediaBrowser.Server.Implementations.Library
         }
 
         //myproduction-change-start
-        //Added TotalRunTimeTicks caching
+        //Added TotalRunTimeTicks and NewestItemDate caching
         private long? _cachedTotalRuntimeTicks = null; //Cached because of expensive calculation
         private void ItemAddedOrUpdatedOrRemoved(object sender, ItemChangeEventArgs e)
         {
             _cachedTotalRuntimeTicks = null;
+            _cachedNewestItemDate = null;
         }
 
         public long? GetTotalRuntimeTicks()
@@ -224,6 +225,29 @@ namespace MediaBrowser.Server.Implementations.Library
             }
 
             return _cachedTotalRuntimeTicks;
+        }
+
+        private DateTime? _cachedNewestItemDate = null; //Cached because of expensive calculation
+        public DateTime? GetNewestItemDate()
+        {
+            if (_cachedNewestItemDate == null)
+            {
+                _logger.Info("LibraryManager.GetNewestItemDate: Recalculating...");
+                var query = new InternalItemsQuery()
+                {
+                    SortBy = new string[] { "DateCreated" },
+                    SortOrder = SortOrder.Descending,
+                    Recursive = true,
+                    IsMissing = false,
+                    Limit = 1,
+                    ExcludeLocationTypes = new[] { LocationType.Virtual },
+                    SourceTypes = new[] { SourceType.Library }
+                };
+
+                _cachedNewestItemDate = GetItemsResult(query).Items.First().DateCreated;
+            }
+
+            return _cachedNewestItemDate;
         }
         //myproduction-change-end
 
