@@ -21,8 +21,101 @@
         </div>
 		
 		<!--myproduction-change-start-->
+		<!--Added statistics overview-->
+		<div class="homePageSection" style="display: inline-block; vertical-align: top; margin-right: 15px;">
+			<h1 class="listHeader">Statistik</h1>
+			<div>
+				<h2 id="statisticsSectionMediaSummary" class="hide" style="display: inline;">Aktuell sind <span id="statisticsMovieCount" style="color: #F16834;"></span> Filme und <span id="statisticsSeriesCount" style="color: #F16834;"></span> Serien mit insgesamt <span id="statisticsEpisodesCount" style="color: #F16834;"></span> Episoden verfügbar</h2>
+        <p style="line-height: 5px; font-size: 5px;"></p>
+				<h2 id="statisticsSectionMediaSummaryData" class="hide" style="display: inline;">Das entspricht einer Datenmenge von <span id="statisticsTotalFileSize" style="color: #F16834;"></span><br>bzw. einer gesamten Spieldauer von <span id="statisticsTotalRunTime" style="color: #F16834;"></span></h2>
+        <p style="line-height: 5px; font-size: 5px;"></p>
+				<h2 id="statisticsSectionNewestItem" class="hide" style="display: inline;">Neue Medieninhalte wurden zuletzt am <span id="statisticsNewestItemDate" style="color: #F16834;"></span> hinzugefügt</h2>
+			</div>
+		</div>
+		<script>
+			ApiClient.getItemCounts().then(function (itemCounts)
+			{
+				document.getElementById("statisticsMovieCount").textContent = itemCounts.MovieCount;
+				document.getElementById("statisticsSeriesCount").textContent = itemCounts.SeriesCount;
+				document.getElementById("statisticsEpisodesCount").textContent = itemCounts.EpisodeCount;
+				document.getElementById("statisticsSectionMediaSummary").classList.remove("hide");
+				
+				document.getElementById("statisticsTotalRunTime").textContent = germanDuration(itemCounts.TotalRunTimeTicks);
+				document.getElementById("statisticsTotalFileSize").textContent = "TODO_ADD_TOTAL_FILE_SIZE";
+				document.getElementById("statisticsSectionMediaSummaryData").classList.remove("hide");
+			});
+			
+			var newestMediaItemQuery =
+			{
+				SortBy: "DateCreated",
+				SortOrder: "Descending",
+				Recursive: true,
+				Fields: "DateCreated",
+				IsMissing: false,
+				IsVirtualUnaired: false,
+				ImageTypeLimit: 0,
+				StartIndex: 0,
+				Limit: 1
+			}
+			
+			ApiClient.getItems(Dashboard.getCurrentUserId(), newestMediaItemQuery).then(function (newestItems)
+			{
+				var newestItemDate = new Date(newestItems.Items[0].DateCreated);
+				document.getElementById("statisticsNewestItemDate").textContent = germanDate(newestItemDate);
+				
+				document.getElementById("statisticsSectionNewestItem").classList.remove("hide");
+			});
+			
+			function germanDate(dateObject)
+			{
+				return ("0" + dateObject.getDate().toString()).substr(-2) + "." + ("0" + dateObject.getMonth().toString()).substr(-2) + "." + dateObject.getFullYear().toString();
+			}
+			
+			function germanTime(dateObject)
+			{
+				return ("0" + dateObject.getHours().toString()).substr(-2) + ":" + ("0" + dateObject.getMinutes().toString()).substr(-2);
+			}
+			
+			function germanDuration(ticks)
+			{
+				var totalSeconds = ticks / 1000 / 1000;
+				var years = Math.floor(totalSeconds / 31536000);
+				var days = Math.floor((totalSeconds % 31536000) / 86400);
+				var hours = Math.floor(((totalSeconds % 31536000) % 86400) / 3600);
+				//var minutes = Math.floor((((totalSeconds % 31536000) % 86400) % 3600) / 60);
+				
+				var yearTxt = "Jahren";
+				if (years == 1)
+				{
+					yearTxt = "Jahr";
+				}
+				
+				var dayTxt = "Tagen";
+				if (days == 1)
+				{
+					dayTxt = "Tag";
+				}
+				
+				var hourTxt = "Stunden";
+				if (hours == 1)
+				{
+					hourTxt = "Stunde";
+				}
+				
+				//var minuteTxt = "Minuten";
+				//if (minutes == 1)
+				//{
+				//	hourTxt = "Minute";
+				//}
+				
+				return years.toString() + " " + yearTxt + ", " + days.toString() + " " + dayTxt + ", " + hours.toString() + " " + hourTxt + "";
+			}
+		</script>
+		<!--myproduction-change-end-->
+		
+		<!--myproduction-change-start-->
 		<!--Added wish button-->
-		<div class="homePageSection">
+		<div class="homePageSection" style="display: inline-block; float: right;">
 			<h1 class="listHeader">Wunschecke</h1>
 			<p>Eine Serie ist unvollständig, du hättest gerne was Neues oder irgendwas geht nicht?</p>
 			<p><button is="emby-button" type="button" class="raised" onclick="WuenschDirWas();"><i class="md-icon">add_shopping_cart</i><span>Ich wünsch mir was</span></button></p>

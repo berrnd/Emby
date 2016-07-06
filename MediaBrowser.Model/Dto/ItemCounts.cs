@@ -61,5 +61,10 @@
         /// <value>The book count.</value>
         public int BookCount { get; set; }
         public int ItemCount { get; set; }
+
+        //myproduction-change-start
+        //Added TotalRunTimeTicks to ItemCounts
+        public long? TotalRunTimeTicks { get; set; }
+        //myproduction-change-end
     }
 }

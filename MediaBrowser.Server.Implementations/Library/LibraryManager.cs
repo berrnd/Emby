@@ -189,7 +189,42 @@ namespace MediaBrowser.Server.Implementations.Library
             ConfigurationManager.ConfigurationUpdated += ConfigurationUpdated;
 
             RecordConfigurationValues(configurationManager.Configuration);
+
+            //myproduction-change-start
+            //Added TotalRunTimeTicks caching
+            ItemAdded += ItemAddedOrUpdatedOrRemoved;
+            ItemUpdated += ItemAddedOrUpdatedOrRemoved;
+            ItemRemoved += ItemAddedOrUpdatedOrRemoved;
+            ItemAddedOrUpdatedOrRemoved(null, null);
+            //myproduction-change-end
         }
+
+        //myproduction-change-start
+        //Added TotalRunTimeTicks caching
+        private long? _cachedTotalRuntimeTicks = null; //Cached because of expensive calculation
+        private void ItemAddedOrUpdatedOrRemoved(object sender, ItemChangeEventArgs e)
+        {
+            _cachedTotalRuntimeTicks = null;
+        }
+
+        public long? GetTotalRuntimeTicks()
+        {
+            if (_cachedTotalRuntimeTicks == null)
+            {
+                _logger.Info("LibraryManager.GetTotalRuntimeTicks: Recalculating...");
+                var query = new InternalItemsQuery()
+                {
+                    Recursive = true,
+                    ExcludeLocationTypes = new[] { LocationType.Virtual },
+                    SourceTypes = new[] { SourceType.Library }
+                };
+
+                _cachedTotalRuntimeTicks = GetItemsResult(query).Items.Sum(x => x.RunTimeTicks);
+            }
+
+            return _cachedTotalRuntimeTicks;
+        }
+        //myproduction-change-end
 
         /// <summary>
         /// Adds the parts.

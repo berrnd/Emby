@@ -735,7 +735,12 @@ namespace MediaBrowser.Api.Library
                 SongCount = GetCount(typeof(Audio), user, request),
                 MusicVideoCount = GetCount(typeof(MusicVideo), user, request),
                 BoxSetCount = GetCount(typeof(BoxSet), user, request),
-                BookCount = GetCount(typeof(Book), user, request)
+                BookCount = GetCount(typeof(Book), user, request),
+
+                //myproduction-change-start
+                //Added TotalRunTimeTicks to ItemCounts
+                TotalRunTimeTicks = _libraryManager.GetTotalRuntimeTicks()
+                //myproduction-change-end
             };
 
             return ToOptimizedSerializedResultUsingCache(counts);

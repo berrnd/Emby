@@ -575,5 +575,10 @@ namespace MediaBrowser.Controller.Library
         QueryResult<Tuple<BaseItem, ItemCounts>> GetStudios(InternalItemsQuery query);
         QueryResult<Tuple<BaseItem, ItemCounts>> GetArtists(InternalItemsQuery query);
         QueryResult<Tuple<BaseItem, ItemCounts>> GetAlbumArtists(InternalItemsQuery query);
+
+        //myproduction-change-start
+        //Added TotalRunTimeTicks caching
+        long? GetTotalRuntimeTicks();
+        //myproduction-change-end
     }
 }
