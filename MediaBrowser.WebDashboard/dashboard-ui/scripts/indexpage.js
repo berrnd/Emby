@@ -224,8 +224,8 @@
 				result.CustomPrefs.homePageTour = 14;
 				result.CustomPrefs.home0 = "librarybuttons";
 				result.CustomPrefs.home1 = "latestmedia";
-				result.CustomPrefs.home2 = "";
-				result.CustomPrefs.home3 = "";
+				result.CustomPrefs.home2 = "none";
+				result.CustomPrefs.home3 = "none";
 				//myproduction-change-end
 
                 Dashboard.getCurrentUser().then(function (user) {
