@@ -240,8 +240,78 @@
 
                 });
             });
+			
+			//myproduction-change-start
+			//Added statistics overview
+			ApiClient.getItemCounts().then(function (itemCounts)
+			{
+				document.getElementById("statisticsMovieCount").textContent = itemCounts.MovieCount;
+				document.getElementById("statisticsSeriesCount").textContent = itemCounts.SeriesCount;
+				document.getElementById("statisticsEpisodesCount").textContent = itemCounts.EpisodeCount;
+				
+				document.getElementById("statisticsTotalRunTime").textContent = germanDuration(itemCounts.TotalRunTimeTicks);
+				document.getElementById("statisticsTotalFileSize").textContent = humanFileSize(itemCounts.TotalFileSize);
+
+				document.getElementById("statisticsNewestItemDate").textContent = germanDate(new Date(itemCounts.NewestItemDate));
+			});
+			//myproduction-change-end
         }
     }
+	
+	//myproduction-change-start
+	//Added statistics overview
+	function germanDate(dateObject)
+	{
+		return ("0" + dateObject.getDate().toString()).substr(-2) + "." + ("0" + dateObject.getMonth().toString()).substr(-2) + "." + dateObject.getFullYear().toString();
+	}
+			
+	function germanTime(dateObject)
+	{
+		return ("0" + dateObject.getHours().toString()).substr(-2) + ":" + ("0" + dateObject.getMinutes().toString()).substr(-2);
+	}
+	
+	function germanDuration(ticks)
+	{
+		var totalSeconds = ticks / 1000 / 1000;
+		var years = Math.floor(totalSeconds / 31536000);
+		var days = Math.floor((totalSeconds % 31536000) / 86400);
+		var hours = Math.floor(((totalSeconds % 31536000) % 86400) / 3600);
+		//var minutes = Math.floor((((totalSeconds % 31536000) % 86400) % 3600) / 60);
+		
+		var yearTxt = "Jahren";
+		if (years == 1)
+		{
+			yearTxt = "Jahr";
+		}
+		
+		var dayTxt = "Tagen";
+		if (days == 1)
+		{
+			dayTxt = "Tag";
+		}
+		
+		var hourTxt = "Stunden";
+		if (hours == 1)
+		{
+			hourTxt = "Stunde";
+		}
+		
+		//var minuteTxt = "Minuten";
+		//if (minutes == 1)
+		//{
+		//	hourTxt = "Minute";
+		//}
+		
+		return years.toString() + " " + yearTxt + ", " + days.toString() + " " + dayTxt + ", " + hours.toString() + " " + hourTxt + "";
+	}
+
+	function humanFileSize(size)
+	{
+		var i = Math.floor(Math.log(size) / Math.log(1024));
+		var sizeString = (size / Math.pow(1024, i)).toFixed(2) * 1 + " " + ["B", "kB", "MB", "GB", "TB"][i];
+		return sizeString.replace(".", ",");
+	}
+	//myproduction-change-end
 
     function getDisplayPreferences(key, userId) {
 
