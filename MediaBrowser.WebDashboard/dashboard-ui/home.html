@@ -41,7 +41,7 @@
 				document.getElementById("statisticsSectionMediaSummary").classList.remove("hide");
 				
 				document.getElementById("statisticsTotalRunTime").textContent = germanDuration(itemCounts.TotalRunTimeTicks);
-				document.getElementById("statisticsTotalFileSize").textContent = "TODO_ADD_TOTAL_FILE_SIZE";
+				document.getElementById("statisticsTotalFileSize").textContent = germanFileSize(itemCounts.TotalFileSize);
 				document.getElementById("statisticsSectionMediaSummaryData").classList.remove("hide");
 
 				document.getElementById("statisticsNewestItemDate").textContent = germanDate(new Date(itemCounts.NewestItemDate));
@@ -92,6 +92,12 @@
 				
 				return years.toString() + " " + yearTxt + ", " + days.toString() + " " + dayTxt + ", " + hours.toString() + " " + hourTxt + "";
 			}
+
+			function germanFileSize(size)
+			{
+			    var i = Math.floor(Math.log(size) / Math.log(1024));
+			    return (size / Math.pow(1024, i)).toFixed(2) * 1 + " " + ["B", "kB", "MB", "GB", "TB"][i].replace(".", ",");
+			};
 		</script>
 		<!--myproduction-change-end-->
 		

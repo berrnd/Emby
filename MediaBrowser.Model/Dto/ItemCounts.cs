@@ -65,9 +65,10 @@ namespace MediaBrowser.Model.Dto
         public int ItemCount { get; set; }
 
         //myproduction-change-start
-        //Added TotalRunTimeTicks and NewestItemDate to ItemCounts
+        //Added TotalRunTimeTicks, NewestItemDate and TotalFileSize to ItemCounts
         public long? TotalRunTimeTicks { get; set; }
         public DateTime? NewestItemDate { get; set; }
+        public long? TotalFileSize { get; set; }
         //myproduction-change-end
     }
 }

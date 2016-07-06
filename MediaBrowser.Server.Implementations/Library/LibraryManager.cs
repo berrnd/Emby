@@ -201,7 +201,7 @@ namespace MediaBrowser.Server.Implementations.Library
         }
 
         //myproduction-change-start
-        //Added TotalRunTimeTicks and NewestItemDate caching
+        //Added TotalRunTimeTicks, NewestItemDate and TotalFileSize caching
         private long? _cachedTotalRuntimeTicks = null; //Cached because of expensive calculation
         private void ItemAddedOrUpdatedOrRemoved(object sender, ItemChangeEventArgs e)
         {
@@ -248,6 +248,32 @@ namespace MediaBrowser.Server.Implementations.Library
             }
 
             return _cachedNewestItemDate;
+        }
+
+        private long? _cachedTotalFileSize = null; //Cached because of expensive calculation
+        public long? GetTotalFileSize()
+        {
+            if (_cachedTotalFileSize == null)
+            {
+                _logger.Info("LibraryManager.GetTotalFileSize: Recalculating...");
+                var query = new InternalItemsQuery()
+                {
+                    Recursive = true,
+                    ExcludeLocationTypes = new[] { LocationType.Virtual },
+                    SourceTypes = new[] { SourceType.Library }
+                };
+
+                _cachedTotalFileSize = 0;
+                foreach (var item in GetItemsResult(query).Items)
+                {
+                    if (File.Exists(item.Path))
+                    {
+                        _cachedTotalFileSize += new FileInfo(item.Path).Length;
+                    }
+                }
+            }
+
+            return _cachedTotalFileSize;
         }
         //myproduction-change-end
 
