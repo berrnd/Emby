@@ -309,9 +309,7 @@
 
         var section = page.querySelector('.nextUpSection');
 
-        var userData = item.UserData || {};
-
-        if (item.Type != 'Series' || !userData.PlayedPercentage) {
+        if (item.Type != 'Series') {
             section.classList.add('hide');
             return;
         }
