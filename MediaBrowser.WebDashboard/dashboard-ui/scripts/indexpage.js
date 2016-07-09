@@ -262,7 +262,7 @@
 	//Added statistics overview
 	function germanDate(dateObject)
 	{
-		return ("0" + dateObject.getDate().toString()).substr(-2) + "." + ("0" + dateObject.getMonth().toString()).substr(-2) + "." + dateObject.getFullYear().toString();
+		return ("0" + dateObject.getDate().toString()).substr(-2) + "." + ("0" + (dateObject.getMonth() + 1).toString()).substr(-2) + "." + dateObject.getFullYear().toString();
 	}
 			
 	function germanTime(dateObject)

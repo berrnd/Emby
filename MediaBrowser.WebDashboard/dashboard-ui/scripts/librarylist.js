@@ -997,10 +997,13 @@
 
         appStorage.setItem("tapholdhelp", expectedValue);
 
-        Dashboard.alert({
-            message: Globalize.translate('TryMultiSelectMessage'),
-            title: Globalize.translate('HeaderTryMultiSelect')
-        });
+        //myproduction-change-start
+		//Don't show multi select hint
+		//Dashboard.alert({
+        //    message: Globalize.translate('TryMultiSelectMessage'),
+        //    title: Globalize.translate('HeaderTryMultiSelect')
+        //});
+		//myproduction-change-end
     }
 
     function disableEvent(e) {

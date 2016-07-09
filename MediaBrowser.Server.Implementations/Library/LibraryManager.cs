@@ -207,6 +207,7 @@ namespace MediaBrowser.Server.Implementations.Library
         {
             _cachedTotalRuntimeTicks = null;
             _cachedNewestItemDate = null;
+            _cachedTotalFileSize = null;
         }
 
         public long? GetTotalRuntimeTicks()
@@ -218,7 +219,8 @@ namespace MediaBrowser.Server.Implementations.Library
                 {
                     Recursive = true,
                     ExcludeLocationTypes = new[] { LocationType.Virtual },
-                    SourceTypes = new[] { SourceType.Library }
+                    SourceTypes = new[] { SourceType.Library },
+                    IsMissing = false
                 };
 
                 _cachedTotalRuntimeTicks = GetItemsResult(query).Items.Sum(x => x.RunTimeTicks);
@@ -260,7 +262,8 @@ namespace MediaBrowser.Server.Implementations.Library
                 {
                     Recursive = true,
                     ExcludeLocationTypes = new[] { LocationType.Virtual },
-                    SourceTypes = new[] { SourceType.Library }
+                    SourceTypes = new[] { SourceType.Library },
+                    IsMissing = false
                 };
 
                 _cachedTotalFileSize = 0;
