@@ -223,8 +223,8 @@
 				//Overwrite some values to ensure some default things
 				result.CustomPrefs.homePageTour = 14;
 				result.CustomPrefs.home0 = "librarybuttons";
-				result.CustomPrefs.home1 = "latestmedia";
-				result.CustomPrefs.home2 = "none";
+				result.CustomPrefs.home1 = "latestmovies";
+				result.CustomPrefs.home2 = "latestepisodes";
 				result.CustomPrefs.home3 = "none";
 				//myproduction-change-end
 
