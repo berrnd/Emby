@@ -1170,36 +1170,52 @@ var Dashboard = {
         return caps;
     },
 
-    getDefaultImageQuality: function (imageType) {
-
-        var quality = 90;
-        var isBackdrop = imageType.toLowerCase() == 'backdrop';
-
-        if (isBackdrop) {
-            quality -= 10;
-        }
-
-        if (browserInfo.mobile) {
-            quality -= 20;
-        }
-
-        if (AppInfo.hasLowImageBandwidth) {
-
-            // The native app can handle a little bit more than safari
-            if (!AppInfo.isNativeApp) {
-
-                quality -= 20;
-            }
-        }
-
-        return quality;
-    },
-
     normalizeImageOptions: function (options) {
 
         if (AppInfo.hasLowImageBandwidth) {
 
             options.enableImageEnhancers = false;
+        }
+
+        var setQuality;
+        if (options.maxWidth) {
+            setQuality = true;
+        }
+
+        if (options.width) {
+            setQuality = true;
+        }
+
+        if (options.maxHeight) {
+            setQuality = true;
+        }
+
+        if (options.height) {
+            setQuality = true;
+        }
+
+        if (setQuality) {
+            var quality = 90;
+
+            if ((options.type || '').toLowerCase() == 'backdrop') {
+                quality -= 10;
+            }
+
+            if (browserInfo.mobile || browserInfo.tv) {
+                quality -= 40;
+            }
+
+            if (AppInfo.hasLowImageBandwidth) {
+
+                // The native app can handle a little bit more than safari
+                if (AppInfo.isNativeApp) {
+
+                    quality -= 5;
+                } else {
+                    quality -= 15;
+                }
+            }
+            options.quality = quality;
         }
     },
 
@@ -1507,10 +1523,6 @@ var AppInfo = {};
         }
         else {
             AppInfo.enableSupporterMembership = true;
-
-            if (!isAndroid && !isIOS) {
-                AppInfo.enableAppLayouts = true;
-            }
         }
 
         // This doesn't perform well on iOS
@@ -1543,7 +1555,6 @@ var AppInfo = {};
             };
         }
 
-        apiClient.getDefaultImageQuality = Dashboard.getDefaultImageQuality;
         apiClient.normalizeImageOptions = Dashboard.normalizeImageOptions;
 
         Events.off(apiClient, 'websocketmessage', Dashboard.onWebSocketMessageReceived);
@@ -1788,7 +1799,7 @@ var AppInfo = {};
             define("actionsheet", [embyWebComponentsBowerPath + "/actionsheet/actionsheet"], returnFirstDependency);
         }
 
-        define("libjass", [bowerPath + "/libjass/libjass", "css!" + bowerPath + "/libjass/libjass"], returnFirstDependency);
+        define("libjass", [bowerPath + "/libjass/libjass.min", "css!" + bowerPath + "/libjass/libjass"], returnFirstDependency);
 
         define("emby-collapse", [embyWebComponentsBowerPath + "/emby-collapse/emby-collapse"], returnFirstDependency);
         define("emby-button", [embyWebComponentsBowerPath + "/emby-button/emby-button"], returnFirstDependency);
@@ -1799,6 +1810,7 @@ var AppInfo = {};
         define("emby-select", [embyWebComponentsBowerPath + "/emby-select/emby-select"], returnFirstDependency);
         define("emby-slider", [embyWebComponentsBowerPath + "/emby-slider/emby-slider"], returnFirstDependency);
         define("emby-checkbox", [embyWebComponentsBowerPath + "/emby-checkbox/emby-checkbox"], returnFirstDependency);
+        define("emby-radio", [embyWebComponentsBowerPath + "/emby-radio/emby-radio"], returnFirstDependency);
         define("emby-textarea", [embyWebComponentsBowerPath + "/emby-textarea/emby-textarea"], returnFirstDependency);
         define("collectionEditor", [embyWebComponentsBowerPath + "/collectioneditor/collectioneditor"], returnFirstDependency);
         define("playlistEditor", [embyWebComponentsBowerPath + "/playlisteditor/playlisteditor"], returnFirstDependency);
@@ -1876,11 +1888,8 @@ var AppInfo = {};
         // Done
         define("emby-icons", ['webcomponentsjs', "html!" + bowerPath + "/emby-icons/emby-icons.html"]);
 
-        define("paper-spinner", ['webcomponentsjs', "html!" + bowerPath + "/paper-spinner/paper-spinner.html"]);
         define("paper-button", ["html!" + bowerPath + "/paper-button/paper-button.html"]);
         define("paper-icon-button", ["html!" + bowerPath + "/paper-icon-button/paper-icon-button.html"]);
-        define("paper-radio-group", ["html!" + bowerPath + "/paper-radio-group/paper-radio-group.html"]);
-        define("paper-radio-button", ['webcomponentsjs', "html!" + bowerPath + "/paper-radio-button/paper-radio-button.html"]);
         define("paper-toggle-button", ['webcomponentsjs', "html!" + bowerPath + "/paper-toggle-button/paper-toggle-button.html"]);
 
         define("paper-textarea", ['webcomponentsjs', "html!" + bowerPath + "/paper-input/paper-textarea.html"]);
@@ -1893,7 +1902,6 @@ var AppInfo = {};
         define("paper-item-body", ["html!" + bowerPath + "/paper-item/paper-item-body.html"]);
 
         define("paper-collapse-item", ["html!" + bowerPath + "/paper-collapse-item/paper-collapse-item.html"]);
-        define("emby-collapsible", ['webcomponentsjs', "emby-button", "html!" + bowerPath + "/emby-collapsible/emby-collapsible.html"]);
 
         define("jstree", [bowerPath + "/jstree/dist/jstree", "css!thirdparty/jstree/themes/default/style.min.css"]);
 
@@ -1964,7 +1972,8 @@ var AppInfo = {};
         define("scrollHelper", [embyWebComponentsBowerPath + "/scrollhelper"], returnFirstDependency);
 
         define("appSettings", [embyWebComponentsBowerPath + "/appsettings"], updateAppSettings);
-        define("userSettings", [embyWebComponentsBowerPath + "/usersettings"], returnFirstDependency);
+        define("userSettings", [embyWebComponentsBowerPath + "/usersettings/usersettings"], returnFirstDependency);
+        define("userSettingsBuilder", [embyWebComponentsBowerPath + "/usersettings/usersettingsbuilder"], returnFirstDependency);
 
         define("material-icons", ['css!' + embyWebComponentsBowerPath + '/fonts/material-icons/style']);
         define("robotoFont", ['css!' + embyWebComponentsBowerPath + '/fonts/roboto/style']);
@@ -2177,6 +2186,7 @@ var AppInfo = {};
 
             if (MainActivity.getChromeVersion() >= 48) {
                 define("audiorenderer", ["scripts/htmlmediarenderer"]);
+                //window.VlcAudio = true;
                 //define("audiorenderer", ["cordova/android/vlcplayer"]);
             } else {
                 window.VlcAudio = true;
@@ -2409,7 +2419,7 @@ var AppInfo = {};
 
         defineRoute({
             path: '/dashboardgeneral.html',
-            dependencies: ['emby-collapsible', 'paper-textarea', 'paper-input', 'paper-checkbox', 'jqmlistview'],
+            dependencies: ['emby-collapse', 'paper-textarea', 'paper-input', 'paper-checkbox', 'jqmlistview'],
             controller: 'scripts/dashboardgeneral',
             autoFocus: false,
             roles: 'admin'
@@ -2598,7 +2608,7 @@ var AppInfo = {};
 
         defineRoute({
             path: '/librarysettings.html',
-            dependencies: ['emby-collapsible', 'paper-input', 'paper-checkbox', 'emby-button', 'jqmlistview'],
+            dependencies: ['emby-collapse', 'paper-input', 'paper-checkbox', 'emby-button', 'jqmlistview'],
             autoFocus: false,
             roles: 'admin',
             controller: 'scripts/librarysettings'

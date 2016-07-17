@@ -286,19 +286,25 @@ namespace MediaBrowser.Api.Playback
 
         protected string GetH264Encoder(StreamState state)
         {
-            if (string.Equals(ApiEntryPoint.Instance.GetEncodingOptions().HardwareAccelerationType, "qsv", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(ApiEntryPoint.Instance.GetEncodingOptions().HardwareAccelerationType, "h264_qsv", StringComparison.OrdinalIgnoreCase))
+            // Only use alternative encoders for video files.
+            // When using concat with folder rips, if the mfx session fails to initialize, ffmpeg will be stuck retrying and will not exit gracefully
+            // Since transcoding of folder rips is expiremental anyway, it's not worth adding additional variables such as this.
+            if (state.VideoType == VideoType.VideoFile)
             {
-                return "h264_qsv";
-            }
+                if (string.Equals(ApiEntryPoint.Instance.GetEncodingOptions().HardwareAccelerationType, "qsv", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(ApiEntryPoint.Instance.GetEncodingOptions().HardwareAccelerationType, "h264_qsv", StringComparison.OrdinalIgnoreCase))
+                {
+                    return "h264_qsv";
+                }
 
-            if (string.Equals(ApiEntryPoint.Instance.GetEncodingOptions().HardwareAccelerationType, "nvenc", StringComparison.OrdinalIgnoreCase))
-            {
-                return "h264_nvenc";
-            }
-            if (string.Equals(ApiEntryPoint.Instance.GetEncodingOptions().HardwareAccelerationType, "h264_omx", StringComparison.OrdinalIgnoreCase))
-            {
-                return "h264_omx";
+                if (string.Equals(ApiEntryPoint.Instance.GetEncodingOptions().HardwareAccelerationType, "nvenc", StringComparison.OrdinalIgnoreCase))
+                {
+                    return "h264_nvenc";
+                }
+                if (string.Equals(ApiEntryPoint.Instance.GetEncodingOptions().HardwareAccelerationType, "h264_omx", StringComparison.OrdinalIgnoreCase))
+                {
+                    return "h264_omx";
+                }
             }
 
             return "libx264";
@@ -839,6 +845,14 @@ namespace MediaBrowser.Api.Playback
         protected string GetVideoDecoder(StreamState state)
         {
             if (string.Equals(state.OutputVideoCodec, "copy", StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            // Only use alternative encoders for video files.
+            // When using concat with folder rips, if the mfx session fails to initialize, ffmpeg will be stuck retrying and will not exit gracefully
+            // Since transcoding of folder rips is expiremental anyway, it's not worth adding additional variables such as this.
+            if (state.VideoType != VideoType.VideoFile)
             {
                 return null;
             }
@@ -1554,6 +1568,13 @@ namespace MediaBrowser.Api.Playback
                 {
                     request.TranscodingMaxAudioChannels = int.Parse(val, UsCulture);
                 }
+                else if (i == 28)
+                {
+                    if (videoRequest != null)
+                    {
+                        videoRequest.EnableSubtitlesInManifest = string.Equals("true", val, StringComparison.OrdinalIgnoreCase);
+                    }
+                }
             }
         }
 
@@ -2126,6 +2147,7 @@ namespace MediaBrowser.Api.Playback
                     {
                         state.VideoRequest.CopyTimestamps = transcodingProfile.CopyTimestamps;
                         state.VideoRequest.ForceLiveStream = transcodingProfile.ForceLiveStream;
+                        state.VideoRequest.EnableSubtitlesInManifest = transcodingProfile.EnableSubtitlesInManifest;
                     }
                 }
             }
