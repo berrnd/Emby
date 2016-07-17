@@ -203,82 +203,17 @@ namespace MediaBrowser.Server.Implementations.Library
 
         //myproduction-change-start
         //Added TotalRunTimeTicks, NewestItemDate and TotalFileSize caching
-        private long? _cachedTotalRuntimeTicks = null; //Cached because of expensive calculation
+        //Is calculated when null every 1 hours by scheduled task LibraryStatisticsScheduledTask        
         private void ItemAddedOrUpdatedOrRemoved(object sender, ItemChangeEventArgs e)
         {
-            _cachedTotalRuntimeTicks = null;
-            _cachedNewestItemDate = null;
-            _cachedTotalFileSize = null;
+            CachedTotalRuntimeTicks = null;
+            CachedNewestItemDate = null;
+            CachedTotalFileSize = null;
         }
 
-        public long? GetTotalRuntimeTicks()
-        {
-            if (_cachedTotalRuntimeTicks == null)
-            {
-                _logger.Info("LibraryManager.GetTotalRuntimeTicks: Recalculating...");
-                var query = new InternalItemsQuery()
-                {
-                    Recursive = true,
-                    ExcludeLocationTypes = new[] { LocationType.Virtual },
-                    SourceTypes = new[] { SourceType.Library },
-                    IsMissing = false
-                };
-
-                _cachedTotalRuntimeTicks = GetItemsResult(query).Items.Sum(x => x.RunTimeTicks);
-            }
-
-            return _cachedTotalRuntimeTicks;
-        }
-
-        private DateTime? _cachedNewestItemDate = null; //Cached because of expensive calculation
-        public DateTime? GetNewestItemDate()
-        {
-            if (_cachedNewestItemDate == null)
-            {
-                _logger.Info("LibraryManager.GetNewestItemDate: Recalculating...");
-                var query = new InternalItemsQuery()
-                {
-                    SortBy = new string[] { "DateCreated" },
-                    SortOrder = SortOrder.Descending,
-                    Recursive = true,
-                    IsMissing = false,
-                    Limit = 1,
-                    ExcludeLocationTypes = new[] { LocationType.Virtual },
-                    SourceTypes = new[] { SourceType.Library }
-                };
-
-                _cachedNewestItemDate = GetItemsResult(query).Items.First().DateCreated;
-            }
-
-            return _cachedNewestItemDate;
-        }
-
-        private long? _cachedTotalFileSize = null; //Cached because of expensive calculation
-        public long? GetTotalFileSize()
-        {
-            if (_cachedTotalFileSize == null)
-            {
-                _logger.Info("LibraryManager.GetTotalFileSize: Recalculating...");
-                var query = new InternalItemsQuery()
-                {
-                    Recursive = true,
-                    ExcludeLocationTypes = new[] { LocationType.Virtual },
-                    SourceTypes = new[] { SourceType.Library },
-                    IsMissing = false
-                };
-
-                _cachedTotalFileSize = 0;
-                foreach (var item in GetItemsResult(query).Items)
-                {
-                    if (File.Exists(item.Path))
-                    {
-                        _cachedTotalFileSize += new FileInfo(item.Path).Length;
-                    }
-                }
-            }
-
-            return _cachedTotalFileSize;
-        }
+        public long? CachedTotalRuntimeTicks { get; set; } = null; //Cached because of expensive calculation
+        public DateTime? CachedNewestItemDate { get; set; } = null; //Cached because of expensive calculation
+        public long? CachedTotalFileSize { get; set; } = null; //Cached because of expensive calculation
         //myproduction-change-end
 
         /// <summary>

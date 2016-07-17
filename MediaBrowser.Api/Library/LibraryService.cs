@@ -739,9 +739,9 @@ namespace MediaBrowser.Api.Library
 
                 //myproduction-change-start
                 //Added TotalRunTimeTicks, NewestItemDate and TotalFileSize caching
-                TotalRunTimeTicks = _libraryManager.GetTotalRuntimeTicks(),
-                NewestItemDate = _libraryManager.GetNewestItemDate(),
-                TotalFileSize = _libraryManager.GetTotalFileSize()
+                TotalRunTimeTicks = _libraryManager.CachedTotalRuntimeTicks,
+                NewestItemDate = _libraryManager.CachedNewestItemDate,
+                TotalFileSize = _libraryManager.CachedTotalFileSize
                 //myproduction-change-end
             };
 

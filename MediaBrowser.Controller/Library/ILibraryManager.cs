@@ -571,9 +571,9 @@ namespace MediaBrowser.Controller.Library
 
         //myproduction-change-start
         //Added TotalRunTimeTicks, NewestItemDate and TotalFileSize caching
-        long? GetTotalRuntimeTicks();
-        DateTime? GetNewestItemDate();
-        long? GetTotalFileSize();
+        long? CachedTotalRuntimeTicks { get; set; }
+        DateTime? CachedNewestItemDate { get; set; }
+        long? CachedTotalFileSize { get; set; }
         //myproduction-change-end
     }
 }
