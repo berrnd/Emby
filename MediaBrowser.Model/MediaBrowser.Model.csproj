@@ -136,6 +136,9 @@
     <Compile Include="Dto\NameIdPair.cs" />
     <Compile Include="Dto\NameValuePair.cs" />
     <Compile Include="FileOrganization\SmartMatchInfo.cs" />
+	<!--myproduction-change-start-->
+    <Compile Include="Library\LibraryStatistics.cs" />
+	<!--myproduction-change-end-->
     <Compile Include="MediaInfo\LiveStreamRequest.cs" />
     <Compile Include="MediaInfo\LiveStreamResponse.cs" />
     <Compile Include="MediaInfo\PlaybackInfoRequest.cs" />

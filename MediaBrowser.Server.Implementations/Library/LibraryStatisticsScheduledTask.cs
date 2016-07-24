@@ -40,12 +40,12 @@ namespace MediaBrowser.Server.Implementations.Channels
 
         public async Task Execute(System.Threading.CancellationToken cancellationToken, IProgress<double> progress)
         {
-            //Newest item date
-            progress.Report(30);
-            if (_libraryManager.CachedNewestItemDate == null)
+            if (_libraryManager.Statistics.NeedsRecalculation)
             {
+                //Newest item date
+                progress.Report(30);
                 _logger.Info("Recalculating library statistics newest item date");
-                var query = new InternalItemsQuery()
+                var newestItemQuery = new InternalItemsQuery()
                 {
                     SortBy = new string[] { "DateCreated" },
                     SortOrder = SortOrder.Descending,
@@ -55,21 +55,17 @@ namespace MediaBrowser.Server.Implementations.Channels
                     ExcludeLocationTypes = new[] { LocationType.Virtual },
                     SourceTypes = new[] { SourceType.Library }
                 };
+                _libraryManager.Statistics.NewestItemDate = _libraryManager.GetItemsResult(newestItemQuery).Items.First().DateCreated;
 
-                _libraryManager.CachedNewestItemDate = _libraryManager.GetItemsResult(query).Items.First().DateCreated;
-            }
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    return;
+                }
 
-            if (cancellationToken.IsCancellationRequested)
-            {
-                return;
-            }
-
-            //Total file size
-            progress.Report(60);
-            if (_libraryManager.CachedTotalFileSize == null)
-            {
+                //Total file size
+                progress.Report(60);
                 _logger.Info("Recalculating library statistics total file size");
-                var query = new InternalItemsQuery()
+                var totalFileSizeQuery = new InternalItemsQuery()
                 {
                     Recursive = true,
                     ExcludeLocationTypes = new[] { LocationType.Virtual },
@@ -78,45 +74,40 @@ namespace MediaBrowser.Server.Implementations.Channels
                 };
 
                 long totalFileSize = 0;
-                foreach (var item in _libraryManager.GetItemsResult(query).Items)
+                foreach (var item in _libraryManager.GetItemsResult(totalFileSizeQuery).Items)
                 {
                     if (File.Exists(item.Path))
                     {
                         totalFileSize += new FileInfo(item.Path).Length;
                     }
                 }
+                _libraryManager.Statistics.TotalFileSize = totalFileSize;
 
-                _libraryManager.CachedTotalFileSize = totalFileSize;
-            }
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    return;
+                }
 
-            if (cancellationToken.IsCancellationRequested)
-            {
-                return;
-            }
-
-            //Total run time ticks
-            progress.Report(90);
-            if (_libraryManager.CachedTotalRuntimeTicks == null)
-            {
+                //Total run time ticks
+                progress.Report(90);
                 _logger.Info("Recalculating library statistics total run time ticks");
-                var query = new InternalItemsQuery()
+                var totalRunTimeTicksQuery = new InternalItemsQuery()
                 {
                     Recursive = true,
                     ExcludeLocationTypes = new[] { LocationType.Virtual },
                     SourceTypes = new[] { SourceType.Library },
                     IsMissing = false
                 };
-
-                _libraryManager.CachedTotalRuntimeTicks = _libraryManager.GetItemsResult(query).Items.Sum(x => x.RunTimeTicks);
+                _libraryManager.Statistics.TotalRuntimeTicks = _libraryManager.GetItemsResult(totalRunTimeTicksQuery).Items.Sum(x => x.RunTimeTicks);
             }
-
         }
 
         public IEnumerable<ITaskTrigger> GetDefaultTriggers()
         {
             return new ITaskTrigger[]
             {
-                new IntervalTrigger{ Interval = TimeSpan.FromHours(24) }
+                new IntervalTrigger { Interval = TimeSpan.FromHours(1) },
+                new StartupTrigger { DelayMs = 300000 }
             };
         }
 

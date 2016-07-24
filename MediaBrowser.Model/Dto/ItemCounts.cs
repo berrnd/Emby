@@ -1,4 +1,5 @@
 ﻿using System;
+using MediaBrowser.Model.Library;
 
 namespace MediaBrowser.Model.Dto
 {
@@ -65,10 +66,8 @@ namespace MediaBrowser.Model.Dto
         public int ItemCount { get; set; }
 
         //myproduction-change-start
-        //Added TotalRunTimeTicks, NewestItemDate and TotalFileSize to ItemCounts
-        public long? TotalRunTimeTicks { get; set; }
-        public DateTime? NewestItemDate { get; set; }
-        public long? TotalFileSize { get; set; }
+        //Added LibraryStatistics
+        public LibraryStatistics LibraryStatistics { get; set; }
         //myproduction-change-end
     }
 }

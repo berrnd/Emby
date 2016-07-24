@@ -12,6 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using CommonIO;
 using MediaBrowser.Model.Dto;
+using MediaBrowser.Model.Library;
 
 namespace MediaBrowser.Controller.Library
 {
@@ -570,10 +571,8 @@ namespace MediaBrowser.Controller.Library
         QueryResult<Tuple<BaseItem, ItemCounts>> GetAlbumArtists(InternalItemsQuery query);
 
         //myproduction-change-start
-        //Added TotalRunTimeTicks, NewestItemDate and TotalFileSize caching
-        long? CachedTotalRuntimeTicks { get; set; }
-        DateTime? CachedNewestItemDate { get; set; }
-        long? CachedTotalFileSize { get; set; }
+        //Added LibraryStatistics
+        LibraryStatistics Statistics { get; }
         //myproduction-change-end
     }
 }

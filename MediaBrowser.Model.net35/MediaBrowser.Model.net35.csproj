@@ -648,6 +648,11 @@
     <Compile Include="..\MediaBrowser.Model\Library\PlayAccess.cs">
       <Link>Library\PlayAccess.cs</Link>
     </Compile>
+	<!--myproduction-change-start-->
+	<Compile Include="..\MediaBrowser.Model\Library\LibraryStatistics.cs">
+      <Link>Library\LibraryStatistics.cs</Link>
+    </Compile>
+	<!--myproduction-change-end-->
     <Compile Include="..\MediaBrowser.Model\LiveTv\BaseTimerInfoDto.cs">
       <Link>LiveTv\BaseTimerInfoDto.cs</Link>
     </Compile>

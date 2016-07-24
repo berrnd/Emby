@@ -738,10 +738,8 @@ namespace MediaBrowser.Api.Library
                 BookCount = GetCount(typeof(Book), user, request),
 
                 //myproduction-change-start
-                //Added TotalRunTimeTicks, NewestItemDate and TotalFileSize caching
-                TotalRunTimeTicks = _libraryManager.CachedTotalRuntimeTicks,
-                NewestItemDate = _libraryManager.CachedNewestItemDate,
-                TotalFileSize = _libraryManager.CachedTotalFileSize
+                //Added LibraryStatistics
+                LibraryStatistics = _libraryManager.Statistics,
                 //myproduction-change-end
             };
 

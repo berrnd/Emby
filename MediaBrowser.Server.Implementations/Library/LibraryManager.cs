@@ -193,7 +193,7 @@ namespace MediaBrowser.Server.Implementations.Library
             RecordConfigurationValues(configurationManager.Configuration);
 
             //myproduction-change-start
-            //Added TotalRunTimeTicks caching
+            //Added LibraryStatistics
             ItemAdded += ItemAddedOrUpdatedOrRemoved;
             ItemUpdated += ItemAddedOrUpdatedOrRemoved;
             ItemRemoved += ItemAddedOrUpdatedOrRemoved;
@@ -202,18 +202,14 @@ namespace MediaBrowser.Server.Implementations.Library
         }
 
         //myproduction-change-start
-        //Added TotalRunTimeTicks, NewestItemDate and TotalFileSize caching
+        //Added LibraryStatistics
         //Is calculated when null every 1 hours by scheduled task LibraryStatisticsScheduledTask        
         private void ItemAddedOrUpdatedOrRemoved(object sender, ItemChangeEventArgs e)
         {
-            CachedTotalRuntimeTicks = null;
-            CachedNewestItemDate = null;
-            CachedTotalFileSize = null;
+            this.Statistics.NeedsRecalculation = true;
         }
 
-        public long? CachedTotalRuntimeTicks { get; set; } = null; //Cached because of expensive calculation
-        public DateTime? CachedNewestItemDate { get; set; } = null; //Cached because of expensive calculation
-        public long? CachedTotalFileSize { get; set; } = null; //Cached because of expensive calculation
+        public LibraryStatistics Statistics { get; private set; } = new LibraryStatistics();
         //myproduction-change-end
 
         /// <summary>

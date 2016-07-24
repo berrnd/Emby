@@ -249,10 +249,10 @@
 				document.getElementById("statisticsSeriesCount").textContent = itemCounts.SeriesCount;
 				document.getElementById("statisticsEpisodesCount").textContent = itemCounts.EpisodeCount;
 				
-				document.getElementById("statisticsTotalRunTime").textContent = germanDuration(itemCounts.TotalRunTimeTicks);
-				document.getElementById("statisticsTotalFileSize").textContent = humanFileSize(itemCounts.TotalFileSize);
+				document.getElementById("statisticsTotalRunTime").textContent = germanDuration(itemCounts.LibraryStatistics.TotalRunTimeTicks);
+				document.getElementById("statisticsTotalFileSize").textContent = humanFileSize(itemCounts.LibraryStatistics.TotalFileSize);
 
-				document.getElementById("statisticsNewestItemDate").textContent = germanDate(new Date(itemCounts.NewestItemDate));
+				document.getElementById("statisticsNewestItemDate").textContent = germanDate(new Date(itemCounts.LibraryStatistics.NewestItemDate));
 			});
 			//myproduction-change-end
         }
