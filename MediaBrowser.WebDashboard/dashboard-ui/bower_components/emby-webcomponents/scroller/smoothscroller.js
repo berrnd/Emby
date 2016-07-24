@@ -911,9 +911,9 @@ define(['browser', 'layoutManager', 'scrollStyles'], function (browser, layoutMa
             } else {
 
                 if (o.horizontal) {
-                    slideeElement.scrollLeft += o.scrollBy * delta;
+                    slideeElement.scrollLeft += 12 * delta;
                 } else {
-                    slideeElement.scrollTop += o.scrollBy * delta;
+                    slideeElement.scrollTop += 12 * delta;
                 }
             }
         }
@@ -974,13 +974,13 @@ define(['browser', 'layoutManager', 'scrollStyles'], function (browser, layoutMa
 
             if (!transform) {
                 if (o.horizontal) {
-                    if (layoutManager.desktop && o.hiddenScroll === false) {
+                    if (layoutManager.desktop) {
                         slideeElement.classList.add('smoothScrollX');
                     } else {
                         slideeElement.classList.add('hiddenScrollX');
                     }
                 } else {
-                    if (layoutManager.desktop && o.hiddenScroll === false) {
+                    if (layoutManager.desktop) {
                         slideeElement.classList.add('smoothScrollY');
                     } else {
                         slideeElement.classList.add('hiddenScrollY');
@@ -989,9 +989,6 @@ define(['browser', 'layoutManager', 'scrollStyles'], function (browser, layoutMa
             } else {
                 slideeElement.style['will-change'] = 'transform';
             }
-
-            // Scrolling navigation
-            scrollSource.addEventListener(wheelEvent, scrollHandler);
 
             if (transform) {
                 dragInitEventNames.forEach(function (eventName) {
@@ -1007,6 +1004,16 @@ define(['browser', 'layoutManager', 'scrollStyles'], function (browser, layoutMa
                         passive: true
                     });
                 }
+
+                // Scrolling navigation
+                scrollSource.addEventListener(wheelEvent, scrollHandler);
+
+            } else if (o.horizontal) {
+
+                // Don't bind to mouse events with vertical scroll since the mouse wheel can handle this natively
+
+                // Scrolling navigation
+                scrollSource.addEventListener(wheelEvent, scrollHandler);
             }
 
             // Mark instance as initialized

@@ -2144,7 +2144,7 @@ namespace MediaBrowser.Server.Implementations.Persistence
                 {
                     if (query.User != null)
                     {
-                        query.SortBy = new[] { "SimilarityScore", ItemSortBy.IsPlayed, ItemSortBy.Random };
+                        query.SortBy = new[] { ItemSortBy.IsPlayed, "SimilarityScore", ItemSortBy.Random };
                     }
                     else
                     {
@@ -2880,6 +2880,24 @@ namespace MediaBrowser.Server.Implementations.Persistence
                     index++;
                 }
                 var clause = "(" + string.Join(" OR ", clauses.ToArray()) + ")";
+                whereClauses.Add(clause);
+            }
+
+            if (query.ExcludeArtistIds.Length > 0)
+            {
+                var clauses = new List<string>();
+                var index = 0;
+                foreach (var artistId in query.ExcludeArtistIds)
+                {
+                    var artistItem = RetrieveItem(new Guid(artistId));
+                    if (artistItem != null)
+                    {
+                        clauses.Add("@ExcludeArtistName" + index + " not in (select CleanValue from itemvalues where ItemId=Guid and Type <= 1)");
+                        cmd.Parameters.Add(cmd, "@ExcludeArtistName" + index, DbType.String).Value = artistItem.Name.RemoveDiacritics();
+                        index++;
+                    }
+                }
+                var clause = "(" + string.Join(" AND ", clauses.ToArray()) + ")";
                 whereClauses.Add(clause);
             }
 
