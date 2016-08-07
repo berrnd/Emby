@@ -563,10 +563,10 @@ namespace MediaBrowser.Controller.Library
         QueryResult<Tuple<BaseItem, ItemCounts>> GetArtists(InternalItemsQuery query);
         QueryResult<Tuple<BaseItem, ItemCounts>> GetAlbumArtists(InternalItemsQuery query);
         QueryResult<Tuple<BaseItem, ItemCounts>> GetAllArtists(InternalItemsQuery query);
-        
+
         //myproduction-change-start
         //Added LibraryStatistics
-        LibraryStatistics Statistics { get; }
+        Model.Library.LibraryStatistics Statistics { get; }
         //myproduction-change-end
     }
 }
