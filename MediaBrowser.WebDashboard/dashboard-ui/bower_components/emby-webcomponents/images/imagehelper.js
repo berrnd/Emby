@@ -56,7 +56,7 @@ define(['visibleinviewport', 'imageFetcher', 'layoutManager', 'events', 'browser
     var wheelEvent = (document.implementation.hasFeature('Event.wheel', '3.0') ? 'wheel' : 'mousewheel');
     var self = {};
 
-    var enableFade = browser.animate && !browser.mobile && !browser.operaTv;
+    var enableFade = browser.animate && !browser.slow;
 
     function fillImage(elem, source, enableEffects) {
 
@@ -69,7 +69,7 @@ define(['visibleinviewport', 'imageFetcher', 'layoutManager', 'events', 'browser
             } else {
                 imageFetcher.loadImage(elem, source);
             }
-            elem.setAttribute("data-src", '');
+            elem.removeAttribute("data-src");
         }
     }
 

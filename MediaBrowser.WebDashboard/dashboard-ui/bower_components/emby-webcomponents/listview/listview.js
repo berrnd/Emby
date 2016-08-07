@@ -113,12 +113,12 @@ define(['itemHelper', 'mediaInfo', 'indicators', 'connectionManager', 'layoutMan
 
             if (i === 0) {
                 if (isLargeStyle) {
-                    html += '<h2>';
+                    html += '<h2 class="listItemBodyText">';
                 } else {
-                    html += '<div>';
+                    html += '<div class="listItemBodyText">';
                 }
             } else {
-                html += '<div class="secondary">';
+                html += '<div class="secondary listItemBodyText">';
             }
             html += (textlines[i] || '&nbsp;');
             if (i === 0 && isLargeStyle) {
@@ -164,7 +164,7 @@ define(['itemHelper', 'mediaInfo', 'indicators', 'connectionManager', 'layoutMan
                     }
 
                     if (i == 0) {
-                        html += '<h1 class="listGroupHeader first">';
+                        html += '<h1 class="listGroupHeader listGroupHeader-first">';
                     }
                     else {
                         html += '<h1 class="listGroupHeader">';
@@ -178,7 +178,7 @@ define(['itemHelper', 'mediaInfo', 'indicators', 'connectionManager', 'layoutMan
                 }
             }
 
-            var cssClass = "listItem";
+            var cssClass = "listItem listItem-nosidepadding";
 
             if (clickEntireItem) {
                 cssClass += ' itemAction';
@@ -187,7 +187,7 @@ define(['itemHelper', 'mediaInfo', 'indicators', 'connectionManager', 'layoutMan
             var downloadWidth = 80;
 
             if (isLargeStyle) {
-                cssClass += " largeImage";
+                cssClass += " listItem-largeImage";
                 downloadWidth = 500;
             }
 
@@ -196,8 +196,11 @@ define(['itemHelper', 'mediaInfo', 'indicators', 'connectionManager', 'layoutMan
             var positionTicksData = item.UserData && item.UserData.PlaybackPositionTicks ? (' data-positionticks="' + item.UserData.PlaybackPositionTicks + '"') : '';
             var collectionIdData = options.collectionId ? (' data-collectionid="' + options.collectionId + '"') : '';
             var playlistIdData = options.playlistId ? (' data-playlistid="' + options.playlistId + '"') : '';
+            var mediaTypeData = item.MediaType ? (' data-mediatype="' + item.MediaType + '"') : '';
+            var collectionTypeData = item.CollectionType ? (' data-collectiontype="' + item.CollectionType + '"') : '';
+            var channelIdData = item.ChannelId ? (' data-channelid="' + item.ChannelId + '"') : '';
 
-            html += '<' + outerTagName + ' class="' + cssClass + '" data-index="' + i + '"' + playlistItemId + ' data-action="' + action + '" data-isfolder="' + item.IsFolder + '" data-id="' + item.Id + '" data-serverid="' + item.ServerId + '" data-mediatype="' + item.MediaType + '" data-type="' + item.Type + '"' + positionTicksData + collectionIdData + playlistIdData + '>';
+            html += '<' + outerTagName + ' class="' + cssClass + '" data-index="' + i + '"' + playlistItemId + ' data-action="' + action + '" data-isfolder="' + item.IsFolder + '" data-id="' + item.Id + '" data-serverid="' + item.ServerId + '" data-type="' + item.Type + '"' + mediaTypeData + collectionTypeData + channelIdData + positionTicksData + collectionIdData + playlistIdData + '>';
 
             if (!clickEntireItem && options.dragHandle) {
                 html += '<button is="paper-icon-button-light" class="listViewDragHandle autoSize"><i class="md-icon">&#xE25D;</i></button>';
@@ -205,10 +208,12 @@ define(['itemHelper', 'mediaInfo', 'indicators', 'connectionManager', 'layoutMan
 
             var imgUrl = getImageUrl(item, downloadWidth);
 
+            var imageClass = isLargeStyle ? 'listItemImage listItemImage-large' : 'listItemImage';
+
             if (imgUrl) {
-                html += '<div class="listItemImage lazy" data-src="' + imgUrl + '" item-icon>';
+                html += '<div class="' + imageClass + ' lazy" data-src="' + imgUrl + '" item-icon>';
             } else {
-                html += '<div class="listItemImage">';
+                html += '<div class="' + imageClass + '">';
             }
 
             var indicatorsHtml = '';
@@ -274,11 +279,11 @@ define(['itemHelper', 'mediaInfo', 'indicators', 'connectionManager', 'layoutMan
             html += getTextLinesHtml(textlines, isLargeStyle);
 
             if (!enableSideMediaInfo) {
-                html += '<div class="secondary listItemMediaInfo">' + mediaInfo.getPrimaryMediaInfoHtml(item) + '</div>';
+                html += '<div class="secondary listItemMediaInfo listItemBodyText">' + mediaInfo.getPrimaryMediaInfoHtml(item) + '</div>';
             }
 
             if (enableOverview && item.Overview) {
-                html += '<div class="secondary overview">';
+                html += '<div class="secondary overview listItemBodyText">';
                 html += item.Overview;
                 html += '</div>';
             }

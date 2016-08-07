@@ -67,6 +67,7 @@ namespace MediaBrowser.Server.Implementations.HttpServer
         public override void Configure(Container container)
         {
             HostConfig.Instance.DefaultRedirectPath = DefaultRedirectPath;
+            HostConfig.Instance.LogUnobservedTaskExceptions = false;
 
             HostConfig.Instance.MapExceptionToStatusCode = new Dictionary<Type, int>
             {
@@ -80,7 +81,7 @@ namespace MediaBrowser.Server.Implementations.HttpServer
                 {typeof (ApplicationException), 500}
             };
 
-            HostConfig.Instance.DebugMode = true;
+            HostConfig.Instance.DebugMode = false;
 
             HostConfig.Instance.LogFactory = LogManager.LogFactory;
 
@@ -250,7 +251,7 @@ namespace MediaBrowser.Server.Implementations.HttpServer
 
                 httpRes.Close();
             }
-            catch (Exception errorEx)
+            catch
             {
                 //_logger.ErrorException("Error this.ProcessRequest(context)(Exception while writing error to the response)", errorEx);
             }

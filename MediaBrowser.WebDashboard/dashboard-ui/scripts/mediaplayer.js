@@ -352,7 +352,7 @@ define(['appSettings', 'userSettings', 'appStorage', 'datetime'], function (appS
 
                 promise = ApiClient.getCurrentUser().then(function (user) {
 
-                    if (!user.Configuration.EnableNextEpisodeAutoPlay) {
+                    if (!user.Configuration.EnableNextEpisodeAutoPlay || !firstItem.SeriesId) {
                         return null;
                     }
 
@@ -614,7 +614,7 @@ define(['appSettings', 'userSettings', 'appStorage', 'datetime'], function (appS
 
                 if (playMethod == 'DirectPlay' && mediaSource.Protocol == 'File') {
 
-                    require(['localassetmanager'], function () {
+                    require(['localassetmanager'], function (LocalAssetManager) {
 
                         LocalAssetManager.translateFilePath(resultInfo.url).then(function (path) {
 

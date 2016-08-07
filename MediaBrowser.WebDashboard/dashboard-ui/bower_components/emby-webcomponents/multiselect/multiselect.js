@@ -16,7 +16,10 @@
             selectedElements = [];
             var elems = document.querySelectorAll('.itemSelectionPanel');
             for (var i = 0, length = elems.length; i < length; i++) {
-                elems[i].parentNode.removeChild(elems[i]);
+
+                var parent = elems[i].parentNode;
+                parent.removeChild(elems[i]);
+                parent.classList.remove('withMultiSelect');
             }
         }
     }
@@ -78,7 +81,7 @@
 
     function updateItemSelection(chkItemSelect, selected) {
 
-        var id = dom.parentWithClass(chkItemSelect, 'card').getAttribute('data-id');
+        var id = dom.parentWithAttribute(chkItemSelect, 'data-id').getAttribute('data-id');
 
         if (selected) {
 
@@ -123,7 +126,9 @@
             itemSelectionPanel = document.createElement('div');
             itemSelectionPanel.classList.add('itemSelectionPanel');
 
-            item.querySelector('.cardContent,.cardBox').appendChild(itemSelectionPanel);
+            var parent = item.querySelector('.cardBox') || item.querySelector('.cardContent');
+            parent.classList.add('withMultiSelect');
+            parent.appendChild(itemSelectionPanel);
 
             var cssClass = 'chkItemSelect';
             if (isChecked && !browser.firefox) {
@@ -132,29 +137,9 @@
                 cssClass += ' checkedInitial';
             }
             var checkedAttribute = isChecked ? ' checked' : '';
-            itemSelectionPanel.innerHTML = '<label class="checkboxContainer"><input type="checkbox" is="emby-checkbox" class="' + cssClass + '"' + checkedAttribute + '/><span></span></label>';
+            itemSelectionPanel.innerHTML = '<label class="checkboxContainer"><input type="checkbox" is="emby-checkbox" data-outlineclass="multiSelectCheckboxOutline" class="' + cssClass + '"' + checkedAttribute + '/><span></span></label>';
             var chkItemSelect = itemSelectionPanel.querySelector('.chkItemSelect');
             chkItemSelect.addEventListener('change', onSelectionChange);
-        }
-    }
-
-    function shake(elem, iterations) {
-        var keyframes = [
-          { transform: 'translate3d(0, 0, 0)', offset: 0 },
-          { transform: 'translate3d(-10px, 0, 0)', offset: 0.1 },
-          { transform: 'translate3d(10px, 0, 0)', offset: 0.2 },
-          { transform: 'translate3d(-10px, 0, 0)', offset: 0.3 },
-          { transform: 'translate3d(10px, 0, 0)', offset: 0.4 },
-          { transform: 'translate3d(-10px, 0, 0)', offset: 0.5 },
-          { transform: 'translate3d(10px, 0, 0)', offset: 0.6 },
-          { transform: 'translate3d(-10px, 0, 0)', offset: 0.7 },
-          { transform: 'translate3d(10px, 0, 0)', offset: 0.8 },
-          { transform: 'translate3d(-10px, 0, 0)', offset: 0.9 },
-          { transform: 'translate3d(0, 0, 0)', offset: 1 }];
-        var timing = { duration: 900, iterations: iterations };
-
-        if (elem.animate) {
-            elem.animate(keyframes, timing);
         }
     }
 
@@ -187,10 +172,6 @@
             var btnSelectionPanelOptions = selectionCommandsPanel.querySelector('.btnSelectionPanelOptions');
 
             btnSelectionPanelOptions.addEventListener('click', showMenuForSelectedItems);
-
-            if (!browser.mobile) {
-                shake(btnSelectionPanelOptions, 1);
-            }
         }
     }
 
@@ -486,7 +467,7 @@
         function initTapHold(element) {
 
             // mobile safari doesn't allow contextmenu override
-            if (browser.mobile && !browser.safari) {
+            if (browser.touch && !browser.safari) {
                 container.addEventListener('contextmenu', onTapHold);
             } else {
                 require(['hammer'], function (Hammer) {

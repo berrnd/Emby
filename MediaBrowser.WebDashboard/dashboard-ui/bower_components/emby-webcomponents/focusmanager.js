@@ -1,12 +1,17 @@
 define(['dom'], function (dom) {
 
-    function autoFocus(view, defaultToFirst) {
+    function autoFocus(view, defaultToFirst, findAutoFocusElement) {
 
-        var element = view.querySelector('*[autofocus]');
-        if (element) {
-            focus(element);
-            return element;
-        } else if (defaultToFirst !== false) {
+        var element;
+        if (findAutoFocusElement !== false) {
+            element = view.querySelector('*[autofocus]');
+            if (element) {
+                focus(element);
+                return element;
+            }
+        }
+
+        if (defaultToFirst !== false) {
             element = getFocusableElements(view)[0];
 
             if (element) {
@@ -163,8 +168,8 @@ define(['dom'], function (dom) {
 
         var offset = getOffset(elem, windowData);
 
-        var posY = offset.top - windowData.pageXOffset;
-        var posX = offset.left - windowData.pageYOffset;
+        var posY = offset.top - windowData.pageYOffset;
+        var posX = offset.left - windowData.pageXOffset;
 
         var width = elem.offsetWidth;
         var height = elem.offsetHeight;
@@ -190,7 +195,7 @@ define(['dom'], function (dom) {
         var container = activeElement ? getFocusContainer(activeElement, direction) : document.body;
 
         if (!activeElement) {
-            autoFocus(container, true);
+            autoFocus(container, true, false);
             return;
         }
 

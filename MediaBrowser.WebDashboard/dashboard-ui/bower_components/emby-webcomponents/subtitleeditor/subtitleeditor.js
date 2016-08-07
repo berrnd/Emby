@@ -1,4 +1,4 @@
-﻿define(['dialogHelper', 'require', 'layoutManager', 'globalize', 'scrollHelper', 'appStorage', 'connectionManager', 'loading', 'focusManager', 'dom', 'apphost', 'emby-select', 'listViewStyle', 'paper-icon-button-light', 'css!./../formdialog', 'material-icons', 'css!./subtitleeditor', 'emby-button'], function (dialogHelper, require, layoutManager, globalize, scrollHelper, appStorage, connectionManager, loading, focusManager, dom, appHost) {
+﻿define(['dialogHelper', 'require', 'layoutManager', 'globalize', 'appStorage', 'connectionManager', 'loading', 'focusManager', 'dom', 'apphost', 'emby-select', 'listViewStyle', 'paper-icon-button-light', 'css!./../formdialog', 'material-icons', 'css!./subtitleeditor', 'emby-button'], function (dialogHelper, require, layoutManager, globalize, appStorage, connectionManager, loading, focusManager, dom, appHost) {
 
     var currentItem;
     var hasChanges;
@@ -333,7 +333,7 @@
 
         var lang = form.querySelector('#selectLanguage', form).value;
 
-        searchForSubtitles(dom.parentWithClass(form, 'dialogContent'), lang);
+        searchForSubtitles(dom.parentWithClass(form, 'formDialogContent'), lang);
 
         e.preventDefault();
         return false;
@@ -389,6 +389,13 @@
         });
     }
 
+    function centerFocus(elem, horiz, on) {
+        require(['scrollHelper'], function (scrollHelper) {
+            var fn = on ? 'on' : 'off';
+            scrollHelper.centerFocus[fn](elem, horiz);
+        });
+    }
+
     function showEditorInternal(itemId, serverId, template) {
 
         hasChanges = false;
@@ -397,7 +404,8 @@
         return apiClient.getItem(apiClient.getCurrentUserId(), itemId).then(function (item) {
 
             var dialogOptions = {
-                removeOnClose: true
+                removeOnClose: true,
+                scrollY: false
             };
 
             if (layoutManager.tv) {
@@ -414,20 +422,20 @@
             dlg.innerHTML = globalize.translateDocument(template, 'sharedcomponents');
             document.body.appendChild(dlg);
 
-            dlg.querySelector('.originalFileLabel').innerHTML = globalize.translate('sharedcomponents#File');
+            dlg.querySelector('.originalSubtitleFileLabel').innerHTML = globalize.translate('sharedcomponents#File');
 
             dlg.querySelector('.subtitleSearchForm').addEventListener('submit', onSearchSubmit);
 
             var btnSubmit = dlg.querySelector('.btnSubmit');
 
             if (layoutManager.tv) {
-                scrollHelper.centerFocus.on(dlg.querySelector('.dialogContent'), false);
+                centerFocus(dlg.querySelector('.formDialogContent'), false, true);
                 dlg.querySelector('.btnSearchSubtitles').classList.add('hide');
             } else {
                 btnSubmit.classList.add('hide');
             }
 
-            var editorContent = dlg.querySelector('.dialogContent');
+            var editorContent = dlg.querySelector('.formDialogContent');
 
             dlg.querySelector('.subtitleList').addEventListener('click', onSubtitleListClick);
             dlg.querySelector('.subtitleResults').addEventListener('click', onSubtitleResultsClick);
@@ -445,6 +453,10 @@
             return new Promise(function (resolve, reject) {
 
                 dlg.addEventListener('close', function () {
+
+                    if (layoutManager.tv) {
+                        centerFocus(dlg.querySelector('.formDialogContent'), false, false);
+                    }
 
                     if (hasChanges) {
                         resolve();

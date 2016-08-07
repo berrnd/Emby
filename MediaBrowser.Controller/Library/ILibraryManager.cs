@@ -12,7 +12,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using CommonIO;
 using MediaBrowser.Model.Dto;
-using MediaBrowser.Model.Library;
 
 namespace MediaBrowser.Controller.Library
 {
@@ -476,12 +475,6 @@ namespace MediaBrowser.Controller.Library
         List<Person> GetPeopleItems(InternalPeopleQuery query);
 
         /// <summary>
-        /// Gets all people names.
-        /// </summary>
-        /// <returns>List&lt;System.String&gt;.</returns>
-        List<PersonInfo> GetAllPeople();
-
-        /// <summary>
         /// Updates the people.
         /// </summary>
         /// <param name="item">The item.</param>
@@ -569,7 +562,8 @@ namespace MediaBrowser.Controller.Library
         QueryResult<Tuple<BaseItem, ItemCounts>> GetStudios(InternalItemsQuery query);
         QueryResult<Tuple<BaseItem, ItemCounts>> GetArtists(InternalItemsQuery query);
         QueryResult<Tuple<BaseItem, ItemCounts>> GetAlbumArtists(InternalItemsQuery query);
-
+        QueryResult<Tuple<BaseItem, ItemCounts>> GetAllArtists(InternalItemsQuery query);
+        
         //myproduction-change-start
         //Added LibraryStatistics
         LibraryStatistics Statistics { get; }

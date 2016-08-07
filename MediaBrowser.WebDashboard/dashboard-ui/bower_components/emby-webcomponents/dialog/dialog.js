@@ -1,21 +1,9 @@
-define(['layoutManager', 'globalize'], function (layoutManager, globalize) {
+define(['layoutManager', 'globalize', 'css!./dialog'], function (layoutManager, globalize) {
 
     function showTvDialog(options) {
         return new Promise(function (resolve, reject) {
 
             require(['actionsheet'], function (actionSheet) {
-
-                var items = [];
-
-                items.push({
-                    name: globalize.translate('sharedcomponents#ButtonOk'),
-                    id: 'ok'
-                });
-
-                items.push({
-                    name: globalize.translate('sharedcomponents#ButtonCancel'),
-                    id: 'cancel'
-                });
 
                 actionSheet.show({
 
@@ -48,7 +36,12 @@ define(['layoutManager', 'globalize'], function (layoutManager, globalize) {
         }
 
         var dlg = dialogHelper.createDialog(dialogOptions);
+
+        dlg.classList.add('promptDialog');
+
         var html = '';
+
+        html += '<div class="promptDialogContent">';
 
         if (options.title) {
             html += '<h2>' + options.title + '</h2>';
@@ -60,16 +53,17 @@ define(['layoutManager', 'globalize'], function (layoutManager, globalize) {
             html += '<div style="margin:1em 0;">' + text + '</div>';
         }
 
-        html += '<div class="buttons">';
+        html += '<div class="promptDialogButtons">';
 
         var i, length;
         for (i = 0, length = options.buttons.length; i < length; i++) {
 
             var item = options.buttons[i];
             var autoFocus = i == 0 ? ' autofocus' : '';
-            html += '<button is="emby-button" type="button" class="btnOption" data-id="' + item.id + '"' + autoFocus + '>' + item.name + '</button>';
+            html += '<button is="emby-button" type="button" class="btnOption promptDialogButton" data-id="' + item.id + '"' + autoFocus + '>' + item.name + '</button>';
         }
 
+        html += '</div>';
         html += '</div>';
 
         dlg.innerHTML = html;

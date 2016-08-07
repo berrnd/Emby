@@ -45,16 +45,14 @@ define(['apphost', 'globalize', 'connectionManager', 'itemHelper', 'embyRouter',
 
             if (itemHelper.canEdit(user, item.Type)) {
 
-                if (isMobileApp) {
-                    if (options.edit !== false) {
+                if (options.edit !== false) {
 
-                        var text = item.Type == 'Timer' ? globalize.translate('sharedcomponents#Edit') : globalize.translate('sharedcomponents#EditInfo');
+                    var text = item.Type == 'Timer' ? globalize.translate('sharedcomponents#Edit') : globalize.translate('sharedcomponents#EditInfo');
 
-                        commands.push({
-                            name: text,
-                            id: 'edit'
-                        });
-                    }
+                    commands.push({
+                        name: text,
+                        id: 'edit'
+                    });
                 }
             }
 
@@ -89,7 +87,7 @@ define(['apphost', 'globalize', 'connectionManager', 'itemHelper', 'embyRouter',
                 });
             }
 
-            if (isMobileApp && options.identify !== false) {
+            if (options.identify !== false) {
                 if (itemHelper.canIdentify(user, item.Type)) {
                     commands.push({
                         name: globalize.translate('sharedcomponents#Identify'),
@@ -138,7 +136,7 @@ define(['apphost', 'globalize', 'connectionManager', 'itemHelper', 'embyRouter',
                     });
                 }
 
-                if (playbackManager.canQueueMediaType(item.MediaType)) {
+                if (playbackManager.canQueue(item)) {
                     if (options.queue !== false) {
                         commands.push({
                             name: globalize.translate('sharedcomponents#Queue'),
@@ -300,7 +298,6 @@ define(['apphost', 'globalize', 'connectionManager', 'itemHelper', 'embyRouter',
                     {
                         require(['subtitleEditor'], function (subtitleEditor) {
 
-                            var serverId = apiClient.serverInfo().Id;
                             subtitleEditor.show(itemId, serverId).then(getResolveFunction(resolve, id, true), getResolveFunction(resolve, id));
                         });
                         break;
@@ -320,9 +317,9 @@ define(['apphost', 'globalize', 'connectionManager', 'itemHelper', 'embyRouter',
                     }
                 case 'identify':
                     {
-                        require(['components/itemidentifier/itemidentifier'], function (itemidentifier) {
+                        require(['itemIdentifier'], function (itemIdentifier) {
 
-                            itemidentifier.show(itemId).then(getResolveFunction(resolve, id, true), getResolveFunction(resolve, id));
+                            itemIdentifier.show(itemId, serverId).then(getResolveFunction(resolve, id, true), getResolveFunction(resolve, id));
                         });
                         break;
                     }
@@ -524,9 +521,9 @@ define(['apphost', 'globalize', 'connectionManager', 'itemHelper', 'embyRouter',
                     recordingEditor.show(item.Id, serverId).then(resolve, reject);
                 });
             } else {
-                require(['components/metadataeditor/metadataeditor'], function (metadataeditor) {
+                require(['metadataEditor'], function (metadataEditor) {
 
-                    metadataeditor.show(item.Id, serverId).then(resolve, reject);
+                    metadataEditor.show(item.Id, serverId).then(resolve, reject);
                 });
             }
         });
