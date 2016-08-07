@@ -45,15 +45,15 @@
 
         appStorage.setItem("tapholdhelp", expectedValue);
 
-		//myproduction-change-start
-		//Don't show multi select hint
-        require(['alert'], function (alert) {
-            alert({
-                text: globalize.translate('sharedcomponents#TryMultiSelectMessage'),
-                title: globalize.translate('sharedcomponents#TryMultiSelect')
-            });
-        });
-		//myproduction-change-end
+        //myproduction-change-start
+        //Don't show multi select hint
+        //require(['alert'], function (alert) {
+        //    alert({
+        //        text: globalize.translate('sharedcomponents#TryMultiSelectMessage'),
+        //        title: globalize.translate('sharedcomponents#TryMultiSelect')
+        //    });
+        //});
+        //myproduction-change-end
     }
 
     function onItemSelectionPanelClick(e, itemSelectionPanel) {
