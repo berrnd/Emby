@@ -98,7 +98,7 @@ namespace MediaBrowser.Server.Implementations.Channels
                     SourceTypes = new[] { SourceType.Library },
                     IsMissing = false
                 };
-                _libraryManager.Statistics.TotalRuntimeTicks = _libraryManager.GetItemsResult(totalRunTimeTicksQuery).Items.Sum(x => x.RunTimeTicks);
+                _libraryManager.Statistics.TotalRunTimeTicks = _libraryManager.GetItemsResult(totalRunTimeTicksQuery).Items.Sum(x => x.RunTimeTicks);
             }
         }
 

@@ -8,12 +8,12 @@ namespace MediaBrowser.Model.Library
         public LibraryStatistics()
         {
             this.NeedsRecalculation = true;
-            this.TotalRuntimeTicks = 0;
+            this.TotalRunTimeTicks = 0;
             this.NewestItemDate = DateTime.MinValue;
             this.TotalFileSize = 0;
         }
 
-        public long? TotalRuntimeTicks { get; set; }
+        public long? TotalRunTimeTicks { get; set; }
         public DateTime? NewestItemDate { get; set; }
         public long? TotalFileSize { get; set; }
         public bool NeedsRecalculation { get; set; }
