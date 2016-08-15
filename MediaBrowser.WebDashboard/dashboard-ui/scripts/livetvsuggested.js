@@ -1,4 +1,4 @@
-﻿define(['libraryBrowser', 'cardBuilder', 'scrollStyles', 'emby-itemscontainer'], function (libraryBrowser, cardBuilder) {
+﻿define(['libraryBrowser', 'cardBuilder', 'scrollStyles', 'emby-itemscontainer', 'emby-tabs', 'emby-button'], function (libraryBrowser, cardBuilder) {
 
     function enableScrollX() {
         return browserInfo.mobile && AppInfo.enableAppLayouts;
@@ -108,7 +108,8 @@
             overlayText: false,
             lazy: true,
             overlayMoreButton: overlayButton != 'play',
-            overlayPlayButton: overlayButton == 'play'
+            overlayPlayButton: overlayButton == 'play',
+            allowBottomPadding: !enableScrollX()
         });
 
         var elem = page.querySelector('.' + sectionClass);
@@ -198,12 +199,6 @@
         }
 
         var mdlTabs = view.querySelector('.libraryViewNav');
-
-        var baseUrl = 'tv.html';
-        var topParentId = params.topParentId;
-        if (topParentId) {
-            baseUrl += '?topParentId=' + topParentId;
-        }
 
         libraryBrowser.configurePaperLibraryTabs(view, mdlTabs, view.querySelectorAll('.pageTabContent'), [0, 2, 3, 4]);
 

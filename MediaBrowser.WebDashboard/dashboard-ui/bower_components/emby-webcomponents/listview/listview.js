@@ -178,10 +178,14 @@ define(['itemHelper', 'mediaInfo', 'indicators', 'connectionManager', 'layoutMan
                 }
             }
 
-            var cssClass = "listItem listItem-nosidepadding";
+            var cssClass = "listItem listItem-nosidepadding listItem-border";
 
             if (clickEntireItem) {
-                cssClass += ' itemAction';
+                cssClass += ' itemAction listItem-button';
+            }
+
+            if (layoutManager.tv) {
+                cssClass += ' listItem-focusscale';
             }
 
             var downloadWidth = 80;
@@ -203,7 +207,7 @@ define(['itemHelper', 'mediaInfo', 'indicators', 'connectionManager', 'layoutMan
             html += '<' + outerTagName + ' class="' + cssClass + '" data-index="' + i + '"' + playlistItemId + ' data-action="' + action + '" data-isfolder="' + item.IsFolder + '" data-id="' + item.Id + '" data-serverid="' + item.ServerId + '" data-type="' + item.Type + '"' + mediaTypeData + collectionTypeData + channelIdData + positionTicksData + collectionIdData + playlistIdData + '>';
 
             if (!clickEntireItem && options.dragHandle) {
-                html += '<button is="paper-icon-button-light" class="listViewDragHandle autoSize"><i class="md-icon">&#xE25D;</i></button>';
+                html += '<button is="paper-icon-button-light" class="listViewDragHandle autoSize listItemButton"><i class="md-icon">&#xE25D;</i></button>';
             }
 
             var imgUrl = getImageUrl(item, downloadWidth);
@@ -220,10 +224,12 @@ define(['itemHelper', 'mediaInfo', 'indicators', 'connectionManager', 'layoutMan
             indicatorsHtml += indicators.getPlayedIndicatorHtml(item);
 
             if (indicatorsHtml) {
-                html += '<div class="indicators">' + indicatorsHtml + '</div>';
+                html += '<div class="indicators listItemIndicators">' + indicatorsHtml + '</div>';
             }
 
-            var progressHtml = indicators.getProgressBarHtml(item);
+            var progressHtml = indicators.getProgressBarHtml(item, {
+                containerClass: 'listItemProgressBar'
+            });
 
             if (progressHtml) {
                 html += progressHtml;
@@ -279,7 +285,13 @@ define(['itemHelper', 'mediaInfo', 'indicators', 'connectionManager', 'layoutMan
             html += getTextLinesHtml(textlines, isLargeStyle);
 
             if (!enableSideMediaInfo) {
-                html += '<div class="secondary listItemMediaInfo listItemBodyText">' + mediaInfo.getPrimaryMediaInfoHtml(item) + '</div>';
+
+                var mediaInfoClass = 'secondary listItemMediaInfo listItemBodyText';
+                if (layoutManager.tv) {
+                    mediaInfoClass += ' listItemMediaInfo-padded';
+                }
+
+                html += '<div class="' + mediaInfoClass + '">' + mediaInfo.getPrimaryMediaInfoHtml(item) + '</div>';
             }
 
             if (enableOverview && item.Overview) {
@@ -300,11 +312,12 @@ define(['itemHelper', 'mediaInfo', 'indicators', 'connectionManager', 'layoutMan
             }
 
             if (!clickEntireItem) {
-                html += '<button is="paper-icon-button-light" class="itemAction autoSize" data-action="menu"><i class="md-icon">' + moreIcon + '</i></button>';
+                html += '<button is="paper-icon-button-light" class="listItemButton itemAction autoSize" data-action="menu"><i class="md-icon">' + moreIcon + '</i></button>';
                 html += '<span class="listViewUserDataButtons">';
                 html += userdataButtons.getIconsHtml({
                     item: item,
-                    includePlayed: false
+                    includePlayed: false,
+                    cssClass: 'listItemButton'
                 });
                 html += '</span>';
             }

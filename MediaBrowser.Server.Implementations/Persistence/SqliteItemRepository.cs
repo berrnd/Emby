@@ -412,7 +412,8 @@ namespace MediaBrowser.Server.Implementations.Persistence
             "SeasonName",
             "SeasonId",
             "SeriesId",
-            "SeriesSortName"
+            "SeriesSortName",
+            "PresentationUniqueKey"
         };
 
         private readonly string[] _mediaStreamSaveColumns =
@@ -918,7 +919,7 @@ namespace MediaBrowser.Server.Implementations.Persistence
                         _saveItemCommand.GetParameter(index++).Value = GetCleanValue(item.Name);
                     }
 
-                    _saveItemCommand.GetParameter(index++).Value = item.PresentationUniqueKey;
+                    _saveItemCommand.GetParameter(index++).Value = item.GetPresentationUniqueKey();
                     _saveItemCommand.GetParameter(index++).Value = item.SlugName;
                     _saveItemCommand.GetParameter(index++).Value = item.OriginalTitle;
 
@@ -1451,6 +1452,12 @@ namespace MediaBrowser.Server.Implementations.Persistence
                 {
                     hasSeries.SeriesSortName = reader.GetString(index);
                 }
+            }
+            index++;
+
+            if (!reader.IsDBNull(index))
+            {
+                item.PresentationUniqueKey = reader.GetString(index);
             }
             index++;
 
@@ -2230,7 +2237,7 @@ namespace MediaBrowser.Server.Implementations.Persistence
             }
             if (string.Equals(name, ItemSortBy.OfficialRating, StringComparison.OrdinalIgnoreCase))
             {
-                return new Tuple<string, bool>("ParentalRatingValue", false);
+                return new Tuple<string, bool>("InheritedParentalRatingValue", false);
             }
             if (string.Equals(name, ItemSortBy.Studio, StringComparison.OrdinalIgnoreCase))
             {
@@ -3473,7 +3480,7 @@ namespace MediaBrowser.Server.Implementations.Persistence
 
             using (var cmd = _connection.CreateCommand())
             {
-                cmd.CommandText = "select Guid,InheritedParentalRatingValue,(select Max(ParentalRatingValue, (select COALESCE(MAX(ParentalRatingValue),0) from TypedBaseItems where guid in (Select AncestorId from AncestorIds where ItemId=Outer.guid)))) as NewInheritedParentalRatingValue from typedbaseitems as Outer where InheritedParentalRatingValue <> NewInheritedParentalRatingValue";
+                cmd.CommandText = "select Guid,InheritedParentalRatingValue,(select Max(InheritedParentalRatingValue, (select COALESCE(MAX(InheritedParentalRatingValue),0) from TypedBaseItems where guid in (Select AncestorId from AncestorIds where ItemId=Outer.guid)))) as NewInheritedParentalRatingValue from typedbaseitems as Outer where InheritedParentalRatingValue <> NewInheritedParentalRatingValue";
 
                 using (var reader = cmd.ExecuteReader(CommandBehavior.SequentialAccess | CommandBehavior.SingleResult))
                 {
@@ -3968,7 +3975,8 @@ namespace MediaBrowser.Server.Implementations.Persistence
                     AlbumArtistStartsWithOrGreater = query.AlbumArtistStartsWithOrGreater,
                     Tags = query.Tags,
                     OfficialRatings = query.OfficialRatings,
-                    Genres = query.GenreIds,
+                    GenreIds = query.GenreIds,
+                    Genres = query.Genres,
                     Years = query.Years
                 };
 
@@ -4034,7 +4042,7 @@ namespace MediaBrowser.Server.Implementations.Persistence
                     ? (CommandBehavior.SequentialAccess | CommandBehavior.SingleResult)
                     : CommandBehavior.SequentialAccess;
 
-                Logger.Debug("GetItemValues: " + cmd.CommandText);
+                //Logger.Debug("GetItemValues: " + cmd.CommandText);
 
                 using (var reader = cmd.ExecuteReader(commandBehavior))
                 {
@@ -4120,6 +4128,10 @@ namespace MediaBrowser.Server.Implementations.Persistence
                 else if (string.Equals(typeName, typeof(MusicAlbum).FullName, StringComparison.OrdinalIgnoreCase))
                 {
                     counts.AlbumCount = value;
+                }
+                else if (string.Equals(typeName, typeof(MusicArtist).FullName, StringComparison.OrdinalIgnoreCase))
+                {
+                    counts.ArtistCount = value;
                 }
                 else if (string.Equals(typeName, typeof(Audio).FullName, StringComparison.OrdinalIgnoreCase))
                 {

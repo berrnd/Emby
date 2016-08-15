@@ -244,6 +244,13 @@
                 ironIcon: 'call-merge'
             });
 
+            if (user.Policy.EnableSync && appHost.supports('sync')) {
+                menuItems.push({
+                    name: globalize.translate('sharedcomponents#MakeAvailableOffline'),
+                    id: 'synclocal'
+                });
+            }
+
             menuItems.push({
                 name: globalize.translate('sharedcomponents#MarkPlayed'),
                 id: 'markplayed'
@@ -260,12 +267,14 @@
                 ironIcon: 'refresh'
             });
 
-            menuItems.push({
-                name: globalize.translate('sharedcomponents#Sync'),
-                id: 'sync',
-                ironIcon: 'sync'
-            });
-            dispatchNeedsRefresh();
+            if (user.Policy.EnableSync) {
+                menuItems.push({
+                    name: globalize.translate('sharedcomponents#SyncToOtherDevice'),
+                    id: 'sync',
+                    ironIcon: 'sync'
+                });
+            }
+
             require(['actionsheet'], function (actionsheet) {
 
                 actionsheet.show({
@@ -287,6 +296,7 @@
                                     });
                                 });
                                 hideSelections();
+                                dispatchNeedsRefresh();
                                 break;
                             case 'playlist':
                                 require(['playlistEditor'], function (playlistEditor) {
@@ -296,12 +306,14 @@
                                     });
                                 });
                                 hideSelections();
+                                dispatchNeedsRefresh();
                                 break;
                             case 'delete':
                                 deleteItems(items).then(function () {
                                     embyRouter.goHome();
                                 });
                                 hideSelections();
+                                dispatchNeedsRefresh();
                                 break;
                             case 'groupvideos':
                                 combineVersions(apiClient, items);
@@ -311,12 +323,14 @@
                                     apiClient.markPlayed(apiClient.getCurrentUserId(), itemId);
                                 });
                                 hideSelections();
+                                dispatchNeedsRefresh();
                                 break;
                             case 'markunplayed':
                                 items.forEach(function (itemId) {
                                     apiClient.markUnplayed(apiClient.getCurrentUserId(), itemId);
                                 });
                                 hideSelections();
+                                dispatchNeedsRefresh();
                                 break;
                             case 'refresh':
                                 require(['refreshDialog'], function (refreshDialog) {
@@ -326,6 +340,7 @@
                                     }).show();
                                 });
                                 hideSelections();
+                                dispatchNeedsRefresh();
                                 break;
                             case 'sync':
                                 require(['syncDialog'], function (syncDialog) {
@@ -338,6 +353,20 @@
                                     });
                                 });
                                 hideSelections();
+                                dispatchNeedsRefresh();
+                                break;
+                            case 'synclocal':
+                                require(['syncDialog'], function (syncDialog) {
+                                    syncDialog.showMenu({
+                                        items: items.map(function (i) {
+                                            return {
+                                                Id: i
+                                            };
+                                        })
+                                    });
+                                });
+                                hideSelections();
+                                dispatchNeedsRefresh();
                                 break;
                             default:
                                 break;

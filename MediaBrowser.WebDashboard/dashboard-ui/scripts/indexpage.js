@@ -1,4 +1,4 @@
-﻿define(['libraryBrowser'], function (libraryBrowser) {
+﻿define(['libraryBrowser', 'emby-tabs', 'emby-button'], function (libraryBrowser) {
 
     var defaultFirstSection = 'smalllibrarytiles';
 
@@ -422,11 +422,7 @@
 
             if (state.NowPlayingItem && state.NowPlayingItem.MediaType == 'Video') {
 
-                mdlTabs.dispatchEvent(new CustomEvent("tabchange", {
-                    detail: {
-                        selectedTabIndex: libraryBrowser.selectedTab(mdlTabs)
-                    }
-                }));
+                mdlTabs.triggerTabChange();
             }
         }
 

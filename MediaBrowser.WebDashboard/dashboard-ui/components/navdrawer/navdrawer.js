@@ -1,4 +1,4 @@
-﻿define(['browser', 'hammer', 'css!./navdrawer', 'scrollStyles'], function (browser, Hammer) {
+﻿define(['browser', 'css!./navdrawer', 'scrollStyles'], function (browser) {
 
     return function (options) {
 
@@ -35,7 +35,7 @@
             this.initialize();
         };
 
-        TouchMenuLA.prototype.initElements = function () {
+        TouchMenuLA.prototype.initElements = function (Hammer) {
             options.target.classList.add('touch-menu-la');
             options.target.style.width = options.width + 'px';
             options.target.style.left = -options.width + 'px';
@@ -44,7 +44,10 @@
                 mask = document.createElement('div');
                 mask.className = 'tmla-mask';
                 document.body.appendChild(mask);
-                maskHammer = new Hammer(mask, null);
+
+                if (Hammer) {
+                    maskHammer = new Hammer(mask, null);
+                }
             }
         };
 
@@ -89,7 +92,7 @@
             self.checkMenuState(ev.deltaX, ev.deltaY);
         }
 
-        function initEdgeSwipe() {
+        function initEdgeSwipe(Hammer) {
             if (options.disableEdgeSwipe) {
                 return;
             }
@@ -122,6 +125,8 @@
                     onPanEnd(ev);
                 }
             });
+
+            self.edgeHammer = edgeHammer;
         }
 
         function disableEvent(e) {
@@ -145,12 +150,8 @@
             requestAnimationFrame(function () {
                 if (pos) {
                     options.target.style.transform = 'translate3d(' + pos + 'px, 0, 0)';
-                    options.target.style.WebkitTransform = 'translate3d(' + pos + 'px, 0, 0)';
-                    options.target.style.MozTransform = 'translate3d(' + pos + 'px, 0, 0)';
                 } else {
                     options.target.style.transform = 'none';
-                    options.target.style.WebkitTransform = 'none';
-                    options.target.style.MozTransform = 'none';
                 }
             });
         };
@@ -258,6 +259,27 @@
             }
         };
 
+        function initWithHammer(Hammer) {
+            
+            if (Hammer) {
+                menuHammer = Hammer(options.target, null);
+            }
+
+            self.initElements(Hammer);
+
+            if (Hammer) {
+                self.touchStartMenu();
+                self.touchEndMenu();
+                self.eventStartMask();
+                self.eventEndMask();
+                initEdgeSwipe(Hammer);
+            }
+
+            if (!options.disableMask) {
+                self.clickMaskClose();
+            }
+        }
+
         TouchMenuLA.prototype.initialize = function () {
 
             options = Object.assign(defaults, options || {});
@@ -267,20 +289,11 @@
                 options.disableEdgeSwipe = true;
             }
 
-            menuHammer = Hammer(options.target, null);
-
-            self.initElements();
-
-            self.touchStartMenu();
-            self.touchEndMenu();
-            self.eventStartMask();
-            self.eventEndMask();
-
-            if (!options.disableMask) {
-                self.clickMaskClose();
+            if (browser.touch) {
+                require(['hammer'], initWithHammer);
+            } else {
+                initWithHammer();
             }
-
-            initEdgeSwipe();
         };
 
         return new TouchMenuLA();

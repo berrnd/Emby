@@ -149,7 +149,7 @@ namespace MediaBrowser.Providers.Manager
                 if (file != null)
                 {
                     var fileLastWriteTime = file.LastWriteTimeUtc;
-                    if (item.EnableForceSaveOnDateModifiedChange && fileLastWriteTime != item.DateModified)
+                    if (item.EnableRefreshOnDateModifiedChange && fileLastWriteTime != item.DateModified)
                     {
                         Logger.Debug("Date modified for {0}. Old date {1} new date {2} Id {3}", item.Path, item.DateModified, fileLastWriteTime, item.Id);
                         requiresRefresh = true;
@@ -283,6 +283,13 @@ namespace MediaBrowser.Providers.Manager
 
             updateType |= SaveCumulativeRunTimeTicks(item, isFullRefresh, currentUpdateType);
             updateType |= SaveDateLastMediaAdded(item, isFullRefresh, currentUpdateType);
+
+            var presentationUniqueKey = item.CreatePresentationUniqueKey();
+            if (!string.Equals(item.PresentationUniqueKey, presentationUniqueKey, StringComparison.Ordinal))
+            {
+                item.PresentationUniqueKey = presentationUniqueKey;
+                updateType |= ItemUpdateType.MetadataImport;
+            }
 
             return updateType;
         }
@@ -525,7 +532,7 @@ namespace MediaBrowser.Providers.Manager
             }
 
             // Local metadata is king - if any is found don't run remote providers
-            if (!options.ReplaceAllMetadata && (!hasLocalMetadata || options.MetadataRefreshMode == MetadataRefreshMode.FullRefresh))
+            if (!options.ReplaceAllMetadata && (!hasLocalMetadata || options.MetadataRefreshMode == MetadataRefreshMode.FullRefresh || !item.StopRefreshIfLocalMetadataFound))
             {
                 var remoteResult = await ExecuteRemoteProviders(temp, logName, id, providers.OfType<IRemoteMetadataProvider<TItemType, TIdType>>(), cancellationToken)
                     .ConfigureAwait(false);

@@ -1,4 +1,4 @@
-﻿define(['libraryBrowser', 'components/categorysyncbuttons', 'cardBuilder', 'scrollStyles', 'emby-itemscontainer'], function (libraryBrowser, categorysyncbuttons, cardBuilder) {
+﻿define(['libraryBrowser', 'components/categorysyncbuttons', 'cardBuilder', 'scrollStyles', 'emby-itemscontainer', 'emby-tabs', 'emby-button'], function (libraryBrowser, categorysyncbuttons, cardBuilder) {
 
     return function (view, params) {
 
@@ -88,6 +88,8 @@
                     view.querySelector('#resumableSection').classList.add('hide');
                 }
 
+                var allowBottomPadding = !enableScrollX();
+
                 var container = view.querySelector('#resumableItems');
                 cardBuilder.buildCards(result.Items, {
                     itemsContainer: container,
@@ -98,7 +100,8 @@
                     showParentTitle: true,
                     overlayText: false,
                     centerText: true,
-                    overlayPlayButton: true
+                    overlayPlayButton: true,
+                    allowBottomPadding: allowBottomPadding
                 });
             });
         }
@@ -206,11 +209,7 @@
             if (state.NowPlayingItem && state.NowPlayingItem.MediaType == 'Video') {
 
                 renderedTabs = [];
-                mdlTabs.dispatchEvent(new CustomEvent("tabchange", {
-                    detail: {
-                        selectedTabIndex: libraryBrowser.selectedTab(mdlTabs)
-                    }
-                }));
+                mdlTabs.triggerTabChange();
             }
         }
 

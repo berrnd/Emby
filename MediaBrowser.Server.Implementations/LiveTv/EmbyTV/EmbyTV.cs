@@ -28,6 +28,7 @@ using CommonIO;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Power;
+using MediaBrowser.Model.Configuration;
 using Microsoft.Win32;
 
 namespace MediaBrowser.Server.Implementations.LiveTv.EmbyTV
@@ -143,7 +144,7 @@ namespace MediaBrowser.Server.Implementations.LiveTv.EmbyTV
 
                 try
                 {
-                    _libraryManager.AddVirtualFolder(recordingFolder.Name, recordingFolder.CollectionType, pathsToCreate.ToArray(), true);
+                    _libraryManager.AddVirtualFolder(recordingFolder.Name, recordingFolder.CollectionType, pathsToCreate.ToArray(), new LibraryOptions(), true);
                 }
                 catch (Exception ex)
                 {

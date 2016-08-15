@@ -575,7 +575,12 @@ namespace MediaBrowser.Server.Implementations.Library
             return ResolvePath(fileInfo, new DirectoryService(_logger, _fileSystem), null, parent);
         }
 
-        private BaseItem ResolvePath(FileSystemMetadata fileInfo, IDirectoryService directoryService, IItemResolver[] resolvers, Folder parent = null, string collectionType = null)
+        private BaseItem ResolvePath(FileSystemMetadata fileInfo,
+            IDirectoryService directoryService,
+            IItemResolver[] resolvers,
+            Folder parent = null,
+            string collectionType = null,
+            LibraryOptions libraryOptions = null)
         {
             if (fileInfo == null)
             {
@@ -594,7 +599,8 @@ namespace MediaBrowser.Server.Implementations.Library
                 Parent = parent,
                 Path = fullPath,
                 FileInfo = fileInfo,
-                CollectionType = collectionType
+                CollectionType = collectionType,
+                LibraryOptions = libraryOptions
             };
 
             // Return null if ignore rules deem that we should do so
@@ -672,12 +678,17 @@ namespace MediaBrowser.Server.Implementations.Library
             return !args.ContainsFileSystemEntryByName(".ignore");
         }
 
-        public IEnumerable<BaseItem> ResolvePaths(IEnumerable<FileSystemMetadata> files, IDirectoryService directoryService, Folder parent, string collectionType)
+        public IEnumerable<BaseItem> ResolvePaths(IEnumerable<FileSystemMetadata> files, IDirectoryService directoryService, Folder parent, LibraryOptions libraryOptions, string collectionType)
         {
-            return ResolvePaths(files, directoryService, parent, collectionType, EntityResolvers);
+            return ResolvePaths(files, directoryService, parent, libraryOptions, collectionType, EntityResolvers);
         }
 
-        public IEnumerable<BaseItem> ResolvePaths(IEnumerable<FileSystemMetadata> files, IDirectoryService directoryService, Folder parent, string collectionType, IItemResolver[] resolvers)
+        public IEnumerable<BaseItem> ResolvePaths(IEnumerable<FileSystemMetadata> files,
+            IDirectoryService directoryService,
+            Folder parent, 
+            LibraryOptions libraryOptions,
+            string collectionType,
+            IItemResolver[] resolvers)
         {
             var fileList = files.Where(i => !IgnoreFile(i, parent)).ToList();
 
@@ -698,22 +709,27 @@ namespace MediaBrowser.Server.Implementations.Library
                         {
                             ResolverHelper.SetInitialItemValues(item, parent, _fileSystem, this, directoryService);
                         }
-                        items.AddRange(ResolveFileList(result.ExtraFiles, directoryService, parent, collectionType, resolvers));
+                        items.AddRange(ResolveFileList(result.ExtraFiles, directoryService, parent, collectionType, resolvers, libraryOptions));
                         return items;
                     }
                 }
             }
 
-            return ResolveFileList(fileList, directoryService, parent, collectionType, resolvers);
+            return ResolveFileList(fileList, directoryService, parent, collectionType, resolvers, libraryOptions);
         }
 
-        private IEnumerable<BaseItem> ResolveFileList(IEnumerable<FileSystemMetadata> fileList, IDirectoryService directoryService, Folder parent, string collectionType, IItemResolver[] resolvers)
+        private IEnumerable<BaseItem> ResolveFileList(IEnumerable<FileSystemMetadata> fileList,
+            IDirectoryService directoryService,
+            Folder parent,
+            string collectionType,
+            IItemResolver[] resolvers,
+            LibraryOptions libraryOptions)
         {
             return fileList.Select(f =>
             {
                 try
                 {
-                    return ResolvePath(f, directoryService, resolvers, parent, collectionType);
+                    return ResolvePath(f, directoryService, resolvers, parent, collectionType, libraryOptions);
                 }
                 catch (Exception ex)
                 {
@@ -1226,7 +1242,7 @@ namespace MediaBrowser.Server.Implementations.Library
                 .Select(dir => GetVirtualFolderInfo(dir, topLibraryFolders));
         }
 
-        private VirtualFolderInfo GetVirtualFolderInfo(string dir, List<BaseItem> collectionFolders)
+        private VirtualFolderInfo GetVirtualFolderInfo(string dir, List<BaseItem> allCollectionFolders)
         {
             var info = new VirtualFolderInfo
             {
@@ -1240,7 +1256,7 @@ namespace MediaBrowser.Server.Implementations.Library
                 CollectionType = GetCollectionType(dir)
             };
 
-            var libraryFolder = collectionFolders.FirstOrDefault(i => string.Equals(i.Path, dir, StringComparison.OrdinalIgnoreCase));
+            var libraryFolder = allCollectionFolders.FirstOrDefault(i => string.Equals(i.Path, dir, StringComparison.OrdinalIgnoreCase));
 
             if (libraryFolder != null && libraryFolder.HasImage(ImageType.Primary))
             {
@@ -1250,6 +1266,12 @@ namespace MediaBrowser.Server.Implementations.Library
             if (libraryFolder != null)
             {
                 info.ItemId = libraryFolder.Id.ToString("N");
+            }
+
+            var collectionFolder = libraryFolder as CollectionFolder;
+            if (collectionFolder != null)
+            {
+                info.LibraryOptions = collectionFolder.GetLibraryOptions();
             }
 
             return info;
@@ -1910,6 +1932,15 @@ namespace MediaBrowser.Server.Implementations.Library
                 .Where(i => string.Equals(i.Path, item.Path, StringComparison.OrdinalIgnoreCase) || i.PhysicalLocations.Contains(item.Path, StringComparer.OrdinalIgnoreCase));
         }
 
+        public LibraryOptions GetLibraryOptions(BaseItem item)
+        {
+            var collectionFolder = GetCollectionFolders(item)
+                .OfType<CollectionFolder>()
+                .FirstOrDefault();
+
+            return collectionFolder == null ? new LibraryOptions() : collectionFolder.GetLibraryOptions();
+        }
+
         public string GetContentType(BaseItem item)
         {
             string configuredContentType = GetConfiguredContentType(item, false);
@@ -2261,16 +2292,26 @@ namespace MediaBrowser.Server.Implementations.Library
             return item;
         }
 
+        public bool IsVideoFile(string path, LibraryOptions libraryOptions)
+        {
+            var resolver = new VideoResolver(GetNamingOptions(libraryOptions), new PatternsLogger());
+            return resolver.IsVideoFile(path);
+        }
+
         public bool IsVideoFile(string path)
         {
-            var resolver = new VideoResolver(GetNamingOptions(), new PatternsLogger());
-            return resolver.IsVideoFile(path);
+            return IsVideoFile(path, new LibraryOptions());
+        }
+
+        public bool IsAudioFile(string path, LibraryOptions libraryOptions)
+        {
+            var parser = new AudioFileParser(GetNamingOptions(libraryOptions));
+            return parser.IsAudioFile(path);
         }
 
         public bool IsAudioFile(string path)
         {
-            var parser = new AudioFileParser(GetNamingOptions());
-            return parser.IsAudioFile(path);
+            return IsAudioFile(path, new LibraryOptions());
         }
 
         public int? GetSeasonNumberFromPath(string path)
@@ -2399,19 +2440,24 @@ namespace MediaBrowser.Server.Implementations.Library
 
         public NamingOptions GetNamingOptions()
         {
+            return GetNamingOptions(new LibraryOptions());
+        }
+
+        public NamingOptions GetNamingOptions(LibraryOptions libraryOptions)
+        {
             var options = new ExtendedNamingOptions();
 
             // These cause apps to have problems
             options.AudioFileExtensions.Remove(".m3u");
             options.AudioFileExtensions.Remove(".wpl");
 
-            if (!ConfigurationManager.Configuration.EnableAudioArchiveFiles)
+            if (!libraryOptions.EnableArchiveMediaFiles)
             {
                 options.AudioFileExtensions.Remove(".rar");
                 options.AudioFileExtensions.Remove(".zip");
             }
 
-            if (!ConfigurationManager.Configuration.EnableVideoArchiveFiles)
+            if (!libraryOptions.EnableArchiveMediaFiles)
             {
                 options.VideoFileExtensions.Remove(".rar");
                 options.VideoFileExtensions.Remove(".zip");
@@ -2462,7 +2508,7 @@ namespace MediaBrowser.Server.Implementations.Library
                 new GenericVideoResolver<Trailer>(this)
             };
 
-            return ResolvePaths(files, directoryService, null, null, resolvers)
+            return ResolvePaths(files, directoryService, null, new LibraryOptions(), null, resolvers)
                 .OfType<Trailer>()
                 .Select(video =>
                 {
@@ -2506,7 +2552,7 @@ namespace MediaBrowser.Server.Implementations.Library
                 files.AddRange(currentVideo.Extras.Where(i => !string.Equals(i.ExtraType, "trailer", StringComparison.OrdinalIgnoreCase)).Select(i => _fileSystem.GetFileInfo(i.Path)));
             }
 
-            return ResolvePaths(files, directoryService, null, null)
+            return ResolvePaths(files, directoryService, null, new LibraryOptions(), null)
                 .OfType<Video>()
                 .Select(video =>
                 {
@@ -2684,7 +2730,7 @@ namespace MediaBrowser.Server.Implementations.Library
             throw new InvalidOperationException();
         }
 
-        public void AddVirtualFolder(string name, string collectionType, string[] mediaPaths, bool refreshLibrary)
+        public void AddVirtualFolder(string name, string collectionType, string[] mediaPaths, LibraryOptions options, bool refreshLibrary)
         {
             if (string.IsNullOrWhiteSpace(name))
             {
@@ -2726,6 +2772,8 @@ namespace MediaBrowser.Server.Implementations.Library
 
                     }
                 }
+
+                CollectionFolder.SaveLibraryOptions(virtualFolderPath, options);
 
                 if (mediaPaths != null)
                 {

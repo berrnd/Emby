@@ -107,7 +107,7 @@
             html += '<h1>' + globalize.translate('sharedcomponents#MySubtitles') + '</h1>';
 
             if (layoutManager.tv) {
-                html += '<div class="paperList clear">';
+                html += '<div class="paperList paperList-clear">';
             } else {
                 html += '<div class="paperList">';
             }
@@ -117,7 +117,9 @@
                 var itemHtml = '';
 
                 var tagName = layoutManager.tv ? 'button' : 'div';
-                var className = layoutManager.tv && s.Path ? 'listItem btnDelete' : 'listItem';
+                var className = layoutManager.tv && s.Path ? 'listItem listItem-focusscale btnDelete' : 'listItem';
+
+                className += ' listItem-noborder';
 
                 itemHtml += '<' + tagName + ' class="' + className + '" data-index="' + s.Index + '">';
 
@@ -138,7 +140,7 @@
 
                 if (!layoutManager.tv) {
                     if (s.Path) {
-                        itemHtml += '<button is="paper-icon-button-light" data-index="' + s.Index + '" title="' + globalize.translate('sharedcomponents#Delete') + '" class="btnDelete"><i class="md-icon">delete</i></button>';
+                        itemHtml += '<button is="paper-icon-button-light" data-index="' + s.Index + '" title="' + globalize.translate('sharedcomponents#Delete') + '" class="btnDelete listItemButton"><i class="md-icon">delete</i></button>';
                     }
                 }
 
@@ -225,7 +227,7 @@
                 }
                 html += '<h1>' + provider + '</h1>';
                 if (layoutManager.tv) {
-                    html += '<div class="paperList clear">';
+                    html += '<div class="paperList paperList-clear">';
                 } else {
                     html += '<div class="paperList">';
                 }
@@ -254,10 +256,10 @@
 
             html += '</div>';
 
-            html += '<div class="secondary">' + /*(result.CommunityRating || 0) + ' / ' +*/ (result.DownloadCount || 0) + '</div>';
+            html += '<div class="secondary listItemAside">' + /*(result.CommunityRating || 0) + ' / ' +*/ (result.DownloadCount || 0) + '</div>';
 
             if (!layoutManager.tv) {
-                html += '<button type="button" is="paper-icon-button-light" data-subid="' + result.Id + '" class="btnOptions"><i class="md-icon">' + moreIcon + '</i></button>';
+                html += '<button type="button" is="paper-icon-button-light" data-subid="' + result.Id + '" class="btnOptions listItemButton"><i class="md-icon">' + moreIcon + '</i></button>';
             }
 
             html += '</' + tagName + '>';

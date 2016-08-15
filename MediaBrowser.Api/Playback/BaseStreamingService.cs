@@ -1055,14 +1055,14 @@ namespace MediaBrowser.Api.Playback
             var commandLineLogMessage = process.StartInfo.FileName + " " + process.StartInfo.Arguments;
             Logger.Info(commandLineLogMessage);
 
-            var logFilePrefix = "transcode";
+            var logFilePrefix = "ffmpeg-transcode";
             if (state.VideoRequest != null && string.Equals(state.OutputVideoCodec, "copy", StringComparison.OrdinalIgnoreCase) && string.Equals(state.OutputAudioCodec, "copy", StringComparison.OrdinalIgnoreCase))
             {
-                logFilePrefix = "directstream";
+                logFilePrefix = "ffmpeg-directstream";
             }
             else if (state.VideoRequest != null && string.Equals(state.OutputVideoCodec, "copy", StringComparison.OrdinalIgnoreCase))
             {
-                logFilePrefix = "remux";
+                logFilePrefix = "ffmpeg-remux";
             }
 
             var logFilePath = Path.Combine(ServerConfigurationManager.ApplicationPaths.LogDirectoryPath, logFilePrefix + "-" + Guid.NewGuid() + ".txt");
@@ -1118,22 +1118,23 @@ namespace MediaBrowser.Api.Playback
 
         private void StartThrottler(StreamState state, TranscodingJob transcodingJob)
         {
-            if (EnableThrottling(state) && state.InputProtocol == MediaProtocol.File &&
-                           state.RunTimeTicks.HasValue &&
-                           state.VideoType == VideoType.VideoFile &&
-                           !string.Equals(state.OutputVideoCodec, "copy", StringComparison.OrdinalIgnoreCase))
+            if (EnableThrottling(state) && !string.Equals(state.OutputVideoCodec, "copy", StringComparison.OrdinalIgnoreCase))
             {
-                if (state.RunTimeTicks.Value >= TimeSpan.FromMinutes(5).Ticks && state.IsInputVideo)
-                {
-                    transcodingJob.TranscodingThrottler = state.TranscodingThrottler = new TranscodingThrottler(transcodingJob, Logger, ServerConfigurationManager);
-                    state.TranscodingThrottler.Start();
-                }
+                transcodingJob.TranscodingThrottler = state.TranscodingThrottler = new TranscodingThrottler(transcodingJob, Logger, ServerConfigurationManager);
+                state.TranscodingThrottler.Start();
             }
         }
 
         protected virtual bool EnableThrottling(StreamState state)
         {
-            return true;
+            // do not use throttling with hardware encoders
+            return state.InputProtocol == MediaProtocol.File &&
+                state.RunTimeTicks.HasValue &&
+                state.RunTimeTicks.Value >= TimeSpan.FromMinutes(5).Ticks &&
+                state.IsInputVideo && 
+                state.VideoType == VideoType.VideoFile &&
+                !string.Equals(state.OutputVideoCodec, "copy", StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(GetVideoEncoder(state), "libx264", StringComparison.OrdinalIgnoreCase);
         }
 
         private async Task StartStreamingLog(TranscodingJob transcodingJob, StreamState state, Stream source, Stream target)
@@ -1587,6 +1588,10 @@ namespace MediaBrowser.Api.Playback
                     {
                         videoRequest.EnableSubtitlesInManifest = string.Equals("true", val, StringComparison.OrdinalIgnoreCase);
                     }
+                }
+                else if (i == 29)
+                {
+                    request.Tag = val;
                 }
             }
         }

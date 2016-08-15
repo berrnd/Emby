@@ -13,6 +13,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using CommonIO;
 using MediaBrowser.Controller.Channels;
+using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Model.Channels;
 
 namespace MediaBrowser.Controller.Entities
@@ -272,6 +273,7 @@ namespace MediaBrowser.Controller.Entities
         /// </summary>
         protected virtual IEnumerable<BaseItem> LoadChildren()
         {
+            //Logger.Debug("Loading children from {0} {1} {2}", GetType().Name, Id, Path);
             //just load our children from the repo - the library will be validated and maintained in other processes
             return GetCachedChildren();
         }
@@ -642,8 +644,9 @@ namespace MediaBrowser.Controller.Entities
         protected virtual IEnumerable<BaseItem> GetNonCachedChildren(IDirectoryService directoryService)
         {
             var collectionType = LibraryManager.GetContentType(this);
+            var libraryOptions = LibraryManager.GetLibraryOptions(this);
 
-            return LibraryManager.ResolvePaths(GetFileSystemChildren(directoryService), directoryService, this, collectionType);
+            return LibraryManager.ResolvePaths(GetFileSystemChildren(directoryService), directoryService, this, libraryOptions, collectionType);
         }
 
         /// <summary>
@@ -880,6 +883,15 @@ namespace MediaBrowser.Controller.Entities
             {
                 Logger.Debug("Query requires post-filtering due to AlbumArtistStartsWithOrGreater");
                 return true;
+            }
+
+            if (query.IsPlayed.HasValue)
+            {
+                if (query.IncludeItemTypes.Length == 1 && query.IncludeItemTypes.Contains(typeof(Series).Name))
+                {
+                    Logger.Debug("Query requires post-filtering due to IsPlayed");
+                    return true;
+                }
             }
 
             return false;

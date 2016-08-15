@@ -275,7 +275,7 @@ namespace MediaBrowser.Server.Implementations.HttpServer
         /// <returns>System.Object.</returns>
         private object GetCachedResult(IRequest requestContext, IDictionary<string, string> responseHeaders, Guid cacheKey, string cacheKeyString, DateTime? lastDateModified, TimeSpan? cacheDuration, string contentType)
         {
-            responseHeaders["ETag"] = cacheKeyString;
+            responseHeaders["ETag"] = string.Format("\"{0}\"", cacheKeyString);
 
             if (IsNotModified(requestContext, cacheKey, lastDateModified, cacheDuration))
             {
@@ -534,7 +534,7 @@ namespace MediaBrowser.Server.Implementations.HttpServer
             if (lastDateModified.HasValue && (string.IsNullOrEmpty(cacheKey) || cacheDuration.HasValue))
             {
                 AddAgeHeader(responseHeaders, lastDateModified);
-                responseHeaders["LastModified"] = lastDateModified.Value.ToString("r");
+                responseHeaders["Last-Modified"] = lastDateModified.Value.ToString("r");
             }
 
             if (cacheDuration.HasValue)
