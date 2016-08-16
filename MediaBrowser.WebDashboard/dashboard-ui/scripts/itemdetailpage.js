@@ -1,4 +1,4 @@
-﻿define(['layoutManager', 'cardBuilder', 'datetime', 'mediaInfo', 'backdrop', 'listView', 'itemContextMenu', 'itemHelper', 'userdataButtons', 'dom', 'indicators', 'apphost', 'scrollStyles', 'emby-itemscontainer'], function (layoutManager, cardBuilder, datetime, mediaInfo, backdrop, listView, itemContextMenu, itemHelper, userdataButtons, dom, indicators, appHost) {
+﻿define(['layoutManager', 'cardBuilder', 'datetime', 'mediaInfo', 'backdrop', 'listView', 'itemContextMenu', 'itemHelper', 'userdataButtons', 'dom', 'indicators', 'apphost', 'scrollStyles', 'emby-itemscontainer', 'emby-checkbox'], function (layoutManager, cardBuilder, datetime, mediaInfo, backdrop, listView, itemContextMenu, itemHelper, userdataButtons, dom, indicators, appHost) {
 
     var currentItem;
 
@@ -87,16 +87,10 @@
     function updateSyncStatus(page, item) {
 
         var i, length;
-        var elems = page.querySelectorAll('.btnSyncLocal');
+        var elems = page.querySelectorAll('.chkOffline');
         for (i = 0, length = elems.length; i < length; i++) {
 
-            if (item.SyncPercent == 100) {
-                elems[i].querySelector('i').innerHTML = 'offline_pin';
-                elems[i].classList.add('btnSyncComplete');
-            } else {
-                elems[i].querySelector('i').innerHTML = 'file_download';
-                elems[i].classList.remove('btnSyncComplete');
-            }
+            elems[i].checked = item.SyncPercent != null;
         }
     }
 
@@ -169,16 +163,16 @@
 
             if (itemHelper.canSync(user, item)) {
                 if (appHost.supports('sync')) {
-                    hideAll(page, 'btnSyncLocal', true);
+                    hideAll(page, 'syncLocalContainer', true);
                     hideAll(page, 'btnSync');
                 } else {
-                    hideAll(page, 'btnSyncLocal');
+                    hideAll(page, 'syncLocalContainer');
                     hideAll(page, 'btnSync', true);
                 }
                 updateSyncStatus(page, item);
             } else {
                 hideAll(page, 'btnSync');
-                hideAll(page, 'btnSyncLocal');
+                hideAll(page, 'syncLocalContainer');
             }
 			
 			//myproduction-change-start
@@ -1069,7 +1063,7 @@
 
         _childrenItemsFunction = null;
 
-        var fields = "ItemCounts,AudioInfo,PrimaryImageAspectRatio,SyncInfo,CanDelete";
+        var fields = "ItemCounts,AudioInfo,PrimaryImageAspectRatio,BasicSyncInfo,CanDelete";
 
         var query = {
             ParentId: item.Id,
@@ -1147,7 +1141,8 @@
                     showTitle: true,
                     centerText: true,
                     lazy: true,
-                    overlayPlayButton: true
+                    overlayPlayButton: true,
+                    allowBottomPadding: !scrollX
                 });
             }
             else if (item.Type == "Season") {
@@ -1161,7 +1156,7 @@
                     overlayText: true,
                     lazy: true,
                     showDetailsMenu: true,
-                    overlayPlayButton: AppInfo.enableAppLayouts
+                    overlayPlayButton: AppInfo.enableAppLayouts,
                 });
             }
             else if (item.Type == "GameSystem") {
@@ -2085,6 +2080,31 @@
 
     return function (view, params) {
 
+        function resetSyncStatus() {
+            updateSyncStatus(view, currentItem);
+        }
+
+        function onSyncLocalClick() {
+
+            if (this.checked) {
+                require(['syncDialog'], function (syncDialog) {
+                    syncDialog.showMenu({
+                        items: [currentItem]
+                    }).then(function () {
+                        reload(view, params);
+                    }, resetSyncStatus);
+                });
+            } else {
+
+                require(['confirm'], function (confirm) {
+
+                    confirm(Globalize.translate('ConfirmRemoveDownload')).then(function () {
+                        ApiClient.cancelSyncItems([currentItem.Id]);
+                    }, resetSyncStatus);
+                });
+            }
+        }
+
         function onPlayTrailerClick() {
             playTrailer(view);
         }
@@ -2139,9 +2159,9 @@
             elems[i].addEventListener('click', onSyncClick);
         }
 
-        elems = view.querySelectorAll('.btnSyncLocal');
+        elems = view.querySelectorAll('.chkOffline');
         for (i = 0, length = elems.length; i < length; i++) {
-            elems[i].addEventListener('click', onSyncClick);
+            elems[i].addEventListener('change', onSyncLocalClick);
         }
 
         elems = view.querySelectorAll('.btnRecord,.btnFloatingRecord');

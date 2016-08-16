@@ -978,7 +978,7 @@ var AppInfo = {};
         }
 
         // This doesn't perform well on iOS
-        AppInfo.enableHeadRoom = !isIOS;
+        AppInfo.enableHeadRoom = !isIOS && !browserInfo.msie;
 
         // This currently isn't working on android, unfortunately
         AppInfo.supportsFileInput = !(AppInfo.isNativeApp && isAndroid);
@@ -1185,6 +1185,31 @@ var AppInfo = {};
         }
     }
 
+    function createWindowHeadroom() {
+        // construct an instance of Headroom, passing the element
+        var headroom = new Headroom([], {
+            // or scroll tolerance per direction
+            tolerance: {
+                down: 20,
+                up: 0
+            },
+            classes: {
+                //pinned: 'appfooter--pinned',
+                //unpinned: 'appfooter--unpinned',
+                //initial: 'appfooter-headroom'
+            }
+        });
+        // initialise
+        headroom.init();
+        return headroom;
+    }
+
+    function createMainContentHammer(Hammer) {
+        
+        var hammer = new Hammer(document.querySelector('.mainDrawerPanelContent'), null);
+        return hammer;
+    }
+
     function initRequire() {
 
         var urlArgs = "v=" + (window.dashboardVersion || new Date().getDate());
@@ -1260,6 +1285,7 @@ var AppInfo = {};
 
         define("libjass", [bowerPath + "/libjass/libjass.min", "css!" + bowerPath + "/libjass/libjass"], returnFirstDependency);
 
+        define("appfooter", ["components/appfooter/appfooter"], returnFirstDependency);
         define("dockedtabs", ["components/dockedtabs/dockedtabs"], returnFirstDependency);
         define("directorybrowser", ["components/directorybrowser/directorybrowser"], returnFirstDependency);
         define("metadataEditor", [embyWebComponentsBowerPath + "/metadataeditor/metadataeditor"], returnFirstDependency);
@@ -1490,6 +1516,9 @@ var AppInfo = {};
             return Emby.Page;
         });
 
+        define("headroom-window", ['headroom'], createWindowHeadroom);
+        define("hammer-main", ['hammer'], createMainContentHammer);
+
         // mock this for now. not used in this app
         define("playbackManager", [], function () {
             return {
@@ -1636,9 +1665,9 @@ var AppInfo = {};
 
     function onDialogOpen(dlg) {
         if (dlg.classList.contains('formDialog')) {
-            if (!dlg.classList.contains('background-theme-b')) {
-                dlg.classList.add('background-theme-a');
-                dlg.classList.add('ui-body-a');
+            if (!dlg.classList.contains('background-theme-a')) {
+                dlg.classList.add('background-theme-b');
+                dlg.classList.add('ui-body-b');
             }
         }
     }
@@ -1891,7 +1920,8 @@ var AppInfo = {};
             path: '/channels.html',
             dependencies: [],
             autoFocus: false,
-            transition: 'fade'
+            transition: 'fade',
+            controller: 'scripts/channels'
         });
 
         defineRoute({

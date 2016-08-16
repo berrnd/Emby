@@ -38,8 +38,13 @@
                     <button is="emby-button" type="button" class="raised subdued btnStreamExternal hide" role="button" data-id="stream" onclick="window.LibraryBrowser.ExecuteItemDetailsPageExternalStream();"><i class="md-icon">play_arrow</i><span>In externem Player abspielen</span></button>
                     <!--myproduction-change-end-->
                     <button is="emby-button" type="button" class="raised subdued btnMoreCommands hide notext"><i class="md-icon">more_vert</i></button>
-                    <button is="emby-button" type="button" class="fab mini subdued btnSyncLocal hide"><i class="md-icon">file_download</i></button>
                     <div class="detailUserDataIcons userDataIcons"></div>
+                </div>
+                <div class="syncLocalContainer hide" style="margin-top:1em; display: inline-flex; padding: 0 .5em;">
+                    <label class="checkboxContainer" style="margin:0;">
+                        <input type="checkbox" is="emby-checkbox" class="chkOffline" />
+                        <span>${MakeAvailableOffline}</span>
+                    </label>
                 </div>
             </div>
         </div>
@@ -62,8 +67,13 @@
             <button is="emby-button" type="button" class="raised subdued btnStreamExternal hide" role="button" data-id="stream" onclick="window.LibraryBrowser.ExecuteItemDetailsPageExternalStream();"><i class="md-icon">play_arrow</i><span>In externem Player abspielen</span></button>
             <!--myproduction-change-end-->
             <button is="emby-button" type="button" class="raised subdued btnMoreCommands hide notext"><i class="md-icon">more_vert</i></button>
-            <button is="emby-button" type="button" class="fab mini subdued btnSyncLocal hide"><i class="md-icon">file_download</i></button>
             <div class="detailUserDataIcons userDataIcons"></div>
+        </div>
+        <div class="syncLocalContainer hide" style="margin-top:1em; display: inline-flex; padding: 0 .5em;">
+            <label class="checkboxContainer" style="margin:0;">
+                <input type="checkbox" is="emby-checkbox" class="chkOffline" />
+                <span>${MakeAvailableOffline}</span>
+            </label>
         </div>
     </div>
     <div data-role="content" style="padding-top:0;clear:both;">
