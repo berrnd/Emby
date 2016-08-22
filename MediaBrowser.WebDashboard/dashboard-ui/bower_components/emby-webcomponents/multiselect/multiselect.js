@@ -179,23 +179,22 @@
 
         return new Promise(function (resolve, reject) {
 
-            var msg = globalize.translate('ConfirmDeleteItem');
-            var title = globalize.translate('HeaderDeleteItem');
+            var msg = globalize.translate('sharedcomponents#ConfirmDeleteItem');
+            var title = globalize.translate('sharedcomponents#HeaderDeleteItem');
 
             if (itemIds.length > 1) {
-                msg = globalize.translate('ConfirmDeleteItems');
-                title = globalize.translate('HeaderDeleteItems');
+                msg = globalize.translate('sharedcomponents#ConfirmDeleteItems');
+                title = globalize.translate('sharedcomponents#HeaderDeleteItems');
             }
 
             require(['confirm'], function (confirm) {
 
                 confirm(msg, title).then(function () {
-
                     var promises = itemIds.map(function (itemId) {
                         apiClient.deleteItem(itemId);
                     });
 
-                    resolve();
+                    Promise.all(promises).then(resolve);
                 }, reject);
 
             });
@@ -309,7 +308,7 @@
                                 dispatchNeedsRefresh();
                                 break;
                             case 'delete':
-                                deleteItems(items).then(function () {
+                                deleteItems(apiClient, items).then(function () {
                                     embyRouter.goHome();
                                 });
                                 hideSelections();

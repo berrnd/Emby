@@ -3095,6 +3095,17 @@ namespace MediaBrowser.Server.Implementations.Persistence
                     whereClauses.Add("LocationType<>'Virtual'");
                 }
             }
+            if (query.IsSpecialSeason.HasValue)
+            {
+                if (query.IsSpecialSeason.Value)
+                {
+                    whereClauses.Add("IndexNumber = 0");
+                }
+                else
+                {
+                    whereClauses.Add("IndexNumber <> 0");
+                }
+            }
             if (query.IsUnaired.HasValue)
             {
                 if (query.IsUnaired.Value)
@@ -3141,17 +3152,17 @@ namespace MediaBrowser.Server.Implementations.Persistence
             }
             if (query.ItemIds.Length > 0)
             {
-                var excludeIds = new List<string>();
+                var includeIds = new List<string>();
 
                 var index = 0;
                 foreach (var id in query.ItemIds)
                 {
-                    excludeIds.Add("Guid = @IncludeId" + index);
+                    includeIds.Add("Guid = @IncludeId" + index);
                     cmd.Parameters.Add(cmd, "@IncludeId" + index, DbType.Guid).Value = new Guid(id);
                     index++;
                 }
 
-                whereClauses.Add(string.Join(" OR ", excludeIds.ToArray()));
+                whereClauses.Add(string.Join(" OR ", includeIds.ToArray()));
             }
             if (query.ExcludeItemIds.Length > 0)
             {
@@ -3869,6 +3880,83 @@ namespace MediaBrowser.Server.Implementations.Persistence
             return GetItemValues(query, new[] { 2 }, typeof(MusicGenre).FullName);
         }
 
+        public List<string> GetStudioNames()
+        {
+            return GetItemValueNames(new[] { 3 }, new List<string>(), new List<string>());
+        }
+
+        public List<string> GetAllArtistNames()
+        {
+            return GetItemValueNames(new[] { 0, 1 }, new List<string>(), new List<string>());
+        }
+
+        public List<string> GetMusicGenreNames()
+        {
+            return GetItemValueNames(new[] { 2 }, new List<string> { "Audio", "MusicVideo", "MusicAlbum", "MusicArtist" }, new List<string>());
+        }
+
+        public List<string> GetGameGenreNames()
+        {
+            return GetItemValueNames(new[] { 2 }, new List<string> { "Game" }, new List<string>());
+        }
+
+        public List<string> GetGenreNames()
+        {
+            return GetItemValueNames(new[] { 2 }, new List<string>(), new List<string> { "Audio", "MusicVideo", "MusicAlbum", "MusicArtist", "Game", "GameSystem" });
+        }
+
+        private List<string> GetItemValueNames(int[] itemValueTypes, List<string> withItemTypes, List<string> excludeItemTypes)
+        {
+            CheckDisposed();
+
+            withItemTypes = withItemTypes.SelectMany(MapIncludeItemTypes).ToList();
+            excludeItemTypes = excludeItemTypes.SelectMany(MapIncludeItemTypes).ToList();
+
+            var now = DateTime.UtcNow;
+
+            var typeClause = itemValueTypes.Length == 1 ?
+                ("Type=" + itemValueTypes[0].ToString(CultureInfo.InvariantCulture)) :
+                ("Type in (" + string.Join(",", itemValueTypes.Select(i => i.ToString(CultureInfo.InvariantCulture)).ToArray()) + ")");
+
+            var list = new List<string>();
+
+            using (var cmd = _connection.CreateCommand())
+            {
+                cmd.CommandText = "Select Value From ItemValues where " + typeClause;
+
+                if (withItemTypes.Count > 0)
+                {
+                    var typeString = string.Join(",", withItemTypes.Select(i => "'" + i + "'").ToArray());
+                    cmd.CommandText += " AND ItemId In (select guid from typedbaseitems where type in (" + typeString + "))";
+                }
+                if (excludeItemTypes.Count > 0)
+                {
+                    var typeString = string.Join(",", excludeItemTypes.Select(i => "'" + i + "'").ToArray());
+                    cmd.CommandText += " AND ItemId not In (select guid from typedbaseitems where type in (" + typeString + "))";
+                }
+
+                cmd.CommandText += " Group By CleanValue";
+
+                var commandBehavior = CommandBehavior.SequentialAccess | CommandBehavior.SingleResult;
+
+                using (var reader = cmd.ExecuteReader(commandBehavior))
+                {
+                    LogQueryTime("GetItemValueNames", cmd, now);
+
+                    while (reader.Read())
+                    {
+                        if (!reader.IsDBNull(0))
+                        {
+                            list.Add(reader.GetString(0));
+                        }
+                    }
+                }
+
+            }
+
+            return list;
+        }
+
         private QueryResult<Tuple<BaseItem, ItemCounts>> GetItemValues(InternalItemsQuery query, int[] itemValueTypes, string returnType)
         {
             if (query == null)
@@ -4198,6 +4286,12 @@ namespace MediaBrowser.Server.Implementations.Persistence
             var index = 0;
             foreach (var image in images)
             {
+                if (string.IsNullOrWhiteSpace(image.Path))
+                {
+                    // Invalid
+                    continue;
+                }
+
                 _saveImagesCommand.GetParameter(0).Value = itemId;
                 _saveImagesCommand.GetParameter(1).Value = image.Type;
                 _saveImagesCommand.GetParameter(2).Value = image.Path;

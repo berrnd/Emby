@@ -167,13 +167,18 @@ define(['viewManager', 'appSettings', 'appStorage', 'apphost', 'datetime', 'item
                 }
 
                 ownerpage.addEventListener('viewbeforeshow', function () {
-                    if (tabs.triggerBeforeTabChange) {
+                    if (tabs.triggerBeforeTabChange && this.firstTabIndex == null) {
                         tabs.triggerBeforeTabChange();
                     }
                 });
 
                 ownerpage.addEventListener('viewshow', function () {
-                    tabs.triggerTabChange();
+                    if (this.firstTabIndex) {
+                        tabs.selectedIndex(this.firstTabIndex);
+                        this.firstTabIndex = null;
+                    } else {
+                        tabs.triggerTabChange();
+                    }
                 });
 
                 tabs.addEventListener('beforetabchange', function (e) {
@@ -198,10 +203,8 @@ define(['viewManager', 'appSettings', 'appStorage', 'apphost', 'datetime', 'item
 
                 var afterNavigate = function () {
 
-                    document.removeEventListener('pagebeforeshow', afterNavigate);
-
+                    document.removeEventListener('pageinit', afterNavigate);
                     if (window.location.href.toLowerCase().indexOf(url.toLowerCase()) != -1) {
-
                         this.firstTabIndex = index;
                     }
                 };
@@ -211,7 +214,7 @@ define(['viewManager', 'appSettings', 'appStorage', 'apphost', 'datetime', 'item
                     afterNavigate.call(viewManager.currentView());
                 } else {
 
-                    pageClassOn('pagebeforeshow', 'page', afterNavigate);
+                    pageClassOn('pageinit', 'page', afterNavigate);
                     Dashboard.navigate(url);
                 }
             },

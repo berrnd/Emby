@@ -23,7 +23,7 @@
             require(['toast'], function (toast) {
                 toast(Globalize.translate('MessagePleaseSelectDeviceToSyncTo'));
             });
-            return;
+            return false;
         }
 
         var options = {
@@ -55,9 +55,14 @@
 
             dialogHelper.close(dlg);
             require(['toast'], function (toast) {
-                toast(Globalize.translate('MessageSyncJobCreated'));
+
+                var msg = target == ApiClient.deviceId() ? Globalize.translate('MessageDownloadScheduled') : Globalize.translate('MessageSyncJobCreated');
+
+                toast(msg);
             });
         });
+
+        return true;
     }
 
     function setJobValues(job, form) {
@@ -195,7 +200,7 @@
         //html += '</div>';
         //html += '</div>';
 
-        $(elem).html(html);
+        elem.innerHTML = html;
 
         $('#selectSyncTarget', elem).on('change', function () {
 
@@ -221,7 +226,7 @@
 
         return new Promise(function (resolve, reject) {
 
-            requirejs(["registrationservices", 'dialogHelper', 'formDialogStyle'], function (registrationServices, dialogHelper) {
+            require(["registrationservices", 'dialogHelper', 'formDialogStyle'], function (registrationServices, dialogHelper) {
                 registrationServices.validateFeature('sync').then(function () {
 
                     showSyncMenuInternal(dialogHelper, options).then(resolve, reject);
@@ -289,10 +294,12 @@
 
             dlg.innerHTML = html;
             document.body.appendChild(dlg);
+            var submitted = false;
 
             $('form', dlg).on('submit', function () {
 
-                submitJob(dlg, userId, options, this, dialogHelper);
+                submitted = submitJob(dlg, userId, options, this, dialogHelper);
+
                 return false;
             });
 
@@ -303,12 +310,17 @@
             var promise = dialogHelper.open(dlg);
 
             renderForm({
-                elem: $('.formFields', dlg),
+                elem: dlg.querySelector('.formFields'),
                 dialogOptions: dialogOptions,
                 dialogOptionsFn: getTargetDialogOptionsFn(dialogOptionsQuery)
             });
 
-            return promise;
+            return promise.then(function () {
+                if (submitted) {
+                    return Promise.resolve();
+                }
+                return Promise.reject();
+            });
         });
     }
 

@@ -179,7 +179,7 @@ var Dashboard = {
         }
 
         if (url.indexOf('/') != 0) {
-            if (url.indexOf('http') != 0 && url.indexOf('file:') != 0) {
+            if (url.indexOf('://') == -1) {
                 url = '/' + url;
             }
         }
@@ -559,7 +559,7 @@ var Dashboard = {
             pageIds: ['scheduledTasksPage', 'scheduledTaskPage'],
             icon: 'schedule'
         }, {
-            name: Globalize.translate('ButtonMetadataManager'),
+            name: Globalize.translate('MetadataManager'),
             href: "edititemmetadata.html",
             pageIds: [],
             icon: 'mode_edit'
@@ -1205,7 +1205,7 @@ var AppInfo = {};
     }
 
     function createMainContentHammer(Hammer) {
-        
+
         var hammer = new Hammer(document.querySelector('.mainDrawerPanelContent'), null);
         return hammer;
     }
@@ -1285,6 +1285,7 @@ var AppInfo = {};
 
         define("libjass", [bowerPath + "/libjass/libjass.min", "css!" + bowerPath + "/libjass/libjass"], returnFirstDependency);
 
+        define("syncJobList", ["components/syncjoblist/syncjoblist"], returnFirstDependency);
         define("appfooter", ["components/appfooter/appfooter"], returnFirstDependency);
         define("dockedtabs", ["components/dockedtabs/dockedtabs"], returnFirstDependency);
         define("directorybrowser", ["components/directorybrowser/directorybrowser"], returnFirstDependency);
@@ -1392,15 +1393,7 @@ var AppInfo = {};
         define("cryptojs-sha1", [sha1Path]);
         define("cryptojs-md5", [md5Path]);
 
-        define("paper-button", ["html!" + bowerPath + "/paper-button/paper-button.html"]);
-        define("paper-icon-button", ["html!" + bowerPath + "/paper-icon-button/paper-icon-button.html"]);
-
-        define("paper-textarea", ['webcomponentsjs', "html!" + bowerPath + "/paper-input/paper-textarea.html"]);
         define("paper-checkbox", ["html!" + bowerPath + "/paper-checkbox/paper-checkbox.html"]);
-        define("paper-progress", ["html!" + bowerPath + "/paper-progress/paper-progress.html"]);
-        define("paper-input", ['webcomponentsjs', "html!" + bowerPath + "/paper-input/paper-input.html"]);
-
-        define("paper-collapse-item", ["html!" + bowerPath + "/paper-collapse-item/paper-collapse-item.html"]);
 
         define("jstree", [bowerPath + "/jstree/dist/jstree", "css!thirdparty/jstree/themes/default/style.min.css"]);
 
@@ -1429,9 +1422,12 @@ var AppInfo = {};
         define("slideshow", [embyWebComponentsBowerPath + "/slideshow/slideshow"], returnFirstDependency);
 
         define('fetch', [bowerPath + '/fetch/fetch']);
-        define('objectassign', [embyWebComponentsBowerPath + '/objectassign']);
+
+        define('functionbind', [embyWebComponentsBowerPath + '/polyfills/bind']);
+        define('arraypolyfills', [embyWebComponentsBowerPath + '/polyfills/array']);
+        define('objectassign', [embyWebComponentsBowerPath + '/polyfills/objectassign']);
+
         define('native-promise-only', [bowerPath + '/native-promise-only/lib/npo.src']);
-        define("fingerprintjs2", [bowerPath + '/fingerprintjs2/fingerprint2'], returnFirstDependency);
         define("clearButtonStyle", ['css!' + embyWebComponentsBowerPath + '/clearbutton']);
         define("userdataButtons", [embyWebComponentsBowerPath + "/userdatabuttons/userdatabuttons"], returnFirstDependency);
         define("listView", [embyWebComponentsBowerPath + "/listview/listview"], returnFirstDependency);
@@ -1491,12 +1487,14 @@ var AppInfo = {};
 
         define("jQuery", [bowerPath + '/jquery/dist/jquery.slim.min'], function () {
 
-            require(['legacy/fnchecked']);
+            require(['fnchecked']);
             if (window.ApiClient) {
                 jQuery.ajax = ApiClient.ajax;
             }
             return jQuery;
         });
+
+        define("fnchecked", ['legacy/fnchecked']);
 
         define("dialogHelper", [embyWebComponentsBowerPath + "/dialoghelper/dialoghelper"], function (dialoghelper) {
 
@@ -1522,10 +1520,21 @@ var AppInfo = {};
         // mock this for now. not used in this app
         define("playbackManager", [], function () {
             return {
+                isPlaying: function () {
+                    return MediaPlayer.currentItem != null;
+                },
                 isPlayingVideo: function () {
-                    return false;
+                    return MediaPlayer.currentItem != null;
                 },
                 play: function (options) {
+
+                    if (options.fullscreen === false) {
+                        // theme backdrops - not supported
+                        if (!options.items || options.items[0].MediaType == 'Video') {
+                            return;
+                        }
+                    }
+
                     MediaController.play(options);
                 },
                 currentPlaylistIndex: function (options) {
@@ -1548,6 +1557,9 @@ var AppInfo = {};
                 },
                 pause: function () {
                     return MediaController.pause();
+                },
+                stop: function () {
+                    return MediaController.stop();
                 }
             };
         });
@@ -1639,7 +1651,7 @@ var AppInfo = {};
                         apiClient.getItem(apiClient.getCurrentUserId(), item).then(showItem);
                     });
                 } else {
-                    Dashboard.navigate(LibraryBrowser.getHref(item));
+                    Emby.Page.show('/' + LibraryBrowser.getHref(item), { item: item });
                 }
             }
 
@@ -1744,14 +1756,15 @@ var AppInfo = {};
         }
 
         if (Dashboard.isRunningInCordova() && browserInfo.android) {
-            define("localsync", ["cordova/android/localsync"]);
+            define("localsync", ["cordova/android/localsync"], returnFirstDependency);
         }
         else {
-            define("localsync", ["scripts/localsync"]);
+            define("localsync", ["scripts/localsync"], returnFirstDependency);
         }
 
         define("livetvcss", ['css!css/livetv.css']);
         define("detailtablecss", ['css!css/detailtable.css']);
+        define("autoorganizetablecss", ['css!css/autoorganizetable.css']);
 
         define("buttonenabled", ["legacy/buttonenabled"]);
 
@@ -1775,17 +1788,25 @@ var AppInfo = {};
 
     function initAfterDependencies() {
 
-        var deps = [];
+        var list = [];
 
         if (!window.fetch) {
-            deps.push('fetch');
+            list.push('fetch');
         }
 
         if (typeof Object.assign != 'function') {
-            deps.push('objectassign');
+            list.push('objectassign');
         }
 
-        require(deps, function () {
+        if (!Array.prototype.filter) {
+            list.push('arraypolyfills');
+        }
+
+        if (!Function.prototype.bind) {
+            list.push('functionbind');
+        }
+
+        require(list, function () {
 
             createConnectionManager().then(function () {
 
@@ -1891,20 +1912,23 @@ var AppInfo = {};
 
         defineRoute({
             path: '/autoorganizelog.html',
-            dependencies: [],
+            dependencies: ['scripts/taskbutton', 'autoorganizetablecss'],
+            controller: 'scripts/autoorganizelog',
             roles: 'admin'
         });
 
         defineRoute({
             path: '/autoorganizesmart.html',
-            dependencies: [],
+            dependencies: ['emby-button'],
+            controller: 'scripts/autoorganizesmart',
             autoFocus: false,
             roles: 'admin'
         });
 
         defineRoute({
             path: '/autoorganizetv.html',
-            dependencies: [],
+            dependencies: ['emby-checkbox', 'emby-input', 'emby-button', 'emby-select', 'emby-collapse'],
+            controller: 'scripts/autoorganizetv',
             autoFocus: false,
             roles: 'admin'
         });
@@ -1955,7 +1979,7 @@ var AppInfo = {};
 
         defineRoute({
             path: '/dashboardgeneral.html',
-            dependencies: ['emby-collapse', 'paper-textarea', 'paper-input', 'paper-checkbox', 'jqmlistview'],
+            dependencies: ['emby-collapse', 'emby-textarea', 'emby-input', 'paper-checkbox'],
             controller: 'scripts/dashboardgeneral',
             autoFocus: false,
             roles: 'admin'
@@ -2144,7 +2168,7 @@ var AppInfo = {};
 
         defineRoute({
             path: '/librarysettings.html',
-            dependencies: ['emby-collapse', 'paper-input', 'paper-checkbox', 'emby-button', 'jqmlistview'],
+            dependencies: ['emby-collapse', 'emby-input', 'paper-checkbox', 'emby-button', 'emby-select'],
             autoFocus: false,
             roles: 'admin',
             controller: 'scripts/librarysettings'
@@ -2213,7 +2237,7 @@ var AppInfo = {};
 
         defineRoute({
             path: '/livetvtunerprovider-satip.html',
-            dependencies: ['paper-input', 'paper-checkbox'],
+            dependencies: ['emby-input', 'paper-checkbox'],
             autoFocus: false,
             roles: 'admin',
             controller: 'scripts/livetvtunerprovider-satip'
@@ -2326,7 +2350,7 @@ var AppInfo = {};
 
         defineRoute({
             path: '/mysync.html',
-            dependencies: ['scripts/syncactivity', 'scripts/taskbutton', 'emby-button'],
+            dependencies: [],
             autoFocus: false,
             transition: 'fade',
             controller: 'scripts/mysync'
@@ -2492,7 +2516,8 @@ var AppInfo = {};
         defineRoute({
             path: '/syncactivity.html',
             dependencies: [],
-            autoFocus: false
+            autoFocus: false,
+            controller: 'scripts/syncactivity'
         });
 
         defineRoute({
@@ -2707,7 +2732,7 @@ var AppInfo = {};
 
             var postInitDependencies = [];
 
-            postInitDependencies.push('scripts/thememediaplayer');
+            postInitDependencies.push('bower_components/emby-webcomponents/thememediaplayer');
             postInitDependencies.push('scripts/remotecontrol');
             postInitDependencies.push('css!css/chromecast.css');
             postInitDependencies.push('scripts/autobackdrops');
@@ -2755,7 +2780,7 @@ var AppInfo = {};
 
             postInitDependencies.push('bower_components/emby-webcomponents/input/api');
 
-            if (!browserInfo.tv && !AppInfo.isNativeApp) {
+            if (!browserInfo.tv) {
                 if (navigator.serviceWorker) {
                     try {
                         navigator.serviceWorker.register('serviceworker.js');
@@ -2771,6 +2796,7 @@ var AppInfo = {};
 
             require(postInitDependencies);
             upgradeLayouts();
+            initAutoSync();
         });
     }
 
@@ -2782,6 +2808,16 @@ var AppInfo = {};
                 }
             });
         }
+    }
+
+    function initAutoSync() {
+        require(['serverNotifications', 'events'], function (serverNotifications, events) {
+            events.on(serverNotifications, 'SyncJobItemReady', function (e, apiClient, data) {
+                require(['localsync'], function (localSync) {
+                    localSync.sync({});
+                });
+            });
+        });
     }
 
     initRequire();

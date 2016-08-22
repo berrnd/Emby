@@ -1545,16 +1545,7 @@
 
             renderThemeSongs(page, themeSongs);
             renderThemeVideos(page, themeVideos);
-
-            page.dispatchEvent(new CustomEvent("thememediadownload", {
-                detail: {
-                    themeMediaResult: result
-                },
-                bubbles: true
-            }));
-
         });
-
     }
 
     function renderThemeSongs(page, items) {
@@ -2251,6 +2242,10 @@
             }
 
         }
+
+        view.querySelector('.chapterSettingsButton').addEventListener('click', function () {
+            Dashboard.navigate('librarysettings.html');
+        });
 
         view.addEventListener('viewbeforeshow', function () {
             var page = this;

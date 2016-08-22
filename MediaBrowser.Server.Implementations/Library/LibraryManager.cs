@@ -848,7 +848,7 @@ namespace MediaBrowser.Server.Implementations.Library
         /// <returns>Task{Person}.</returns>
         public Person GetPerson(string name)
         {
-            return GetItemByName<Person>(ConfigurationManager.ApplicationPaths.PeoplePath, name);
+            return CreateItemByName<Person>(Person.GetPath(name), name);
         }
 
         /// <summary>
@@ -858,7 +858,7 @@ namespace MediaBrowser.Server.Implementations.Library
         /// <returns>Task{Studio}.</returns>
         public Studio GetStudio(string name)
         {
-            return GetItemByName<Studio>(ConfigurationManager.ApplicationPaths.StudioPath, name);
+            return CreateItemByName<Studio>(Studio.GetPath(name), name);
         }
 
         /// <summary>
@@ -868,7 +868,7 @@ namespace MediaBrowser.Server.Implementations.Library
         /// <returns>Task{Genre}.</returns>
         public Genre GetGenre(string name)
         {
-            return GetItemByName<Genre>(ConfigurationManager.ApplicationPaths.GenrePath, name);
+            return CreateItemByName<Genre>(Genre.GetPath(name), name);
         }
 
         /// <summary>
@@ -878,7 +878,7 @@ namespace MediaBrowser.Server.Implementations.Library
         /// <returns>Task{MusicGenre}.</returns>
         public MusicGenre GetMusicGenre(string name)
         {
-            return GetItemByName<MusicGenre>(ConfigurationManager.ApplicationPaths.MusicGenrePath, name);
+            return CreateItemByName<MusicGenre>(MusicGenre.GetPath(name), name);
         }
 
         /// <summary>
@@ -888,13 +888,8 @@ namespace MediaBrowser.Server.Implementations.Library
         /// <returns>Task{GameGenre}.</returns>
         public GameGenre GetGameGenre(string name)
         {
-            return GetItemByName<GameGenre>(ConfigurationManager.ApplicationPaths.GameGenrePath, name);
+            return CreateItemByName<GameGenre>(GameGenre.GetPath(name), name);
         }
-
-        /// <summary>
-        /// The us culture
-        /// </summary>
-        private static readonly CultureInfo UsCulture = new CultureInfo("en-US");
 
         /// <summary>
         /// Gets a Year
@@ -909,19 +904,9 @@ namespace MediaBrowser.Server.Implementations.Library
                 throw new ArgumentOutOfRangeException("Years less than or equal to 0 are invalid.");
             }
 
-            return GetItemByName<Year>(ConfigurationManager.ApplicationPaths.YearPath, value.ToString(UsCulture));
-        }
+            var name = value.ToString(CultureInfo.InvariantCulture);
 
-        /// <summary>
-        /// Gets the artists path.
-        /// </summary>
-        /// <value>The artists path.</value>
-        public string ArtistsPath
-        {
-            get
-            {
-                return Path.Combine(ConfigurationManager.ApplicationPaths.ItemsByNamePath, "artists");
-            }
+            return CreateItemByName<Year>(Year.GetPath(name), name);
         }
 
         /// <summary>
@@ -931,48 +916,7 @@ namespace MediaBrowser.Server.Implementations.Library
         /// <returns>Task{Genre}.</returns>
         public MusicArtist GetArtist(string name)
         {
-            return GetItemByName<MusicArtist>(ArtistsPath, name);
-        }
-
-        private T GetItemByName<T>(string path, string name)
-            where T : BaseItem, new()
-        {
-            if (string.IsNullOrWhiteSpace(path))
-            {
-                throw new ArgumentNullException("path");
-            }
-
-            if (string.IsNullOrWhiteSpace(name))
-            {
-                throw new ArgumentNullException("name");
-            }
-
-            // Trim the period at the end because windows will have a hard time with that
-            var validFilename = _fileSystem.GetValidFilename(name)
-                .Trim()
-                .TrimEnd('.');
-
-            string subFolderPrefix = null;
-
-            var type = typeof(T);
-
-            if (type == typeof(Person))
-            {
-                foreach (char c in validFilename)
-                {
-                    if (char.IsLetterOrDigit(c))
-                    {
-                        subFolderPrefix = c.ToString();
-                        break;
-                    }
-                }
-            }
-
-            var fullPath = string.IsNullOrEmpty(subFolderPrefix) ?
-                Path.Combine(path, validFilename) :
-                Path.Combine(path, subFolderPrefix, validFilename);
-
-            return CreateItemByName<T>(fullPath, name);
+            return CreateItemByName<MusicArtist>(MusicArtist.GetPath(name), name);
         }
 
         private T CreateItemByName<T>(string path, string name)
@@ -1540,7 +1484,12 @@ namespace MediaBrowser.Server.Implementations.Library
 
         private void AddUserToQuery(InternalItemsQuery query, User user)
         {
-            if (query.AncestorIds.Length == 0 && !query.ParentId.HasValue && query.ChannelIds.Length == 0 && query.TopParentIds.Length == 0 && string.IsNullOrWhiteSpace(query.AncestorWithPresentationUniqueKey))
+            if (query.AncestorIds.Length == 0 && 
+                !query.ParentId.HasValue && 
+                query.ChannelIds.Length == 0 && 
+                query.TopParentIds.Length == 0 && 
+                string.IsNullOrWhiteSpace(query.AncestorWithPresentationUniqueKey)
+                && query.ItemIds.Length == 0)
             {
                 var userViews = _userviewManager().GetUserViews(new UserViewQuery
                 {

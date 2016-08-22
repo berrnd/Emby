@@ -123,8 +123,20 @@ namespace MediaBrowser.MediaEncoding.Encoder
                     return "System";
                 }
 
+                if (IsDefaultPath(FFMpegPath))
+                {
+                    return "Default";
+                }
+
                 return "Custom";
             }
+        }
+
+        private bool IsDefaultPath(string path)
+        {
+            var parentPath = Path.Combine(ConfigurationManager.ApplicationPaths.ProgramDataPath, "ffmpeg", "20160410");
+
+            return FileSystem.ContainsSubPath(parentPath, path);
         }
 
         private bool IsSystemInstalledPath(string path)
@@ -343,14 +355,16 @@ namespace MediaBrowser.MediaEncoding.Encoder
             // If that doesn't pan out, then do a recursive search
             var files = Directory.GetFiles(path);
 
-            var ffmpegPath = files.FirstOrDefault(i => string.Equals(Path.GetFileNameWithoutExtension(i), "ffmpeg", StringComparison.OrdinalIgnoreCase));
-            var ffprobePath = files.FirstOrDefault(i => string.Equals(Path.GetFileNameWithoutExtension(i), "ffprobe", StringComparison.OrdinalIgnoreCase));
+            var excludeExtensions = new[] { ".c" };
+
+            var ffmpegPath = files.FirstOrDefault(i => string.Equals(Path.GetFileNameWithoutExtension(i), "ffmpeg", StringComparison.OrdinalIgnoreCase) && !excludeExtensions.Contains(Path.GetExtension(i) ?? string.Empty));
+            var ffprobePath = files.FirstOrDefault(i => string.Equals(Path.GetFileNameWithoutExtension(i), "ffprobe", StringComparison.OrdinalIgnoreCase) && !excludeExtensions.Contains(Path.GetExtension(i) ?? string.Empty));
 
             if (string.IsNullOrWhiteSpace(ffmpegPath) || !File.Exists(ffmpegPath))
             {
                 files = Directory.GetFiles(path, "*", SearchOption.AllDirectories);
 
-                ffmpegPath = files.FirstOrDefault(i => string.Equals(Path.GetFileNameWithoutExtension(i), "ffmpeg", StringComparison.OrdinalIgnoreCase));
+                ffmpegPath = files.FirstOrDefault(i => string.Equals(Path.GetFileNameWithoutExtension(i), "ffmpeg", StringComparison.OrdinalIgnoreCase) && !excludeExtensions.Contains(Path.GetExtension(i) ?? string.Empty));
 
                 if (!string.IsNullOrWhiteSpace(ffmpegPath))
                 {
