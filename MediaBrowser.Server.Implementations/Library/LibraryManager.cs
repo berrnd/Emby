@@ -198,6 +198,7 @@ namespace MediaBrowser.Server.Implementations.Library
             ItemUpdated += ItemAddedOrUpdatedOrRemoved;
             ItemRemoved += ItemAddedOrUpdatedOrRemoved;
             ItemAddedOrUpdatedOrRemoved(null, null);
+            Statistics = new LibraryStatistics();
             //myproduction-change-end
         }
 
@@ -209,7 +210,7 @@ namespace MediaBrowser.Server.Implementations.Library
             this.Statistics.NeedsRecalculation = true;
         }
 
-        public LibraryStatistics Statistics { get; private set; } = new LibraryStatistics();
+        public LibraryStatistics Statistics { get; private set; }
         //myproduction-change-end
 
         /// <summary>
