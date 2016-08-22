@@ -3,6 +3,7 @@ using MediaBrowser.Common.ScheduledTasks;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Model.Entities;
+using MediaBrowser.Model.Library;
 using MediaBrowser.Model.Logging;
 using System;
 using System.Collections.Generic;
@@ -40,8 +41,10 @@ namespace MediaBrowser.Server.Implementations.Channels
 
         public async Task Execute(System.Threading.CancellationToken cancellationToken, IProgress<double> progress)
         {
-            if (_libraryManager.Statistics.NeedsRecalculation)
+            if (_libraryManager.Statistics == null || _libraryManager.Statistics.NeedsRecalculation)
             {
+                _libraryManager.Statistics = new LibraryStatistics();
+
                 //Newest item date
                 progress.Report(30);
                 _logger.Info("Recalculating library statistics newest item date");

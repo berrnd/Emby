@@ -569,7 +569,7 @@ namespace MediaBrowser.Controller.Library
 
         //myproduction-change-start
         //Added LibraryStatistics
-        Model.Library.LibraryStatistics Statistics { get; }
+        Model.Library.LibraryStatistics Statistics { get; set; }
         //myproduction-change-end
     }
 }

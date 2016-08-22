@@ -198,7 +198,6 @@ namespace MediaBrowser.Server.Implementations.Library
             ItemUpdated += ItemAddedOrUpdatedOrRemoved;
             ItemRemoved += ItemAddedOrUpdatedOrRemoved;
             ItemAddedOrUpdatedOrRemoved(null, null);
-            Statistics = new LibraryStatistics();
             //myproduction-change-end
         }
 
@@ -207,10 +206,13 @@ namespace MediaBrowser.Server.Implementations.Library
         //Is calculated when null every 1 hours by scheduled task LibraryStatisticsScheduledTask        
         private void ItemAddedOrUpdatedOrRemoved(object sender, ItemChangeEventArgs e)
         {
-            this.Statistics.NeedsRecalculation = true;
+            if (this.Statistics != null)
+            {
+                this.Statistics.NeedsRecalculation = true;
+            }
         }
 
-        public LibraryStatistics Statistics { get; private set; }
+        public LibraryStatistics Statistics { get; set; }
         //myproduction-change-end
 
         /// <summary>
