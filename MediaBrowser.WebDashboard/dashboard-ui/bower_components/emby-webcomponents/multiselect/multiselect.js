@@ -262,15 +262,13 @@
 
             menuItems.push({
                 name: globalize.translate('sharedcomponents#Refresh'),
-                id: 'refresh',
-                ironIcon: 'refresh'
+                id: 'refresh'
             });
 
             if (user.Policy.EnableSync) {
                 menuItems.push({
                     name: globalize.translate('sharedcomponents#SyncToOtherDevice'),
-                    id: 'sync',
-                    ironIcon: 'sync'
+                    id: 'sync'
                 });
             }
 
@@ -348,7 +346,8 @@
                                             return {
                                                 Id: i
                                             };
-                                        })
+                                        }),
+                                        serverId: serverId
                                     });
                                 });
                                 hideSelections();
@@ -361,7 +360,9 @@
                                             return {
                                                 Id: i
                                             };
-                                        })
+                                        }),
+                                        isLocalSync: true,
+                                        serverId: serverId
                                     });
                                 });
                                 hideSelections();

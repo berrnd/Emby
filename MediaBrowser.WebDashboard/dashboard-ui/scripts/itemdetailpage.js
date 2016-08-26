@@ -2064,7 +2064,8 @@
     function onSyncClick() {
         require(['syncDialog'], function (syncDialog) {
             syncDialog.showMenu({
-                items: [currentItem]
+                items: [currentItem],
+                serverId: ApiClient.serverId()
             });
         });
     }
@@ -2080,7 +2081,10 @@
             if (this.checked) {
                 require(['syncDialog'], function (syncDialog) {
                     syncDialog.showMenu({
-                        items: [currentItem]
+                        items: [currentItem],
+                        isLocalSync: true,
+                        serverId: ApiClient.serverId()
+
                     }).then(function () {
                         reload(view, params);
                     }, resetSyncStatus);
