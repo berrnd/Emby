@@ -176,7 +176,6 @@ namespace MediaBrowser.Model.Configuration
         public string UICulture { get; set; }
 
         public PeopleMetadataOptions PeopleMetadataOptions { get; set; }
-        public bool FindInternetTrailers { get; set; }
 
         public bool SaveMetadataHidden { get; set; }
 
@@ -205,7 +204,10 @@ namespace MediaBrowser.Model.Configuration
         public bool DisplayCollectionsView { get; set; }
         public string[] LocalNetworkAddresses { get; set; }
         public string[] CodecsUsed { get; set; }
+        public bool EnableChannelView { get; set; }
+        public bool EnableExternalContentInSuggestions { get; set; }
 
+        public int ImageExtractionTimeoutMs { get; set; }
         /// <summary>
         /// Initializes a new instance of the <see cref="ServerConfiguration" /> class.
         /// </summary>
@@ -215,9 +217,11 @@ namespace MediaBrowser.Model.Configuration
             Migrations = new string[] { };
             CodecsUsed = new string[] { };
             SqliteCacheSize = 0;
+            ImageExtractionTimeoutMs = 0;
 
             EnableLocalizedGuids = true;
             DisplaySpecialsWithinSeasons = true;
+            EnableExternalContentInSuggestions = true;
 
             ImageSavingConvention = ImageSavingConvention.Compatible;
             PublicPort = 8096;
@@ -230,6 +234,7 @@ namespace MediaBrowser.Model.Configuration
             EnableAnonymousUsageReporting = true;
 
             EnableAutomaticRestart = true;
+            EnableFolderView = true;
 
             EnableUPnP = true;
             SharingExpirationDays = 30;
@@ -243,7 +248,6 @@ namespace MediaBrowser.Model.Configuration
             LibraryMonitorDelay = 60;
 
             EnableInternetProviders = true;
-            FindInternetTrailers = true;
 
             PathSubstitutions = new PathSubstitution[] { };
             ContentTypes = new NameValuePair[] { };

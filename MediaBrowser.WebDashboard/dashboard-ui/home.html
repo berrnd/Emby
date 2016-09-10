@@ -5,21 +5,21 @@
             <button is="emby-button" class="emby-tab-button emby-tab-button-active" data-index="0">
                 <div class="emby-button-foreground">${TabHome}</div>
             </button>
-            <!--myproduction-change-start-->
+			<!--myproduction-change-start-->
             <!--Hided button-->
             <button is="emby-button" class="emby-tab-button hide" data-index="1">
                 <div class="emby-button-foreground">${TabNextUp}</div>
             </button>
-            <!--myproduction-change-end-->
-            <button is="emby-button" class="emby-tab-button homeFavoritesTab" data-index="2">
+			<!--myproduction-change-end-->
+            <button is="emby-button" class="emby-tab-button" data-index="2">
                 <div class="emby-button-foreground">${TabFavorites}</div>
             </button>
-            <!--myproduction-change-start-->
+			<!--myproduction-change-start-->
             <!--Hided button-->
             <button is="emby-button" class="emby-tab-button hide" data-index="3">
                 <div class="emby-button-foreground">${TabUpcoming}</div>
             </button>
-            <!--myproduction-change-end-->
+			<!--myproduction-change-end-->
         </div>
     </div>
     <div class="is-active pageTabContent ehsContent" id="homeTab" data-index="0">
@@ -29,7 +29,7 @@
                 <button is="emby-button" type="button" class="raised submit block btnTakeTour"><span class="tourButtonText"></span></button>
             </p>
         </div>
-        
+
         <!--myproduction-change-start-->
         <!--Added statistics overview-->
         <div class="homePageSection" style="display: inline-block; vertical-align: top; margin-right: 15px;">
@@ -89,15 +89,14 @@
           }
         </script>
         <!--myproduction-change-end-->
-        
-        <div class="sections"></div>
+		
+		<div class="sections"></div>
     </div>
     <div class="pageTabContent ehsContent" id="nextUpTab" data-index="1">
         <div class="homePageSection">
             <div>
                 <h1 class="listHeader nextUpHeader" style="display: inline-block; vertical-align: middle;">${HeaderNextUp}</h1>
-                <button is="emby-button" type="button" class="raised submit mini categorySyncButton" data-category="NextUp">
-                    <i class="md-icon">sync</i>
+                <button is="emby-button" type="button" class="raised submit mini categorySyncButton button-accent" data-category="NextUp">
                     <span>${ButtonSync}</span>
                 </button>
             </div>

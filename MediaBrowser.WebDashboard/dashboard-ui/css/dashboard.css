@@ -72,7 +72,7 @@
 @media all and (min-width: 640px) {
 
     .dashboardDocument .mainDrawer {
-        z-index: 998 !important;
+        z-index: inherit !important;
         top: 58px !important;
         left: 0 !important;
         transform: none !important;
@@ -84,10 +84,6 @@
 
     .dashboardDocument .mainDrawerButton {
         display: none !important;
-    }
-
-    .dashboardDocument .libraryMenuButtonText {
-        font-size: 150%;
     }
 
     .dashboardDocument .mainDrawerPanelContent {
@@ -712,7 +708,6 @@ a[data-role='button'], .type-interior button:not([data-role='none']):not(.clearB
     height: 7px;
     width: 100%;
     opacity: .95;
-    z-index: 999;
 }
 
 .activeDevicesCollapsible .ui-collapsible-content {

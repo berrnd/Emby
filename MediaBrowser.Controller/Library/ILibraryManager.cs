@@ -567,7 +567,10 @@ namespace MediaBrowser.Controller.Library
         QueryResult<Tuple<BaseItem, ItemCounts>> GetAlbumArtists(InternalItemsQuery query);
         QueryResult<Tuple<BaseItem, ItemCounts>> GetAllArtists(InternalItemsQuery query);
 
-        //myproduction-change-start
+        void RegisterIgnoredPath(string path);
+        void UnRegisterIgnoredPath(string path);
+		
+		//myproduction-change-start
         //Added LibraryStatistics
         Model.Library.LibraryStatistics Statistics { get; set; }
         //myproduction-change-end

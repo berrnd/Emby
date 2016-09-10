@@ -9,9 +9,8 @@
                     <input is="emby-input" type="text" id="txtServerName" label="${LabelFriendlyServerName}" />
                     <div class="fieldDescription">${LabelFriendlyServerNameHelp}</div>
                 </div>
-                <div>
-                    <label for="selectLocalizationLanguage" class="selectLabel">${LabelPreferredDisplayLanguage}</label>
-                    <select id="selectLocalizationLanguage" data-mini="true"></select>
+                <div class="selectContainer">
+                    <select is="emby-select" id="selectLocalizationLanguage" label="${LabelPreferredDisplayLanguage}"></select>
                     <div class="fieldDescription">
                         <div>${LabelPreferredDisplayLanguageHelp}</div>
                         <div style="margin-top: .25em;">
@@ -19,25 +18,28 @@
                         </div>
                     </div>
                 </div>
-                <br /><br />
 
-                <div id="fldRunAtStartup" style="display: none;">
-                    <paper-checkbox id="chkRunAtStartup">${LabelRunServerAtStartup}</paper-checkbox>
-                    <div id="windowsStartupDescription" class="fieldDescription paperCheckboxFieldDescription" style="display: none;">
+                <div id="fldRunAtStartup" style="display: none;" class="checkboxContainer checkboxContainer-withDescription">
+                    <label>
+                        <input is="emby-checkbox" type="checkbox" id="chkRunAtStartup" />
+                        <span>${LabelRunServerAtStartup}</span>
+                    </label>
+                    <div id="windowsStartupDescription" class="fieldDescription checkboxFieldDescription" style="display: none;">
                         ${LabelRunServerAtStartupHelp}
                     </div>
-                    <br /><br />
                 </div>
 
-                <div>
-                    <paper-checkbox id="chkUsageData">${OptionEnableAnonymousUsageReporting}</paper-checkbox>
-                    <div class="fieldDescription paperCheckboxFieldDescription">
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label>
+                        <input is="emby-checkbox" type="checkbox" id="chkUsageData" />
+                        <span>${OptionEnableAnonymousUsageReporting}</span>
+                    </label>
+                    <div class="fieldDescription checkboxFieldDescription">
                         ${OptionEnableAnonymousUsageReportingHelp}
                         <div style="margin-top:.5em;">
                             <a target="_blank" href="https://emby.media/privacy">${ButtonLearnMore}</a>
                         </div>
                     </div>
-                    <br /><br />
                 </div>
 
                 <div is="emby-collapse" title="${HeaderAdvanced}">
@@ -56,31 +58,19 @@
                     </div>
                 </div>
 
-                <div is="emby-collapse" title="${HeaderAutomaticUpdates}">
+                <div is="emby-collapse" title="${HeaderAutomaticUpdates}" class="autoUpdatesContainer hide">
                     <div class="collapseContent">
                         <br />
-                        <div class="fldAutomaticUpdates">
-                            <div data-role="controlgroup">
-                                <input type="checkbox" id="chkEnableAutomaticServerUpdates" data-mini="true" />
-                                <label for="chkEnableAutomaticServerUpdates">${OptionEnableAutomaticServerUpdates}</label>
-                            </div>
-                        </div>
-                        <div>
-                            <label class="lnlAutomaticUpdateLevel selectLabel" for="selectAutomaticUpdateLevel"></label>
-                            <select name="selectAutomaticUpdateLevel" id="selectAutomaticUpdateLevel">
-                                <option value="Release">${OptionRelease}</option>
-                                <option value="Beta">${OptionBeta}</option>
-                                <option value="Dev">${OptionDev}</option>
-                            </select>
-                            <div id="devBuildWarning" class="fieldDescription warningFieldDescription" style="display: none;">
-                                ${DevBuildWarning}
-                            </div>
-                        </div>
-                        <div id="fldEnableAutomaticRestart" style="display: none;">
-                            <paper-checkbox id="chkEnableAutomaticRestart">${LabelAllowServerAutoRestart}</paper-checkbox>
-                            <div class="fieldDescription paperCheckboxFieldDescription">
-                                ${LabelAllowServerAutoRestartHelp}
-                            </div>
+                        <label class="fldAutomaticUpdates checkboxContainer">
+                            <input is="emby-checkbox" type="checkbox" id="chkEnableAutomaticServerUpdates" />
+                            <span>${OptionEnableAutomaticServerUpdates}</span>
+                        </label>
+                        <div id="fldEnableAutomaticRestart" style="display: none;" class="checkboxContainer checkboxContainer-withDescription">
+                            <label>
+                                <input is="emby-checkbox" type="checkbox" id="chkEnableAutomaticRestart" />
+                                <span>${LabelAllowServerAutoRestart}</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription">${LabelAllowServerAutoRestartHelp}</div>
                         </div>
                     </div>
                 </div>
@@ -100,35 +90,9 @@
                         </div>
                     </div>
                 </div>
-
-                <div is="emby-collapse" title="${HeaderDeveloperOptions}">
-                    <div class="collapseContent">
-                        <br />
-                        <div>
-                            <paper-checkbox id="chkEnableDashboardResponseCache">${OptionEnableWebClientResponseCache}</paper-checkbox>
-                        </div>
-                        <br />
-                        <div>
-                            <paper-checkbox id="chkEnableMinification">${OptionEnableWebClientResourceMinification}</paper-checkbox>
-                        </div>
-                        <div class="fieldDescription paperCheckboxFieldDescription">
-                            ${OptionDisableForDevelopmentHelp}
-                        </div>
-                        <br /><br />
-                        <div class="inputContainer">
-                            <div style="display: flex; align-items: center;">
-                                <div style="flex-grow:1;">
-                                    <input is="emby-input" id="txtDashboardSourcePath" label="${LabelDashboardSourcePath}" autocomplete="off" />
-                                </div>
-                                <button type="button" is="paper-icon-button-light" id="btnSelectDashboardSourcePath" title="${ButtonSelectDirectory}" class="autoSize"><i class="md-icon">search</i></button>
-                            </div>
-                            <div class="fieldDescription">${LabelDashboardSourcePathHelp}</div>
-                        </div>
-                    </div>
-                </div>
                 <br />
                 <div>
-                    <button is="emby-button" type="submit" class="raised submit block"><i class="md-icon">check</i><span>${ButtonSave}</span></button>
+                    <button is="emby-button" type="submit" class="raised button-submit block"><i class="md-icon">check</i><span>${ButtonSave}</span></button>
                 </div>
             </form>
 

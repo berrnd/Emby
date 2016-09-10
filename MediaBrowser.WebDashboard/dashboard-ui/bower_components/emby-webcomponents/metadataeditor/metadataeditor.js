@@ -1161,7 +1161,7 @@
             if (layoutManager.tv) {
                 dialogOptions.size = 'fullscreen';
             } else {
-                dialogOptions.size = 'medium';
+                dialogOptions.size = 'medium-tall';
             }
 
             var dlg = dialogHelper.createDialog(dialogOptions);
@@ -1173,7 +1173,6 @@
             html += globalize.translateDocument(template, 'sharedcomponents');
 
             dlg.innerHTML = html;
-            document.body.appendChild(dlg);
 
             if (layoutManager.tv) {
                 centerFocus(dlg.querySelector('.formDialogContent'), false, true);
@@ -1214,6 +1213,8 @@
 
                     elem.innerHTML = globalize.translateDocument(template, 'sharedcomponents');
 
+                    elem.querySelector('.formDialogFooter').classList.remove('formDialogFooter');
+                    elem.querySelector('.btnHeaderSave').classList.remove('hide');
                     elem.querySelector('.btnCancel').classList.add('hide');
 
                     currentContext = elem;

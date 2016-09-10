@@ -153,9 +153,9 @@ define(['viewManager', 'appSettings', 'appStorage', 'apphost', 'datetime', 'item
                 });
             },
 
-            configurePaperLibraryTabs: function (ownerpage, tabs, panels, animateTabs) {
+            configurePaperLibraryTabs: function (ownerpage, tabs, panels, animateTabs, enableSwipe) {
 
-                if (!browser.safari) {
+                if (!browser.safari && enableSwipe !== false) {
                     LibraryBrowser.configureSwipeTabs(ownerpage, tabs);
                 }
 
@@ -306,7 +306,9 @@ define(['viewManager', 'appSettings', 'appStorage', 'apphost', 'datetime', 'item
                     }
                 }
                 else if (item.IsFolder) {
-                    return id ? "itemlist.html?parentId=" + id : "#";
+                    if (item.Type != "BoxSet" && item.Type != "Series") {
+                        return id ? "itemlist.html?parentId=" + id : "#";
+                    }
                 }
 
                 if (item.Type == 'CollectionFolder') {
@@ -424,7 +426,7 @@ define(['viewManager', 'appSettings', 'appStorage', 'apphost', 'datetime', 'item
                     includeParentInfo: false
                 });
 
-                Dashboard.setPageTitle(name);
+                LibraryMenu.setTitle(name);
 
                 if (linkToElement) {
                     nameElem.innerHTML = '<a class="detailPageParentLink" href="' + LibraryBrowser.getHref(item, context) + '">' + name + '</a>';
@@ -659,13 +661,8 @@ define(['viewManager', 'appSettings', 'appStorage', 'apphost', 'datetime', 'item
                     html += '</div>';
 
                     dlg.innerHTML = html;
-                    document.body.appendChild(dlg);
 
-                    // Seeing an issue in Firefox and IE where it's initially visible in the bottom right, then moves to the center
-                    var delay = browser.animate ? 0 : 100;
-                    setTimeout(function () {
-                        dialogHelper.open(dlg);
-                    }, delay);
+                    dialogHelper.open(dlg);
 
                     function onSortByChange() {
                         var newValue = this.value;

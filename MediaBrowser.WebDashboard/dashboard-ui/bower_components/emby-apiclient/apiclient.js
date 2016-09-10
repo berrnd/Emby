@@ -940,6 +940,13 @@
             return self.getJSON(url);
         };
 
+        self.getLiveTvRecordingSeries = function (options) {
+
+            var url = self.getUrl("LiveTv/Recordings/Series", options || {});
+
+            return self.getJSON(url);
+        };
+
         self.getLiveTvRecordingGroups = function (options) {
 
             var url = self.getUrl("LiveTv/Recordings/Groups", options || {});
@@ -2882,6 +2889,11 @@
         self.getChannels = function (query) {
 
             return self.getJSON(self.getUrl("Channels", query || {}));
+        };
+
+        self.getLatestChannelItems = function (query) {
+
+            return self.getJSON(self.getUrl("Channels/Items/Latest", query));
         };
 
         self.getUserViews = function (options, userId) {

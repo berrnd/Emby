@@ -30,7 +30,7 @@
 
             var page = this;
 
-            page.querySelector('#btnConnectionHelp').addEventListener('click', onConnectionHelpClick);
+            page.querySelector('.btnConnectionHelp').addEventListener('click', onConnectionHelpClick);
         },
 
         onPageShow: function () {
@@ -41,10 +41,6 @@
 
             if (!apiClient) {
                 return;
-            }
-
-            if (Dashboard.lastSystemInfo) {
-                page.querySelector('.serverNameHeader').innerHTML = Dashboard.lastSystemInfo.ServerName;
             }
 
             DashboardPage.newsStartIndex = 0;
@@ -121,9 +117,13 @@
             ApiClient.getSystemInfo().then(function (systemInfo) {
 
                 page.querySelector('.serverNameHeader').innerHTML = systemInfo.ServerName;
-                Dashboard.updateSystemInfo(systemInfo);
 
-                $('#appVersionNumber', page).html(Globalize.translate('LabelVersionNumber').replace('{0}', systemInfo.Version));
+                var localizedVersion = Globalize.translate('LabelVersionNumber', systemInfo.Version);
+                if (systemInfo.SystemUpdateLevel && systemInfo.SystemUpdateLevel != 'Release') {
+                    localizedVersion += " " + Globalize.translate('Option' + systemInfo.SystemUpdateLevel).toLowerCase();
+                }
+
+                $('#appVersionNumber', page).html(localizedVersion);
 
                 if (systemInfo.SupportsHttps) {
                     $('#ports', page).html(Globalize.translate('LabelRunningOnPorts', '<b>' + systemInfo.HttpServerPortNumber + '</b>', '<b>' + systemInfo.HttpsPortNumber + '</b>'));
@@ -325,7 +325,7 @@
 
                 var nowPlayingItem = session.NowPlayingItem;
 
-                var className = nowPlayingItem ? 'scalableCard card activeSession backdropCard' : 'scalableCard card activeSession backdropCard';
+                var className = nowPlayingItem ? 'scalableCard card activeSession backdropCard backdropCard-scalable' : 'scalableCard card activeSession backdropCard backdropCard-scalable';
 
                 if (session.TranscodingInfo && session.TranscodingInfo.CompletionPercentage) {
                     className += ' transcodingSession';

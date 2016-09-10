@@ -215,7 +215,7 @@
             return connectUser;
         };
 
-        var minServerVersion = '3.0.5971';
+        var minServerVersion = '3.0.5972';
         self.minServerVersion = function (val) {
 
             if (val) {
@@ -462,7 +462,12 @@
             // Ensure this is created so that listeners of the event can get the apiClient instance
             getOrAddApiClient(server, connectionMode);
 
-            events.trigger(self, 'localusersignedin', [user]);
+            // This allows the app to have a single hook that fires before any other
+            var promise = self.onLocalUserSignedIn ? self.onLocalUserSignedIn.call(self, user) : Promise.resolve();
+
+            promise.then(function () {
+                events.trigger(self, 'localusersignedin', [user]);
+            });
         }
 
         function ensureConnectUser(credentials) {

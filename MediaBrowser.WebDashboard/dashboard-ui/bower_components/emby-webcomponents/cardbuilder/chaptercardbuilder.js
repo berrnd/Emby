@@ -1,4 +1,4 @@
-define(['datetime', 'imageLoader', 'connectionManager', 'itemShortcuts', 'layoutManager'], function (datetime, imageLoader, connectionManager, itemShortcuts, layoutManager) {
+define(['datetime', 'imageLoader', 'connectionManager', 'layoutManager'], function (datetime, imageLoader, connectionManager, layoutManager) {
 
     function buildChapterCardsHtml(item, chapters, options) {
 
@@ -19,6 +19,7 @@ define(['datetime', 'imageLoader', 'connectionManager', 'itemShortcuts', 'layout
         }
 
         className += ' ' + shape + 'Card';
+        className += ' ' + shape + 'Card-scalable';
 
         if (options.block || options.rows) {
             className += ' block';
@@ -131,9 +132,6 @@ define(['datetime', 'imageLoader', 'connectionManager', 'itemShortcuts', 'layout
         options.itemsContainer.innerHTML = html;
 
         imageLoader.lazyChildren(options.itemsContainer);
-
-        itemShortcuts.off(options.itemsContainer);
-        itemShortcuts.on(options.itemsContainer);
     }
 
     return {

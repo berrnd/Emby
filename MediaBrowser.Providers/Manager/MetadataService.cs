@@ -294,6 +294,13 @@ namespace MediaBrowser.Providers.Manager
                 updateType |= ItemUpdateType.MetadataImport;
             }
 
+            var inheritedParentalRatingValue = item.GetInheritedParentalRatingValue() ?? 0;
+            if (inheritedParentalRatingValue != item.InheritedParentalRatingValue)
+            {
+                item.InheritedParentalRatingValue = inheritedParentalRatingValue;
+                updateType |= ItemUpdateType.MetadataImport;
+            }
+
             return updateType;
         }
 
@@ -640,8 +647,6 @@ namespace MediaBrowser.Providers.Manager
 
                     if (result.HasMetadata)
                     {
-                        NormalizeRemoteResult(result.Item);
-
                         MergeData(result, temp, new List<MetadataFields>(), false, false);
 
                         refreshResult.UpdateType = refreshResult.UpdateType | ItemUpdateType.MetadataDownload;
@@ -664,19 +669,6 @@ namespace MediaBrowser.Providers.Manager
             }
 
             return refreshResult;
-        }
-
-        private void NormalizeRemoteResult(TItemType item)
-        {
-            if (!ServerConfigurationManager.Configuration.FindInternetTrailers)
-            {
-                var hasTrailers = item as IHasTrailers;
-
-                if (hasTrailers != null)
-                {
-                    hasTrailers.RemoteTrailers.Clear();
-                }
-            }
         }
 
         private void MergeNewData(TItemType source, TIdType lookupInfo)
