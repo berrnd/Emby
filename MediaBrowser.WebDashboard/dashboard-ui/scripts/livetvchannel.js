@@ -20,7 +20,7 @@
 
                 if (currentItems.length) {
 
-                    html += '<h1>' + datetime.getLocaleDateStringParts(itemStartDate).join(' ') + '</h1>';
+                    html += '<h1>' + datetime.toLocaleDateString(itemStartDate, { weekday: 'long', month: 'long', day: 'numeric' }) + '</h1>';
 
                     html += '<div is="emby-itemscontainer" class="vertical-list">' + listView.getListViewHtml({
                         items: currentItems,
@@ -51,7 +51,9 @@
             UserId: Dashboard.getCurrentUserId(),
             HasAired: false,
             SortBy: "StartDate",
-            Limit: 200
+            EnableTotalRecordCount: false,
+            EnableImages: false,
+            ImageTypeLimit: 0
 
         }).then(function (result) {
 

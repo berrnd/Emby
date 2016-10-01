@@ -17,6 +17,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using CommonIO;
+using ServiceStack;
 
 namespace MediaBrowser.Api.Playback.Progressive
 {
@@ -26,12 +27,10 @@ namespace MediaBrowser.Api.Playback.Progressive
     public abstract class BaseProgressiveStreamingService : BaseStreamingService
     {
         protected readonly IImageProcessor ImageProcessor;
-        protected readonly IHttpClient HttpClient;
 
         protected BaseProgressiveStreamingService(IServerConfigurationManager serverConfig, IUserManager userManager, ILibraryManager libraryManager, IIsoManager isoManager, IMediaEncoder mediaEncoder, IFileSystem fileSystem, IDlnaManager dlnaManager, ISubtitleEncoder subtitleEncoder, IDeviceManager deviceManager, IMediaSourceManager mediaSourceManager, IZipClient zipClient, IJsonSerializer jsonSerializer, IImageProcessor imageProcessor, IHttpClient httpClient) : base(serverConfig, userManager, libraryManager, isoManager, mediaEncoder, fileSystem, dlnaManager, subtitleEncoder, deviceManager, mediaSourceManager, zipClient, jsonSerializer)
         {
             ImageProcessor = imageProcessor;
-            HttpClient = httpClient;
         }
 
         /// <summary>
@@ -129,6 +128,23 @@ namespace MediaBrowser.Api.Playback.Progressive
 
                 using (state)
                 {
+                    if (state.MediaPath.IndexOf("/livestreamfiles/", StringComparison.OrdinalIgnoreCase) != -1)
+                    {
+                        var parts = state.MediaPath.Split('/');
+                        var filename = parts[parts.Length - 2] + Path.GetExtension(parts[parts.Length - 1]);
+                        var filePath = Path.Combine(ServerConfigurationManager.ApplicationPaths.TranscodingTempPath, filename);
+
+                        var outputHeaders = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+                        outputHeaders["Content-Type"] = MimeTypes.GetMimeType(filePath);
+
+                        var streamSource = new ProgressiveFileCopier(FileSystem, filePath, outputHeaders, null, Logger, CancellationToken.None)
+                        {
+                            AllowEndOfFile = false
+                        };
+                        return ResultFactory.GetAsyncStreamWriter(streamSource);
+                    }
+
                     return await GetStaticRemoteStreamResult(state, responseHeaders, isHeadRequest, cancellationTokenSource)
                                 .ConfigureAwait(false);
                 }
@@ -154,6 +170,19 @@ namespace MediaBrowser.Api.Playback.Progressive
 
                 using (state)
                 {
+                    if (state.MediaSource.IsInfiniteStream)
+                    {
+                        var outputHeaders = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+                        outputHeaders["Content-Type"] = contentType;
+
+                        var streamSource = new ProgressiveFileCopier(FileSystem, state.MediaPath, outputHeaders, null, Logger, CancellationToken.None)
+                        {
+                            AllowEndOfFile = false
+                        };
+                        return ResultFactory.GetAsyncStreamWriter(streamSource);
+                    }
+
                     TimeSpan? cacheDuration = null;
 
                     if (!string.IsNullOrEmpty(request.Tag))
@@ -345,7 +374,8 @@ namespace MediaBrowser.Api.Playback.Progressive
                 return streamResult;
             }
 
-            await ApiEntryPoint.Instance.TranscodingStartLock.WaitAsync(cancellationTokenSource.Token).ConfigureAwait(false);
+            var transcodingLock = ApiEntryPoint.Instance.GetTranscodingLock(outputPath);
+            await transcodingLock.WaitAsync(cancellationTokenSource.Token).ConfigureAwait(false);
             try
             {
                 TranscodingJob job;
@@ -376,7 +406,7 @@ namespace MediaBrowser.Api.Playback.Progressive
             }
             finally
             {
-                ApiEntryPoint.Instance.TranscodingStartLock.Release();
+                transcodingLock.Release();
             }
         }
 

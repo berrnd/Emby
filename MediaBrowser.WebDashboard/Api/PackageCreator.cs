@@ -349,7 +349,7 @@ namespace MediaBrowser.WebDashboard.Api
 
             if (string.Equals(mode, "cordova", StringComparison.OrdinalIgnoreCase))
             {
-                sb.Append("<meta http-equiv=\"Content-Security-Policy\" content=\"default-src * 'self' 'unsafe-inline' 'unsafe-eval' data: gap: file: filesystem:; connect-src ws: *\">");
+                sb.Append("<meta http-equiv=\"Content-Security-Policy\" content=\"default-src * 'self' 'unsafe-inline' 'unsafe-eval' data: gap: file: filesystem: ws: wss:;\">");
             }
             else
             {

@@ -44,6 +44,7 @@ namespace MediaBrowser.Controller.Entities
             ProviderIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             LockedFields = new List<MetadataFields>();
             ImageInfos = new List<ItemImageInfo>();
+            InheritedTags = new List<string>();
         }
 
         public static readonly char[] SlugReplaceChars = { '?', '/', '&' };
@@ -251,6 +252,19 @@ namespace MediaBrowser.Controller.Entities
             set
             {
                 this.SetProviderId("ProviderExternalId", value);
+            }
+        }
+
+        [IgnoreDataMember]
+        public string ExternalSeriesId { get; set; }
+
+        [IgnoreDataMember]
+        public string ExternalSeriesIdLegacy
+        {
+            get { return this.GetProviderId("ProviderExternalSeriesId"); }
+            set
+            {
+                this.SetProviderId("ProviderExternalSeriesId", value);
             }
         }
 
@@ -783,6 +797,9 @@ namespace MediaBrowser.Controller.Entities
 
         [IgnoreDataMember]
         public int InheritedParentalRatingValue { get; set; }
+
+        [IgnoreDataMember]
+        public List<string> InheritedTags { get; set; }
 
         /// <summary>
         /// Gets or sets the critic rating.
@@ -2107,14 +2124,11 @@ namespace MediaBrowser.Controller.Entities
             return hasChanges;
         }
 
-        protected static string GetMappedPath(string path, LocationType locationType)
+        protected static string GetMappedPath(BaseItem item, string path, LocationType locationType)
         {
             if (locationType == LocationType.FileSystem || locationType == LocationType.Offline)
             {
-                foreach (var map in ConfigurationManager.Configuration.PathSubstitutions)
-                {
-                    path = LibraryManager.SubstitutePath(path, map.From, map.To);
-                }
+                return LibraryManager.GetPathAfterNetworkSubstitution(path, item);
             }
 
             return path;

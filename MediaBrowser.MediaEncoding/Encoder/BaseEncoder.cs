@@ -487,7 +487,15 @@ namespace MediaBrowser.MediaEncoding.Encoder
                 var videoEncoder = EncodingJobFactory.GetVideoEncoder(MediaEncoder, state, encodingOptions);
                 if (videoEncoder.IndexOf("vaapi", StringComparison.OrdinalIgnoreCase) != -1)
                 {
-                    arg = "-hwaccel vaapi -hwaccel_output_format vaapi -vaapi_device " + encodingOptions.VaapiDevice + " " + arg;
+                    var hasGraphicalSubs = state.SubtitleStream != null && !state.SubtitleStream.IsTextSubtitleStream && state.Options.SubtitleMethod == SubtitleDeliveryMethod.Encode;
+                    var hwOutputFormat = "vaapi";
+
+                    if (hasGraphicalSubs)
+                    {
+                        hwOutputFormat = "yuv420p";
+                    }
+
+                    arg = "-hwaccel vaapi -hwaccel_output_format " + hwOutputFormat + " -vaapi_device " + encodingOptions.VaapiDevice + " " + arg;
                 }
             }
 
@@ -565,7 +573,20 @@ namespace MediaBrowser.MediaEncoding.Encoder
             {
                 outputSizeParam = await GetOutputSizeParam(state, outputVideoCodec).ConfigureAwait(false);
                 outputSizeParam = outputSizeParam.TrimEnd('"');
-                outputSizeParam = "," + outputSizeParam.Substring(outputSizeParam.IndexOf("scale", StringComparison.OrdinalIgnoreCase));
+
+                if (string.Equals(outputVideoCodec, "h264_vaapi", StringComparison.OrdinalIgnoreCase))
+                {
+                    outputSizeParam = "," + outputSizeParam.Substring(outputSizeParam.IndexOf("format", StringComparison.OrdinalIgnoreCase));
+                }
+                else
+                {
+                    outputSizeParam = "," + outputSizeParam.Substring(outputSizeParam.IndexOf("scale", StringComparison.OrdinalIgnoreCase));
+                }
+            }
+
+            if (string.Equals(outputVideoCodec, "h264_vaapi", StringComparison.OrdinalIgnoreCase) && outputSizeParam.Length == 0)
+            {
+                outputSizeParam = ",format=nv12|vaapi,hwupload";
             }
 
             var videoSizeParam = string.Empty;

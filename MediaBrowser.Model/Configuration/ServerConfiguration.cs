@@ -73,6 +73,7 @@ namespace MediaBrowser.Model.Configuration
         /// </summary>
         /// <value>The metadata path.</value>
         public string MetadataPath { get; set; }
+        public string MetadataNetworkPath { get; set; }
 
         public string LastVersion { get; set; }
 
@@ -183,8 +184,6 @@ namespace MediaBrowser.Model.Configuration
 
         public int RemoteClientBitrateLimit { get; set; }
 
-        public AutoOnOff EnableLibraryMonitor { get; set; }
-
         public int SharingExpirationDays { get; set; }
 
         public string[] Migrations { get; set; }
@@ -192,8 +191,6 @@ namespace MediaBrowser.Model.Configuration
         public int MigrationVersion { get; set; }
         public int SchemaVersion { get; set; }
         public int SqliteCacheSize { get; set; }
-
-        public bool DownloadImagesInAdvance { get; set; }
 
         public bool EnableAnonymousUsageReporting { get; set; }
         public bool EnableStandaloneMusicKeys { get; set; }
@@ -244,7 +241,6 @@ namespace MediaBrowser.Model.Configuration
             // 5 minutes
             MinResumeDurationSeconds = 300;
 
-            EnableLibraryMonitor = AutoOnOff.Auto;
             LibraryMonitorDelay = 60;
 
             EnableInternetProviders = true;

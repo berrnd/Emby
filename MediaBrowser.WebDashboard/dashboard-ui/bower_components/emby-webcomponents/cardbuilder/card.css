@@ -85,7 +85,7 @@
 @media all and (min-width: 600px) {
 
     .cardBox-mobile {
-        margin: 3px;
+        margin: 2px;
     }
 }
 
@@ -147,7 +147,7 @@
 
     .cardImageContainer {
         /* Should be 0 with visualCardBox, but not really noticeable */
-        border-radius: 2px;
+        border-radius: 1px;
     }
 }
 
@@ -213,9 +213,6 @@
 .visualCardBox-cardFooter {
     border-bottom-left-radius: 2px;
     border-bottom-right-radius: 2px;
-    -moz-box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    -ms-box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    -webkit-box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
@@ -240,7 +237,7 @@
 }
 
 .cardText {
-    padding: .35em .5em;
+    padding: .25em .5em;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -514,7 +511,6 @@
     }
 }
 
-
 @media all and (min-width: 1600px) {
 
     .portraitCard-scalable {
@@ -523,6 +519,10 @@
 
     .smallBackdropCard-scalable {
         width: 12.5%;
+    }
+
+    .backdropCard-scalable {
+        width: 20%;
     }
 }
 
@@ -584,4 +584,12 @@
 
 .layout-tv .personCard-scalable {
     width: 14.285714285714285714285714285714%;
+}
+
+
+@media all and (min-width: 1600px) {
+
+    .layout-tv .backdropCard-scalable {
+        width: 25%;
+    }
 }

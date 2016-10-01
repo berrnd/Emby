@@ -315,6 +315,8 @@ namespace MediaBrowser.Server.Startup.Common
         /// </summary>
         public override async Task RunStartupTasks()
         {
+            await PerformPreInitMigrations().ConfigureAwait(false);
+
             if (ServerConfigurationManager.Configuration.MigrationVersion < CleanDatabaseScheduledTask.MigrationVersion &&
                 ServerConfigurationManager.Configuration.IsStartupWizardCompleted)
             {
@@ -345,6 +347,7 @@ namespace MediaBrowser.Server.Startup.Common
             {
                 var name = entryPoint.GetType().FullName;
                 Logger.Info("Starting entry point {0}", name);
+                var now = DateTime.UtcNow;
                 try
                 {
                     entryPoint.Run();
@@ -353,7 +356,7 @@ namespace MediaBrowser.Server.Startup.Common
                 {
                     Logger.ErrorException("Error in {0}", ex, name);
                 }
-                Logger.Info("Entry point completed: {0}", name);
+                Logger.Info("Entry point completed: {0}. Duration: {1} seconds", name, (DateTime.UtcNow - now).TotalSeconds.ToString(CultureInfo.InvariantCulture));
             }
             Logger.Info("All entry points have started");
 
@@ -365,23 +368,21 @@ namespace MediaBrowser.Server.Startup.Common
             HttpPort = ServerConfigurationManager.Configuration.HttpServerPortNumber;
             HttpsPort = ServerConfigurationManager.Configuration.HttpsPortNumber;
 
-            PerformPreInitMigrations();
-
             return base.Init(progress);
         }
 
-        private void PerformPreInitMigrations()
+        private async Task PerformPreInitMigrations()
         {
             var migrations = new List<IVersionMigration>
             {
-                new UpdateLevelMigration(ServerConfigurationManager, this, HttpClient, JsonSerializer, _releaseAssetFilename)
+                new UpdateLevelMigration(ServerConfigurationManager, this, HttpClient, JsonSerializer, _releaseAssetFilename, Logger)
             };
 
             foreach (var task in migrations)
             {
                 try
                 {
-                    task.Run();
+                    await task.Run().ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
@@ -549,7 +550,7 @@ namespace MediaBrowser.Server.Startup.Common
             SubtitleManager = new SubtitleManager(LogManager.GetLogger("SubtitleManager"), FileSystemManager, LibraryMonitor, LibraryManager, MediaSourceManager);
             RegisterSingleInstance(SubtitleManager);
 
-            RegisterSingleInstance<IDeviceDiscovery>(new DeviceDiscovery(LogManager.GetLogger("IDeviceDiscovery"), ServerConfigurationManager, this, NetworkManager));
+            RegisterSingleInstance<IDeviceDiscovery>(new DeviceDiscovery(LogManager.GetLogger("IDeviceDiscovery"), ServerConfigurationManager));
 
             ChapterManager = new ChapterManager(LibraryManager, LogManager.GetLogger("ChapterManager"), ServerConfigurationManager, ItemRepository);
             RegisterSingleInstance(ChapterManager);
@@ -560,13 +561,9 @@ namespace MediaBrowser.Server.Startup.Common
             EncodingManager = new EncodingManager(FileSystemManager, Logger, MediaEncoder, ChapterManager, LibraryManager);
             RegisterSingleInstance(EncodingManager);
 
-            RegisterSingleInstance(NativeApp.GetPowerManagement());
-
             var sharingRepo = new SharingRepository(LogManager, ApplicationPaths, NativeApp.GetDbConnector());
             await sharingRepo.Initialize().ConfigureAwait(false);
             RegisterSingleInstance<ISharingManager>(new SharingManager(sharingRepo, ServerConfigurationManager, LibraryManager, this));
-
-            RegisterSingleInstance<ISsdpHandler>(new SsdpHandler(LogManager.GetLogger("SsdpHandler"), ServerConfigurationManager, this));
 
             var activityLogRepo = await GetActivityLogRepository().ConfigureAwait(false);
             RegisterSingleInstance(activityLogRepo);
@@ -854,12 +851,12 @@ namespace MediaBrowser.Server.Startup.Common
             {
                 var prefixes = new List<string>
                 {
-                    "http://"+i+":" + ServerConfigurationManager.Configuration.HttpServerPortNumber + "/"
+                    "http://"+i+":" + HttpPort + "/"
                 };
 
                 if (!string.IsNullOrWhiteSpace(CertificatePath))
                 {
-                    prefixes.Add("https://" + i + ":" + ServerConfigurationManager.Configuration.HttpsPortNumber + "/");
+                    prefixes.Add("https://" + i + ":" + HttpsPort + "/");
                 }
 
                 return prefixes;
@@ -872,6 +869,23 @@ namespace MediaBrowser.Server.Startup.Common
         private void StartServer()
         {
             CertificatePath = GetCertificatePath(true);
+
+            try
+            {
+                ServerManager.Start(GetUrlPrefixes(), CertificatePath);
+                return;
+            }
+            catch (Exception ex)
+            {
+                Logger.ErrorException("Error starting http server", ex);
+
+                if (HttpPort == 8096)
+                {
+                    throw;
+                }
+            }
+
+            HttpPort = 8096;
 
             try
             {
@@ -1178,20 +1192,24 @@ namespace MediaBrowser.Server.Startup.Common
 
         public async Task<List<IPAddress>> GetLocalIpAddresses()
         {
-            var localAddresses = NetworkManager.GetLocalIpAddresses()
-                .Where(IsIpAddressValid)
-                .ToList();
+            var addresses = NetworkManager.GetLocalIpAddresses().ToList();
+            var list = new List<IPAddress>();
 
-            return localAddresses;
+            foreach (var address in addresses)
+            {
+                var valid = await IsIpAddressValidAsync(address).ConfigureAwait(false);
+                if (valid)
+                {
+                    list.Add(address);
+                }
+            }
+
+            return list;
         }
 
         private readonly ConcurrentDictionary<string, bool> _validAddressResults = new ConcurrentDictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
         private DateTime _lastAddressCacheClear;
-        private bool IsIpAddressValid(IPAddress address)
-        {
-            return IsIpAddressValidInternal(address).Result;
-        }
-        private async Task<bool> IsIpAddressValidInternal(IPAddress address)
+        private async Task<bool> IsIpAddressValidAsync(IPAddress address)
         {
             if (IPAddress.IsLoopback(address))
             {
@@ -1201,7 +1219,7 @@ namespace MediaBrowser.Server.Startup.Common
             var apiUrl = GetLocalApiUrl(address);
             apiUrl += "/system/ping";
 
-            if ((DateTime.UtcNow - _lastAddressCacheClear).TotalMinutes >= 5)
+            if ((DateTime.UtcNow - _lastAddressCacheClear).TotalMinutes >= 10)
             {
                 _lastAddressCacheClear = DateTime.UtcNow;
                 _validAddressResults.Clear();

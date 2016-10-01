@@ -88,9 +88,17 @@ namespace MediaBrowser.Api.Playback
                         return 10;
                     }
 
+                    if (!RunTimeTicks.HasValue)
+                    {
+                        return 3;
+                    }
                     return 6;
                 }
 
+                if (!RunTimeTicks.HasValue)
+                {
+                    return 3;
+                }
                 return 3;
             }
         }
@@ -217,7 +225,7 @@ namespace MediaBrowser.Api.Playback
             {
                 try
                 {
-                    await _mediaSourceManager.CloseLiveStream(MediaSource.LiveStreamId, CancellationToken.None).ConfigureAwait(false);
+                    await _mediaSourceManager.CloseLiveStream(MediaSource.LiveStreamId).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {

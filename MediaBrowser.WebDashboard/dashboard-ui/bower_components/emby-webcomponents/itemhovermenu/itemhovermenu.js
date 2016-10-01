@@ -77,7 +77,7 @@
         var isPortrait = className.indexOf('portrait') != -1;
 
         var parentName = isSmallItem || isMiniItem || isPortrait ? null : item.SeriesName;
-        var name = itemHelper.getDisplayName(item);
+        var name = item.EpisodeTitle ? item.Name : itemHelper.getDisplayName(item);
 
         html += '<div>';
         var logoHeight = 26;
@@ -139,13 +139,6 @@
         var moreIcon = appHost.moreIcon == 'dots-horiz' ? '&#xE5D3;' : '&#xE5D4;';
         html += '<button is="emby-button" class="itemAction autoSize fab cardOverlayFab mini" data-action="menu" data-playoptions="false"><i class="md-icon cardOverlayFab-md-icon">' + moreIcon + '</i></button>';
         buttonCount++;
-
-        html += userdataButtons.getIconsHtml({
-            item: item,
-            style: 'fab-mini',
-            cssClass: 'cardOverlayFab',
-            iconCssClass: 'cardOverlayFab-md-icon'
-        });
 
         html += '</div>';
 
@@ -215,6 +208,16 @@
 
             innerElem.innerHTML = getOverlayHtml(apiClient, item, user, dataElement);
 
+            userdataButtons.fill({
+                item: item,
+                style: 'fab-mini',
+                cssClass: 'cardOverlayFab',
+                iconCssClass: 'cardOverlayFab-md-icon',
+                element: innerElem.querySelector('.cardOverlayButtons'),
+                fillMode: 'insertAdjacent',
+                insertLocation: 'beforeend'
+            });
+
             innerElem.querySelector('.cardOverlayButtons').addEventListener('click', onCardOverlayButtonsClick);
         });
 
@@ -243,7 +246,7 @@
         showOverlayTimeout = setTimeout(function () {
             onShowTimerExpired(card);
 
-        }, 1000);
+        }, 1200);
     }
 
     function preventTouchHover() {

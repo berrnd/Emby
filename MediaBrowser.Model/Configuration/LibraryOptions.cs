@@ -8,11 +8,20 @@
         public int SchemaVersion { get; set; }
         public bool EnableChapterImageExtraction { get; set; }
         public bool ExtractChapterImagesDuringLibraryScan { get; set; }
+        public bool DownloadImagesInAdvance { get; set; }
+        public MediaPathInfo[] PathInfos { get; set; }
 
         public LibraryOptions()
         {
             EnablePhotos = true;
             EnableRealtimeMonitor = true;
+            PathInfos = new MediaPathInfo[] { };
         }
+    }
+
+    public class MediaPathInfo
+    {
+        public string Path { get; set; }
+        public string NetworkPath { get; set; }
     }
 }

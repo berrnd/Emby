@@ -215,7 +215,7 @@
             return connectUser;
         };
 
-        var minServerVersion = '3.0.5972';
+        var minServerVersion = '3.0.5984';
         self.minServerVersion = function (val) {
 
             if (val) {
@@ -448,12 +448,9 @@
             }
 
             if (options.enableWebSocket !== false) {
-                if (!apiClient.isWebSocketOpenOrConnecting() && apiClient.isWebSocketSupported()) {
+                console.log('calling apiClient.ensureWebSocket');
 
-                    console.log('calling apiClient.openWebSocket');
-
-                    apiClient.openWebSocket();
-                }
+                apiClient.ensureWebSocket();
             }
         }
 
@@ -537,12 +534,15 @@
 
             url = getEmbyServerUrl(url, "Connect/Exchange?format=json&ConnectUserId=" + credentials.ConnectUserId);
 
+            var auth = 'MediaBrowser Client="' + appName + '", Device="' + deviceName + '", DeviceId="' + deviceId + '", Version="' + appVersion + '"';
+
             return ajax({
                 type: "GET",
                 url: url,
                 dataType: "json",
                 headers: {
-                    "X-MediaBrowser-Token": server.ExchangeToken
+                    "X-MediaBrowser-Token": server.ExchangeToken,
+                    "X-Emby-Authorization": auth
                 }
 
             }).then(function (auth) {

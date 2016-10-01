@@ -294,11 +294,9 @@ namespace MediaBrowser.Server.Implementations.Session
                     var key = GetSessionKey(session.Client, session.DeviceId);
 
                     SessionInfo removed;
+                    _activeConnections.TryRemove(key, out removed);
 
-                    if (_activeConnections.TryRemove(key, out removed))
-                    {
-                        OnSessionEnded(removed);
-                    }
+                    OnSessionEnded(session);
                 }
             }
             finally
@@ -307,9 +305,9 @@ namespace MediaBrowser.Server.Implementations.Session
             }
         }
 
-        private Task<MediaSourceInfo> GetMediaSource(IHasMediaSources item, string mediaSourceId)
+        private Task<MediaSourceInfo> GetMediaSource(IHasMediaSources item, string mediaSourceId, string liveStreamId)
         {
-            return _mediaSourceManager.GetMediaSource(item, mediaSourceId, false);
+            return _mediaSourceManager.GetMediaSource(item, mediaSourceId, liveStreamId, false, CancellationToken.None);
         }
 
         /// <summary>
@@ -337,7 +335,7 @@ namespace MediaBrowser.Server.Implementations.Session
                     var hasMediaSources = libraryItem as IHasMediaSources;
                     if (hasMediaSources != null)
                     {
-                        mediaSource = await GetMediaSource(hasMediaSources, info.MediaSourceId).ConfigureAwait(false);
+                        mediaSource = await GetMediaSource(hasMediaSources, info.MediaSourceId, info.LiveStreamId).ConfigureAwait(false);
 
                         if (mediaSource != null)
                         {
@@ -792,7 +790,7 @@ namespace MediaBrowser.Server.Implementations.Session
                     var hasMediaSources = libraryItem as IHasMediaSources;
                     if (hasMediaSources != null)
                     {
-                        mediaSource = await GetMediaSource(hasMediaSources, info.MediaSourceId).ConfigureAwait(false);
+                        mediaSource = await GetMediaSource(hasMediaSources, info.MediaSourceId, info.LiveStreamId).ConfigureAwait(false);
                     }
 
                     info.Item = GetItemInfo(libraryItem, libraryItem, mediaSource);
@@ -820,7 +818,7 @@ namespace MediaBrowser.Server.Implementations.Session
             {
                 try
                 {
-                    await _mediaSourceManager.CloseLiveStream(info.LiveStreamId, CancellationToken.None).ConfigureAwait(false);
+                    await _mediaSourceManager.CloseLiveStream(info.LiveStreamId).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
@@ -1341,8 +1339,19 @@ namespace MediaBrowser.Server.Implementations.Session
 
         private async Task<AuthenticationResult> AuthenticateNewSessionInternal(AuthenticationRequest request, bool enforcePassword)
         {
-            var user = _userManager.Users
-                .FirstOrDefault(i => string.Equals(request.Username, i.Name, StringComparison.OrdinalIgnoreCase));
+            User user = null;
+            if (!string.IsNullOrWhiteSpace(request.UserId))
+            {
+                var idGuid = new Guid(request.UserId);
+                user = _userManager.Users
+                    .FirstOrDefault(i => i.Id == idGuid);
+            }
+
+            if (user == null)
+            {
+                user = _userManager.Users
+                    .FirstOrDefault(i => string.Equals(request.Username, i.Name, StringComparison.OrdinalIgnoreCase));
+            }
 
             if (user != null && !string.IsNullOrWhiteSpace(request.DeviceId))
             {

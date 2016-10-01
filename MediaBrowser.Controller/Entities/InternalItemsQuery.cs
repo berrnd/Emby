@@ -101,6 +101,8 @@ namespace MediaBrowser.Controller.Entities
         public bool? IsMovie { get; set; }
         public bool? IsSports { get; set; }
         public bool? IsKids { get; set; }
+        public bool? IsNews { get; set; }
+        public bool? IsSeries { get; set; }
 
         public int? MinPlayers { get; set; }
         public int? MaxPlayers { get; set; }
@@ -137,6 +139,7 @@ namespace MediaBrowser.Controller.Entities
         public DayOfWeek[] AirDays { get; set; }
         public SeriesStatus[] SeriesStatuses { get; set; }
         public string AlbumArtistStartsWithOrGreater { get; set; }
+        public string ExternalSeriesId { get; set; }
 
         public string[] AlbumNames { get; set; }
         public string[] ArtistNames { get; set; }
@@ -148,6 +151,8 @@ namespace MediaBrowser.Controller.Entities
         public bool ForceDirect { get; set; }
         public Dictionary<string, string> ExcludeProviderIds { get; set; }
         public bool EnableGroupByMetadataKey { get; set; }
+
+        public List<Tuple<string, SortOrder>> OrderBy { get; set; }
 
         public InternalItemsQuery()
         {
@@ -191,6 +196,7 @@ namespace MediaBrowser.Controller.Entities
             TrailerTypes = new TrailerType[] { };
             AirDays = new DayOfWeek[] { };
             SeriesStatuses = new SeriesStatus[] { };
+            OrderBy = new List<Tuple<string, SortOrder>>();
         }
 
         public InternalItemsQuery(User user)

@@ -52,8 +52,9 @@
 
             if (e.detail.command == 'back') {
                 self.closedByBack = true;
-                closeDialog(dlg);
                 e.preventDefault();
+                e.stopPropagation();
+                closeDialog(dlg);
             }
         }
 
@@ -117,6 +118,10 @@
         addBackdropOverlay(dlg);
 
         dlg.classList.add('opened');
+        dlg.dispatchEvent(new CustomEvent('open', {
+            bubbles: false,
+            cancelable: false
+        }));
 
         if (dlg.getAttribute('data-lockscroll') == 'true' && !document.body.classList.contains('noScroll')) {
             document.body.classList.add('noScroll');
@@ -277,7 +282,7 @@
                     }));
                 }
             };
-            if (!dlg.animationConfig || !dlg.animate) {
+            if (!dlg.animationConfig) {
                 onAnimationFinish();
                 return;
             }
@@ -308,7 +313,7 @@
             }
         };
 
-        if (!dlg.animationConfig || !dlg.animate) {
+        if (!dlg.animationConfig) {
             onAnimationFinish();
             return;
         }

@@ -148,7 +148,7 @@ define(['datetime', 'imageLoader', 'connectionManager', 'itemHelper', 'mediaInfo
 
             if (options.shape == 'auto' || options.shape == 'autohome' || options.shape == 'autooverflow' || options.shape == 'autoVertical') {
 
-                if (options.preferThumb || isThumbAspectRatio) {
+                if (options.preferThumb === true || isThumbAspectRatio) {
                     options.shape = options.shape == 'autooverflow' ? 'overflowBackdrop' : 'backdrop';
                 } else if (isSquareAspectRatio) {
                     options.coverImage = true;
@@ -161,6 +161,10 @@ define(['datetime', 'imageLoader', 'connectionManager', 'itemHelper', 'mediaInfo
                 } else {
                     options.shape = options.defaultShape || (options.shape == 'autooverflow' ? 'overflowSquare' : 'square');
                 }
+            }
+
+            if (options.preferThumb == 'auto') {
+                options.preferThumb = options.shape == 'backdrop' || options.shape == 'overflowBackdrop';
             }
 
             options.uiAspect = getDesiredAspect(options.shape);
@@ -229,7 +233,7 @@ define(['datetime', 'imageLoader', 'connectionManager', 'itemHelper', 'mediaInfo
                         if (item.PremiereDate) {
                             try {
 
-                                newIndexValue = getDisplayDateText(datetime.parseISO8601Date(item.PremiereDate));
+                                newIndexValue = datetime.toLocaleDateString(datetime.parseISO8601Date(item.PremiereDate), { weekday: 'long', month: 'long', day: 'numeric' });
 
                             } catch (err) {
                             }
@@ -404,27 +408,6 @@ define(['datetime', 'imageLoader', 'connectionManager', 'itemHelper', 'mediaInfo
             return html;
         }
 
-        function getDisplayDateText(date) {
-
-            var weekday = [];
-            weekday[0] = globalize.translate('sharedcomponents#Sunday');
-            weekday[1] = globalize.translate('sharedcomponents#Monday');
-            weekday[2] = globalize.translate('sharedcomponents#Tuesday');
-            weekday[3] = globalize.translate('sharedcomponents#Wednesday');
-            weekday[4] = globalize.translate('sharedcomponents#Thursday');
-            weekday[5] = globalize.translate('sharedcomponents#Friday');
-            weekday[6] = globalize.translate('sharedcomponents#Saturday');
-
-            var day = weekday[date.getDay()];
-            date = date.toLocaleDateString();
-
-            if (date.toLowerCase().indexOf(day.toLowerCase()) == -1) {
-                return day + " " + date;
-            }
-
-            return date;
-        }
-
         function getDesiredAspect(shape) {
 
             if (shape) {
@@ -454,34 +437,7 @@ define(['datetime', 'imageLoader', 'connectionManager', 'itemHelper', 'mediaInfo
             var imgUrl = null;
             var coverImage = false;
 
-            if (options.autoThumb && item.ImageTags && item.ImageTags.Primary && item.PrimaryImageAspectRatio && item.PrimaryImageAspectRatio >= 1.34) {
-
-                height = primaryImageAspectRatio ? Math.round(width / primaryImageAspectRatio) : null;
-
-                imgUrl = ApiClient.getScaledImageUrl(item.Id, {
-                    type: "Primary",
-                    maxHeight: height,
-                    maxWidth: width,
-                    tag: item.ImageTags.Primary
-                });
-
-                if (primaryImageAspectRatio) {
-                    if (uiAspect) {
-                        if (Math.abs(primaryImageAspectRatio - uiAspect) <= .2) {
-                            coverImage = true;
-                        }
-                    }
-                }
-
-            } else if (options.autoThumb && item.ImageTags && item.ImageTags.Thumb) {
-
-                imgUrl = ApiClient.getScaledImageUrl(item.Id, {
-                    type: "Thumb",
-                    maxWidth: width,
-                    tag: item.ImageTags.Thumb
-                });
-
-            } else if (options.preferThumb && item.ImageTags && item.ImageTags.Thumb) {
+            if (options.preferThumb && item.ImageTags && item.ImageTags.Thumb) {
 
                 imgUrl = apiClient.getScaledImageUrl(item.Id, {
                     type: "Thumb",
@@ -726,9 +682,9 @@ define(['datetime', 'imageLoader', 'connectionManager', 'itemHelper', 'mediaInfo
             var cssClass = options.centerText && !options.cardLayout ? "cardText cardTextCentered" : "cardText";
 
             var lines = [];
+            var parentTitleUnderneath = item.Type == 'MusicAlbum' || item.Type == 'Audio' || item.Type == 'MusicVideo';
 
             if (showOtherText) {
-                var parentTitleUnderneath = item.Type == 'MusicAlbum' || item.Type == 'Audio' || item.Type == 'MusicVideo';
                 if ((options.showParentTitle || options.showParentTitleOrTitle) && !parentTitleUnderneath) {
 
                     if (isOuterFooter && item.Type == 'Episode' && item.SeriesName && item.SeriesId) {
@@ -742,7 +698,7 @@ define(['datetime', 'imageLoader', 'connectionManager', 'itemHelper', 'mediaInfo
                     }
                     else {
 
-                        var parentTitle = item.EpisodeTitle ? item.Name : (item.SeriesName || item.Album || item.AlbumArtist || item.GameSystem || "");
+                        var parentTitle = item.Type == 'Program' ? item.Name : (item.SeriesName || item.Album || item.AlbumArtist || item.GameSystem || "");
 
                         if (parentTitle || options.showParentTitle) {
                             lines.push(parentTitle);
@@ -766,7 +722,7 @@ define(['datetime', 'imageLoader', 'connectionManager', 'itemHelper', 'mediaInfo
                         item.AlbumArtists[0].IsFolder = true;
                         lines.push(getTextActionButton(item.AlbumArtists[0]));
                     } else {
-                        lines.push(item.EpisodeTitle ? item.Name : (item.SeriesName || item.Album || item.AlbumArtist || item.GameSystem || ""));
+                        lines.push(item.Type == 'Program' ? item.Name : (item.SeriesName || item.Album || item.AlbumArtist || item.GameSystem || ""));
                     }
                 }
 
@@ -818,24 +774,31 @@ define(['datetime', 'imageLoader', 'connectionManager', 'itemHelper', 'mediaInfo
                     lines.push(item.ProductionYear || '');
                 }
 
-                if (options.showChannelName) {
+                if (options.showRuntime) {
 
-                    lines.push(item.ChannelName || '');
+                    if (item.RunTimeTicks) {
+
+                        lines.push(datetime.getDisplayRunningTime(item.RunTimeTicks));
+                    } else {
+                        lines.push('');
+                    }
                 }
 
                 if (options.showAirTime) {
 
-                    var airTimeText;
+                    var airTimeText = '';
                     if (item.StartDate) {
 
                         try {
                             var date = datetime.parseISO8601Date(item.StartDate);
 
-                            airTimeText = date.toLocaleDateString();
+                            if (options.showAirDateTime) {
+                                airTimeText += datetime.toLocaleDateString(date, { weekday: 'short', month: 'short', day: 'numeric' }) + ' ';
+                            }
 
-                            airTimeText += ', ' + datetime.getDisplayTime(date);
+                            airTimeText += datetime.getDisplayTime(date);
 
-                            if (item.EndDate) {
+                            if (item.EndDate && options.showAirEndTime) {
                                 date = datetime.parseISO8601Date(item.EndDate);
                                 airTimeText += ' - ' + datetime.getDisplayTime(date);
                             }
@@ -848,34 +811,7 @@ define(['datetime', 'imageLoader', 'connectionManager', 'itemHelper', 'mediaInfo
                     lines.push(airTimeText || '');
                 }
 
-                if (options.showCurrentProgram && item.Type == 'TvChannel') {
-
-                    if (item.CurrentProgram) {
-                        lines.push(item.CurrentProgram.Name);
-                    } else {
-                        lines.push('');
-                    }
-                }
-
-                if (options.showSeriesYear) {
-
-                    if (item.Status == "Continuing") {
-
-                        lines.push(globalize.translate('sharedcomponents#SeriesYearToPresent', item.ProductionYear || ''));
-
-                    } else {
-                        lines.push(item.ProductionYear || '');
-                    }
-
-                }
-
-                if (options.showProgramAirInfo) {
-
-                    var text = item.StartDate ?
-                        datetime.toLocaleString(datetime.parseISO8601Date(item.StartDate, true)) :
-                        '';
-
-                    lines.push(text || '&nbsp;');
+                if (options.showChannelName) {
 
                     if (item.ChannelId) {
 
@@ -904,6 +840,27 @@ define(['datetime', 'imageLoader', 'connectionManager', 'itemHelper', 'mediaInfo
                     } else {
                         lines.push(item.ChannelName || '&nbsp;');
                     }
+                }
+
+                if (options.showCurrentProgram && item.Type == 'TvChannel') {
+
+                    if (item.CurrentProgram) {
+                        lines.push(item.CurrentProgram.Name);
+                    } else {
+                        lines.push('');
+                    }
+                }
+
+                if (options.showSeriesYear) {
+
+                    if (item.Status == "Continuing") {
+
+                        lines.push(globalize.translate('sharedcomponents#SeriesYearToPresent', item.ProductionYear || ''));
+
+                    } else {
+                        lines.push(item.ProductionYear || '');
+                    }
+
                 }
             }
 
@@ -1078,7 +1035,7 @@ define(['datetime', 'imageLoader', 'connectionManager', 'itemHelper', 'mediaInfo
             if (options.coverImage || imgInfo.coverImage) {
                 cardImageContainerClass += ' coveredImage';
 
-                if (item.MediaType == 'Photo' || item.Type == 'PhotoAlbum' || item.Type == 'Folder' || item.Type == 'Program') {
+                if (item.MediaType == 'Photo' || item.Type == 'PhotoAlbum' || item.Type == 'Folder' || item.ProgramInfo || item.Type == 'Program') {
                     cardImageContainerClass += ' coveredImage-noScale';
                 }
             }
@@ -1218,7 +1175,7 @@ define(['datetime', 'imageLoader', 'connectionManager', 'itemHelper', 'mediaInfo
             }
 
             if (!imgUrl) {
-                var defaultName = item.EpisodeTitle ? item.Name : itemHelper.getDisplayName(item);
+                var defaultName = item.Type == 'Program' ? item.Name : itemHelper.getDisplayName(item);
                 cardImageContainerOpen += '<div class="cardText cardCenteredText">' + defaultName + '</div>';
             }
 
@@ -1451,10 +1408,56 @@ define(['datetime', 'imageLoader', 'connectionManager', 'itemHelper', 'mediaInfo
             }
         }
 
+        function onTimerCreated(programId, newTimerId, itemsContainer) {
+
+            var cells = itemsContainer.querySelectorAll('.card[data-id="' + programId + '"]');
+
+            for (var i = 0, length = cells.length; i < length; i++) {
+                var cell = cells[i];
+                var icon = cell.querySelector('.timerIndicator');
+                if (!icon) {
+                    var indicatorsElem = ensureIndicators(cell);
+                    indicatorsElem.insertAdjacentHTML('beforeend', '<i class="md-icon timerIndicator indicatorIcon">&#xE061;</i>');
+                }
+                cell.setAttribute('data-timerid', newTimerId);
+            }
+        }
+
+        function onTimerCancelled(id, itemsContainer) {
+
+            var cells = itemsContainer.querySelectorAll('.card[data-timerid="' + id + '"]');
+
+            for (var i = 0, length = cells.length; i < length; i++) {
+                var cell = cells[i];
+                var icon = cell.querySelector('.timerIndicator');
+                if (icon) {
+                    icon.parentNode.removeChild(icon);
+                }
+                cell.removeAttribute('data-timerid');
+            }
+        }
+
+        function onSeriesTimerCancelled(id, itemsContainer) {
+
+            var cells = itemsContainer.querySelectorAll('.card[data-seriestimerid="' + id + '"]');
+
+            for (var i = 0, length = cells.length; i < length; i++) {
+                var cell = cells[i];
+                var icon = cell.querySelector('.timerIndicator');
+                if (icon) {
+                    icon.parentNode.removeChild(icon);
+                }
+                cell.removeAttribute('data-seriestimerid');
+            }
+        }
+
         return {
             getCardsHtml: getCardsHtml,
             buildCards: buildCards,
             onUserDataChanged: onUserDataChanged,
-            getDefaultColorClass: getDefaultColorClass
+            getDefaultColorClass: getDefaultColorClass,
+            onTimerCreated: onTimerCreated,
+            onTimerCancelled: onTimerCancelled,
+            onSeriesTimerCancelled: onSeriesTimerCancelled
         };
     });

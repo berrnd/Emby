@@ -1,4 +1,4 @@
-﻿define(['datetime', 'jQuery', 'cardStyle'], function (datetime, $) {
+﻿define(['datetime', 'jQuery', 'dom', 'cardStyle', 'listViewStyle'], function (datetime, $, dom) {
 
     function renderNoHealthAlertsMessage(page) {
 
@@ -22,6 +22,38 @@
         return false;
     }
 
+    function onEditServerNameClick(e) {
+
+        var page = dom.parentWithClass(this, 'page');
+
+        require(['prompt'], function (prompt) {
+
+            prompt({
+                label: Globalize.translate('LabelFriendlyServerName'),
+                description: Globalize.translate('LabelFriendlyServerNameHelp'),
+                value: page.querySelector('.serverNameHeader').innerHTML,
+                submitText: Globalize.translate('ButtonSave')
+
+            }).then(function (value) {
+
+                Dashboard.showLoadingMsg();
+
+                ApiClient.getServerConfiguration().then(function (config) {
+
+                    config.ServerName = value;
+
+                    ApiClient.updateServerConfiguration(config).then(function () {
+                        page.querySelector('.serverNameHeader').innerHTML = value;
+                        Dashboard.hideLoadingMsg();
+                    });
+                });
+            });
+        });
+
+        e.preventDefault();
+        return false;
+    }
+
     window.DashboardPage = {
 
         newsStartIndex: 0,
@@ -31,6 +63,7 @@
             var page = this;
 
             page.querySelector('.btnConnectionHelp').addEventListener('click', onConnectionHelpClick);
+            page.querySelector('.btnEditServerName').addEventListener('click', onEditServerNameClick);
         },
 
         onPageShow: function () {
@@ -126,9 +159,9 @@
                 $('#appVersionNumber', page).html(localizedVersion);
 
                 if (systemInfo.SupportsHttps) {
-                    $('#ports', page).html(Globalize.translate('LabelRunningOnPorts', '<b>' + systemInfo.HttpServerPortNumber + '</b>', '<b>' + systemInfo.HttpsPortNumber + '</b>'));
+                    $('#ports', page).html(Globalize.translate('LabelRunningOnPorts', systemInfo.HttpServerPortNumber, systemInfo.HttpsPortNumber));
                 } else {
-                    $('#ports', page).html(Globalize.translate('LabelRunningOnPort', '<b>' + systemInfo.HttpServerPortNumber + '</b>'));
+                    $('#ports', page).html(Globalize.translate('LabelRunningOnPort', systemInfo.HttpServerPortNumber));
                 }
 
                 if (systemInfo.CanSelfRestart) {
@@ -171,20 +204,20 @@
 
                     itemHtml += '<i class="listItemIcon md-icon">dvr</i>';
 
-                    itemHtml += '<div class="listItemBody three-line">';
+                    itemHtml += '<div class="listItemBody two-line">';
 
-                    itemHtml += '<h3 class="listItemBodyText">';
+                    itemHtml += '<div class="listItemBodyText">';
                     itemHtml += item.Title;
-                    itemHtml += '</h3>';
+                    itemHtml += '</div>';
 
                     itemHtml += '<div class="listItemBodyText secondary">';
                     var date = datetime.parseISO8601Date(item.Date, true);
                     itemHtml += date.toLocaleDateString();
                     itemHtml += '</div>';
 
-                    itemHtml += '<div class="listItemBodyText secondary listItemBodyText-nowrap">';
-                    itemHtml += item.Description;
-                    itemHtml += '</div>';
+                    //itemHtml += '<div class="listItemBodyText secondary listItemBodyText-nowrap">';
+                    //itemHtml += item.Description;
+                    //itemHtml += '</div>';
 
                     itemHtml += '</div>';
 
@@ -958,7 +991,7 @@
 
                     html += '<p><strong>' + Globalize.translate('NewVersionOfSomethingAvailable').replace('{0}', update.name) + '</strong></p>';
 
-                    html += '<button type="button" data-icon="arrow-d" data-theme="b" onclick="DashboardPage.installPluginUpdate(this);" data-name="' + update.name + '" data-guid="' + update.guid + '" data-version="' + update.versionStr + '" data-classification="' + update.classification + '">' + Globalize.translate('ButtonUpdateNow') + '</button>';
+                    html += '<button type="button" is="emby-button" class="raised block" onclick="DashboardPage.installPluginUpdate(this);" data-name="' + update.name + '" data-guid="' + update.guid + '" data-version="' + update.versionStr + '" data-classification="' + update.classification + '">' + Globalize.translate('ButtonUpdateNow') + '</button>';
                 }
 
                 elem.html(html);
@@ -1021,7 +1054,14 @@
 
             require(['confirm'], function (confirm) {
 
-                confirm(Globalize.translate('MessageConfirmRestart'), Globalize.translate('HeaderRestart')).then(function () {
+                confirm({
+
+                    title: Globalize.translate('HeaderRestart'),
+                    text: Globalize.translate('MessageConfirmRestart'),
+                    confirmText: Globalize.translate('ButtonRestart'),
+                    primary: 'cancel'
+
+                }).then(function () {
 
                     $('#btnRestartServer').buttonEnabled(false);
                     $('#btnShutdown').buttonEnabled(false);
@@ -1034,7 +1074,14 @@
 
             require(['confirm'], function (confirm) {
 
-                confirm(Globalize.translate('MessageConfirmShutdown'), Globalize.translate('HeaderShutdown')).then(function () {
+                confirm({
+
+                    title: Globalize.translate('HeaderShutdown'),
+                    text: Globalize.translate('MessageConfirmShutdown'),
+                    confirmText: Globalize.translate('ButtonShutdown'),
+                    primary: 'cancel'
+
+                }).then(function () {
 
                     $('#btnRestartServer').buttonEnabled(false);
                     $('#btnShutdown').buttonEnabled(false);
@@ -1072,9 +1119,9 @@
 
             html += '<div class="listItemBody three-line">';
 
-            html += '<h3 class="listItemBodyText">';
+            html += '<div class="listItemBodyText">';
             html += entry.Name;
-            html += '</h3>';
+            html += '</div>';
 
             html += '<div class="listItemBodyText secondary">';
             var date = datetime.parseISO8601Date(entry.Date, true);

@@ -1,6 +1,7 @@
 ﻿define(['layoutManager', 'cardBuilder', 'datetime', 'mediaInfo', 'backdrop', 'listView', 'itemContextMenu', 'itemHelper', 'userdataButtons', 'dom', 'indicators', 'apphost', 'scrollStyles', 'emby-itemscontainer', 'emby-checkbox'], function (layoutManager, cardBuilder, datetime, mediaInfo, backdrop, listView, itemContextMenu, itemHelper, userdataButtons, dom, indicators, appHost) {
 
     var currentItem;
+    var currentRecordingFields;
 
     function getPromise(params) {
 
@@ -183,25 +184,7 @@
             }
 			//myproduction-change-end
 
-            if (item.Type == 'Program' && item.TimerId) {
-                hideAll(page, 'btnCancelRecording', true);
-            } else {
-                hideAll(page, 'btnCancelRecording');
-            }
-
-            if (item.Type == 'Program' && (!item.TimerId && !item.SeriesTimerId)) {
-
-                if (canPlay) {
-                    hideAll(page, 'btnRecord', true);
-                    hideAll(page, 'btnFloatingRecord');
-                } else {
-                    hideAll(page, 'btnRecord');
-                    hideAll(page, 'btnFloatingRecord', true);
-                }
-            } else {
-                hideAll(page, 'btnRecord');
-                hideAll(page, 'btnFloatingRecord');
-            }
+            showRecordingFields(page, item, user);
 
             var btnPlayExternalTrailer = page.querySelectorAll('.btnPlayExternalTrailer');
             for (var i = 0, length = btnPlayExternalTrailer.length; i < length; i++) {
@@ -323,6 +306,31 @@
         }));
 
         Dashboard.hideLoadingMsg();
+    }
+
+    function showRecordingFields(page, item, user) {
+
+        if (currentRecordingFields) {
+            return;
+        }
+
+        var recordingFieldsElement = page.querySelector('.recordingFields');
+
+        if (item.Type == 'Program' && user.Policy.EnableLiveTvManagement) {
+
+            require(['recordingFields'], function (recordingFields) {
+
+                currentRecordingFields = new recordingFields({
+                    parent: recordingFieldsElement,
+                    programId: item.Id,
+                    serverId: item.ServerId
+                });
+                recordingFieldsElement.classList.remove('hide');
+            });
+        } else {
+            recordingFieldsElement.classList.add('hide');
+            recordingFieldsElement.innerHTML = '';
+        }
     }
 
     function renderLinks(linksElem, item) {
@@ -579,7 +587,8 @@
         var itemMiscInfo = page.querySelectorAll('.itemMiscInfo');
         for (i = 0, length = itemMiscInfo.length; i < length; i++) {
             mediaInfo.fillPrimaryMediaInfo(itemMiscInfo[i], item, {
-                interactive: true
+                interactive: true,
+                episodeTitle: false
             });
         }
         var itemGenres = page.querySelectorAll('.itemGenres');
@@ -1417,13 +1426,13 @@
 
         var userDataIcons = page.querySelectorAll('.userDataIcons');
 
-        var html = userdataButtons.getIconsHtml({
-            item: item,
-            style: 'fab-mini'
-        });
-
         for (var i = 0, length = userDataIcons.length; i < length; i++) {
-            userDataIcons[i].innerHTML = html;
+
+            userdataButtons.fill({
+                item: item,
+                style: 'fab-mini',
+                element: userDataIcons[i]
+            });
         }
     }
 
@@ -1650,10 +1659,13 @@
             });
         });
 
-        if (limitExceeded) {
-            page.querySelector('.moreScenes').classList.remove('hide');
-        } else {
-            page.querySelector('.moreScenes').classList.add('hide');
+        var moreScenesButton = page.querySelector('.moreScenes');
+        if (moreScenesButton) {
+            if (limitExceeded) {
+                moreScenesButton.classList.remove('hide');
+            } else {
+                moreScenesButton.classList.add('hide');
+            }
         }
     }
 
@@ -1830,73 +1842,14 @@
 
     function getVideosHtml(items, user, limit, moreButtonClass) {
 
-        var html = '';
-
-        for (var i = 0, length = items.length; i < length; i++) {
-
-            if (limit && i >= limit) {
-                break;
-            }
-
-            var item = items[i];
-
-            var cssClass = "card backdropCard scalableCard backdropCard-scalable";
-
-            var href = "itemdetails.html?id=" + item.Id;
-
-            var onclick = item.PlayAccess == 'Full' ? ' onclick="MediaController.play(\'' + item.Id + '\'); return false;"' : "";
-
-            html += '<a class="' + cssClass + '" href="' + href + '"' + onclick + '>';
-
-            html += '<div class="cardBox">';
-            html += '<div class="cardScalable">';
-
-            var imageTags = item.ImageTags || {};
-
-            var imgUrl;
-
-            if (imageTags.Primary) {
-
-                imgUrl = ApiClient.getScaledImageUrl(item.Id, {
-                    maxWidth: 400,
-                    tag: imageTags.Primary,
-                    type: "primary"
-                });
-
-            } else {
-                imgUrl = "css/images/items/detail/video.png";
-            }
-
-            html += '<div class="cardPadder cardPadder-backdrop"></div>';
-
-            html += '<div class="cardContent">';
-            html += '<div class="cardImage lazy" data-src="' + imgUrl + '"></div>';
-
-            html += '<div class="innerCardFooter">';
-            html += '<div class="cardText">' + item.Name + '</div>';
-            html += '<div class="cardText">';
-            if (item.RunTimeTicks != "") {
-                html += datetime.getDisplayRunningTime(item.RunTimeTicks);
-            }
-            else {
-                html += "&nbsp;";
-            }
-            html += '</div>';
-
-            //cardFooter
-            html += "</div>";
-
-            // cardContent
-            html += '</div>';
-
-            // cardScalable
-            html += '</div>';
-
-            // cardBox
-            html += '</div>';
-
-            html += '</a>';
-        }
+        var html = cardBuilder.getCardsHtml({
+            items: items,
+            shape: "auto",
+            showTitle: true,
+            action: 'play',
+            overlayText: true,
+            showRuntime: true
+        });
 
         if (limit && items.length > limit) {
             html += '<p style="margin: 0;padding-left:5px;"><button is="emby-button" type="button" class="raised more ' + moreButtonClass + '">' + Globalize.translate('ButtonMore') + '</button></p>';
@@ -1946,10 +1899,13 @@
             });
         });
 
-        if (limitExceeded && !enableScrollX()) {
-            page.querySelector('.morePeople').classList.remove('hide');
-        } else {
-            page.querySelector('.morePeople').classList.add('hide');
+        var morePeopleButton = page.querySelector('.morePeople');
+        if (morePeopleButton) {
+            if (limitExceeded && !enableScrollX()) {
+                morePeopleButton.classList.remove('hide');
+            } else {
+                morePeopleButton.classList.add('hide');
+            }
         }
     }
 
@@ -2156,16 +2112,6 @@
             elems[i].addEventListener('change', onSyncLocalClick);
         }
 
-        elems = view.querySelectorAll('.btnRecord,.btnFloatingRecord');
-        for (i = 0, length = elems.length; i < length; i++) {
-            elems[i].addEventListener('click', onRecordClick);
-        }
-
-        elems = view.querySelectorAll('.btnCancelRecording');
-        for (i = 0, length = elems.length; i < length; i++) {
-            elems[i].addEventListener('click', onCancelRecordingClick);
-        }
-
         elems = view.querySelectorAll('.btnMoreCommands');
         for (i = 0, length = elems.length; i < length; i++) {
             elems[i].addEventListener('click', onMoreCommandsClick);
@@ -2263,6 +2209,7 @@
         view.addEventListener('viewbeforehide', function () {
 
             currentItem = null;
+            currentRecordingFields = null;
 
             Events.off(ApiClient, 'websocketmessage', onWebSocketMessage);
             LibraryMenu.setTransparentMenu(false);

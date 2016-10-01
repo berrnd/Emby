@@ -437,6 +437,7 @@ namespace MediaBrowser.Server.Implementations.Dto
                 dto.TrailerCount = taggedItems.Count(i => i is Trailer);
                 dto.MusicVideoCount = taggedItems.Count(i => i is MusicVideo);
                 dto.SeriesCount = taggedItems.Count(i => i is Series);
+                dto.ProgramCount = taggedItems.Count(i => i is LiveTvProgram);
                 dto.SongCount = taggedItems.Count(i => i is Audio);
             }
 
@@ -1508,7 +1509,7 @@ namespace MediaBrowser.Server.Implementations.Dto
             }
         }
 
-        private string GetMappedPath(IHasMetadata item)
+        private string GetMappedPath(BaseItem item)
         {
             var path = item.Path;
 
@@ -1516,10 +1517,7 @@ namespace MediaBrowser.Server.Implementations.Dto
 
             if (locationType == LocationType.FileSystem || locationType == LocationType.Offline)
             {
-                foreach (var map in _config.Configuration.PathSubstitutions)
-                {
-                    path = _libraryManager.SubstitutePath(path, map.From, map.To);
-                }
+                path = _libraryManager.GetPathAfterNetworkSubstitution(path, item);
             }
 
             return path;

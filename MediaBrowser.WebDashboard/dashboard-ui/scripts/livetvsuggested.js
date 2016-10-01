@@ -1,4 +1,4 @@
-﻿define(['libraryBrowser', 'cardBuilder', 'scrollStyles', 'emby-itemscontainer', 'emby-tabs', 'emby-button'], function (libraryBrowser, cardBuilder) {
+﻿define(['libraryBrowser', 'cardBuilder', 'dom', 'scrollStyles', 'emby-itemscontainer', 'emby-tabs', 'emby-button'], function (libraryBrowser, cardBuilder, dom) {
 
     function enableScrollX() {
         return browserInfo.mobile && AppInfo.enableAppLayouts;
@@ -28,7 +28,8 @@
             IsAiring: true,
             limit: limit,
             ImageTypeLimit: 1,
-            EnableImageTypes: "Primary",
+            EnableImageTypes: "Primary,Thumb,Backdrop",
+            EnableTotalRecordCount: false,
             Fields: "ChannelInfo"
 
         }).then(function (result) {
@@ -53,7 +54,8 @@
             IsKids: false,
             IsSeries: true,
             EnableTotalRecordCount: false,
-            Fields: "ChannelInfo"
+            Fields: "ChannelInfo",
+            EnableImageTypes: "Primary,Thumb"
 
         }).then(function (result) {
 
@@ -68,7 +70,8 @@
             limit: getLimit(),
             IsMovie: true,
             EnableTotalRecordCount: false,
-            Fields: "ChannelInfo"
+            Fields: "ChannelInfo",
+            EnableImageTypes: "Primary,Thumb"
 
         }).then(function (result) {
 
@@ -83,7 +86,8 @@
             limit: getLimit(),
             IsSports: true,
             EnableTotalRecordCount: false,
-            Fields: "ChannelInfo"
+            Fields: "ChannelInfo",
+            EnableImageTypes: "Primary,Thumb"
 
         }).then(function (result) {
 
@@ -98,7 +102,8 @@
             limit: getLimit(),
             IsKids: true,
             EnableTotalRecordCount: false,
-            Fields: "ChannelInfo"
+            Fields: "ChannelInfo",
+            EnableImageTypes: "Primary,Thumb"
 
         }).then(function (result) {
 
@@ -111,8 +116,10 @@
         var html = cardBuilder.getCardsHtml({
             items: items,
             preferThumb: !shape,
+            inheritThumb: false,
             shape: shape || (enableScrollX() ? 'overflowBackdrop' : 'backdrop'),
-            showTitle: true,
+            showParentTitleOrTitle: true,
+            showTitle: false,
             centerText: true,
             coverImage: true,
             overlayText: false,
@@ -120,7 +127,9 @@
             overlayMoreButton: overlayButton != 'play',
             overlayPlayButton: overlayButton == 'play',
             allowBottomPadding: !enableScrollX(),
-            showProgramAirInfo: true
+            showAirTime: true,
+            showAirDateTime: true,
+            showChannelName: true
             //cardFooterAside: 'logo'
         });
 

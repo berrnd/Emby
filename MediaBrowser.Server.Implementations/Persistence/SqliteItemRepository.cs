@@ -270,6 +270,7 @@ namespace MediaBrowser.Server.Implementations.Persistence
             _connection.AddColumn(Logger, "TypedBaseItems", "SeasonId", "GUID");
             _connection.AddColumn(Logger, "TypedBaseItems", "SeriesId", "GUID");
             _connection.AddColumn(Logger, "TypedBaseItems", "SeriesSortName", "Text");
+            _connection.AddColumn(Logger, "TypedBaseItems", "ExternalSeriesId", "Text");
 
             _connection.AddColumn(Logger, "UserDataKeys", "Priority", "INT");
             _connection.AddColumn(Logger, "ItemValues", "CleanValue", "Text");
@@ -412,7 +413,9 @@ namespace MediaBrowser.Server.Implementations.Persistence
             "SeriesId",
             "SeriesSortName",
             "PresentationUniqueKey",
-            "InheritedParentalRatingValue"
+            "InheritedParentalRatingValue",
+            "InheritedTags",
+            "ExternalSeriesId"
         };
 
         private readonly string[] _mediaStreamSaveColumns =
@@ -534,7 +537,8 @@ namespace MediaBrowser.Server.Implementations.Persistence
                 "SeasonName",
                 "SeasonId",
                 "SeriesId",
-                "SeriesSortName"
+                "SeriesSortName",
+                "ExternalSeriesId"
             };
             _saveItemCommand = _connection.CreateCommand();
             _saveItemCommand.CommandText = "replace into TypedBaseItems (" + string.Join(",", saveColumns.ToArray()) + ") values (";
@@ -973,6 +977,8 @@ namespace MediaBrowser.Server.Implementations.Persistence
                         _saveItemCommand.GetParameter(index++).Value = null;
                         _saveItemCommand.GetParameter(index++).Value = null;
                     }
+
+                    _saveItemCommand.GetParameter(index++).Value = item.ExternalSeriesId;
 
                     _saveItemCommand.Transaction = transaction;
 
@@ -1459,6 +1465,18 @@ namespace MediaBrowser.Server.Implementations.Persistence
             }
             index++;
 
+            if (!reader.IsDBNull(index))
+            {
+                item.InheritedTags = reader.GetString(index).Split('|').Where(i => !string.IsNullOrWhiteSpace(i)).ToList();
+            }
+            index++;
+
+            if (!reader.IsDBNull(index))
+            {
+                item.ExternalSeriesId = reader.GetString(index);
+            }
+            index++;
+
             return item;
         }
 
@@ -1723,28 +1741,28 @@ namespace MediaBrowser.Server.Implementations.Persistence
                 return true;
             }
 
-            if (query.SortBy != null && query.SortBy.Length > 0)
+            var sortingFields = query.SortBy.ToList();
+            sortingFields.AddRange(query.OrderBy.Select(i => i.Item1));
+
+            if (sortingFields.Contains(ItemSortBy.IsFavoriteOrLiked, StringComparer.OrdinalIgnoreCase))
             {
-                if (query.SortBy.Contains(ItemSortBy.IsFavoriteOrLiked, StringComparer.OrdinalIgnoreCase))
-                {
-                    return true;
-                }
-                if (query.SortBy.Contains(ItemSortBy.IsPlayed, StringComparer.OrdinalIgnoreCase))
-                {
-                    return true;
-                }
-                if (query.SortBy.Contains(ItemSortBy.IsUnplayed, StringComparer.OrdinalIgnoreCase))
-                {
-                    return true;
-                }
-                if (query.SortBy.Contains(ItemSortBy.PlayCount, StringComparer.OrdinalIgnoreCase))
-                {
-                    return true;
-                }
-                if (query.SortBy.Contains(ItemSortBy.DatePlayed, StringComparer.OrdinalIgnoreCase))
-                {
-                    return true;
-                }
+                return true;
+            }
+            if (sortingFields.Contains(ItemSortBy.IsPlayed, StringComparer.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+            if (sortingFields.Contains(ItemSortBy.IsUnplayed, StringComparer.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+            if (sortingFields.Contains(ItemSortBy.PlayCount, StringComparer.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+            if (sortingFields.Contains(ItemSortBy.DatePlayed, StringComparer.OrdinalIgnoreCase))
+            {
+                return true;
             }
 
             if (query.IsFavoriteOrLiked.HasValue)
@@ -2144,34 +2162,41 @@ namespace MediaBrowser.Server.Implementations.Persistence
 
         private string GetOrderByText(InternalItemsQuery query)
         {
+            var orderBy = query.OrderBy.ToList();
+            var enableOrderInversion = true;
+
+            if (orderBy.Count == 0)
+            {
+                orderBy.AddRange(query.SortBy.Select(i => new Tuple<string, SortOrder>(i, query.SortOrder)));
+            }
+            else
+            {
+                enableOrderInversion = false;
+            }
+
             if (query.SimilarTo != null)
             {
-                if (query.SortBy == null || query.SortBy.Length == 0)
+                if (orderBy.Count == 0)
                 {
-                    if (query.User != null)
-                    {
-                        query.SortBy = new[] { "SimilarityScore", ItemSortBy.Random };
-                    }
-                    else
-                    {
-                        query.SortBy = new[] { "SimilarityScore", ItemSortBy.Random };
-                    }
+                    orderBy.Add(new Tuple<string, SortOrder>("SimilarityScore", SortOrder.Descending));
+                    orderBy.Add(new Tuple<string, SortOrder>(ItemSortBy.Random, SortOrder.Ascending));
                     query.SortOrder = SortOrder.Descending;
+                    enableOrderInversion = false;
                 }
             }
 
-            if (query.SortBy == null || query.SortBy.Length == 0)
+            query.OrderBy = orderBy;
+
+            if (orderBy.Count == 0)
             {
                 return string.Empty;
             }
 
-            var isAscending = query.SortOrder != SortOrder.Descending;
-
-            return " ORDER BY " + string.Join(",", query.SortBy.Select(i =>
+            return " ORDER BY " + string.Join(",", orderBy.Select(i =>
             {
-                var columnMap = MapOrderByField(i, query);
-                var columnAscending = isAscending;
-                if (columnMap.Item2)
+                var columnMap = MapOrderByField(i.Item1, query);
+                var columnAscending = i.Item2 == SortOrder.Ascending;
+                if (columnMap.Item2 && enableOrderInversion)
                 {
                     columnAscending = !columnAscending;
                 }
@@ -2523,38 +2548,111 @@ namespace MediaBrowser.Server.Implementations.Persistence
                 whereClauses.Add("IsOffline=@IsOffline");
                 cmd.Parameters.Add(cmd, "@IsOffline", DbType.Boolean).Value = query.IsOffline;
             }
-            if (query.IsMovie.HasValue)
-            {
-                var alternateTypes = new List<string>();
-                if (query.IncludeItemTypes.Length == 0 || query.IncludeItemTypes.Contains(typeof(Movie).Name))
-                {
-                    alternateTypes.Add(typeof(Movie).FullName);
-                }
-                if (query.IncludeItemTypes.Length == 0 || query.IncludeItemTypes.Contains(typeof(Trailer).Name))
-                {
-                    alternateTypes.Add(typeof(Trailer).FullName);
-                }
 
-                if (alternateTypes.Count == 0)
-                {
-                    whereClauses.Add("IsMovie=@IsMovie");
-                }
-                else
-                {
-                    whereClauses.Add("(IsMovie is null OR IsMovie=@IsMovie)");
-                }
-                cmd.Parameters.Add(cmd, "@IsMovie", DbType.Boolean).Value = query.IsMovie;
-            }
-            if (query.IsKids.HasValue)
+            var exclusiveProgramAttribtues = !(query.IsMovie ?? true) ||
+                                             !(query.IsSports ?? true) ||
+                                             !(query.IsKids ?? true) ||
+                                             !(query.IsNews ?? true) ||
+                                             !(query.IsSeries ?? true);
+
+            if (exclusiveProgramAttribtues)
             {
-                whereClauses.Add("IsKids=@IsKids");
-                cmd.Parameters.Add(cmd, "@IsKids", DbType.Boolean).Value = query.IsKids;
+                if (query.IsMovie.HasValue)
+                {
+                    var alternateTypes = new List<string>();
+                    if (query.IncludeItemTypes.Length == 0 || query.IncludeItemTypes.Contains(typeof(Movie).Name))
+                    {
+                        alternateTypes.Add(typeof(Movie).FullName);
+                    }
+                    if (query.IncludeItemTypes.Length == 0 || query.IncludeItemTypes.Contains(typeof(Trailer).Name))
+                    {
+                        alternateTypes.Add(typeof(Trailer).FullName);
+                    }
+
+                    if (alternateTypes.Count == 0)
+                    {
+                        whereClauses.Add("IsMovie=@IsMovie");
+                        cmd.Parameters.Add(cmd, "@IsMovie", DbType.Boolean).Value = query.IsMovie;
+                    }
+                    else
+                    {
+                        whereClauses.Add("(IsMovie is null OR IsMovie=@IsMovie)");
+                        cmd.Parameters.Add(cmd, "@IsMovie", DbType.Boolean).Value = query.IsMovie;
+                    }
+                }
+                if (query.IsSeries.HasValue)
+                {
+                    whereClauses.Add("IsSeries=@IsSeries");
+                    cmd.Parameters.Add(cmd, "@IsSeries", DbType.Boolean).Value = query.IsSeries;
+                }
+                if (query.IsNews.HasValue)
+                {
+                    whereClauses.Add("IsNews=@IsNews");
+                    cmd.Parameters.Add(cmd, "@IsNews", DbType.Boolean).Value = query.IsNews;
+                }
+                if (query.IsKids.HasValue)
+                {
+                    whereClauses.Add("IsKids=@IsKids");
+                    cmd.Parameters.Add(cmd, "@IsKids", DbType.Boolean).Value = query.IsKids;
+                }
+                if (query.IsSports.HasValue)
+                {
+                    whereClauses.Add("IsSports=@IsSports");
+                    cmd.Parameters.Add(cmd, "@IsSports", DbType.Boolean).Value = query.IsSports;
+                }
             }
-            if (query.IsSports.HasValue)
+            else
             {
-                whereClauses.Add("IsSports=@IsSports");
-                cmd.Parameters.Add(cmd, "@IsSports", DbType.Boolean).Value = query.IsSports;
+                var programAttribtues = new List<string>();
+                if (query.IsMovie ?? false)
+                {
+                    var alternateTypes = new List<string>();
+                    if (query.IncludeItemTypes.Length == 0 || query.IncludeItemTypes.Contains(typeof(Movie).Name))
+                    {
+                        alternateTypes.Add(typeof(Movie).FullName);
+                    }
+                    if (query.IncludeItemTypes.Length == 0 || query.IncludeItemTypes.Contains(typeof(Trailer).Name))
+                    {
+                        alternateTypes.Add(typeof(Trailer).FullName);
+                    }
+
+                    if (alternateTypes.Count == 0)
+                    {
+                        programAttribtues.Add("IsMovie=@IsMovie");
+                    }
+                    else
+                    {
+                        programAttribtues.Add("(IsMovie is null OR IsMovie=@IsMovie)");
+                    }
+
+                    cmd.Parameters.Add(cmd, "@IsMovie", DbType.Boolean).Value = true;
+                }
+                if (query.IsSports ?? false)
+                {
+                    programAttribtues.Add("IsSports=@IsSports");
+                    cmd.Parameters.Add(cmd, "@IsSports", DbType.Boolean).Value = true;
+                }
+                if (query.IsNews ?? false)
+                {
+                    programAttribtues.Add("IsNews=@IsNews");
+                    cmd.Parameters.Add(cmd, "@IsNews", DbType.Boolean).Value = true;
+                }
+                if (query.IsSeries ?? false)
+                {
+                    programAttribtues.Add("IsSeries=@IsSeries");
+                    cmd.Parameters.Add(cmd, "@IsSeries", DbType.Boolean).Value = true;
+                }
+                if (query.IsKids ?? false)
+                {
+                    programAttribtues.Add("IsKids=@IsKids");
+                    cmd.Parameters.Add(cmd, "@IsKids", DbType.Boolean).Value = true;
+                }
+                if (programAttribtues.Count > 0)
+                {
+                    whereClauses.Add("("+string.Join(" OR ", programAttribtues.ToArray())+")");
+                }
             }
+
             if (query.IsFolder.HasValue)
             {
                 whereClauses.Add("IsFolder=@IsFolder");
@@ -2763,6 +2861,12 @@ namespace MediaBrowser.Server.Implementations.Persistence
             {
                 whereClauses.Add("SortName>=@MinSortName");
                 cmd.Parameters.Add(cmd, "@MinSortName", DbType.String).Value = query.MinSortName;
+            }
+
+            if (!string.IsNullOrWhiteSpace(query.ExternalSeriesId))
+            {
+                whereClauses.Add("ExternalSeriesId=@ExternalSeriesId");
+                cmd.Parameters.Add(cmd, "@ExternalSeriesId", DbType.String).Value = query.ExternalSeriesId;
             }
 
             if (!string.IsNullOrWhiteSpace(query.Name))

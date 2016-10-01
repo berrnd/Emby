@@ -18,11 +18,15 @@ namespace MediaBrowser.Model.LiveTv
         /// <value><c>true</c> if [record any time]; otherwise, <c>false</c>.</value>
         public bool RecordAnyTime { get; set; }
 
+        public bool SkipEpisodesInLibrary { get; set; }
+
         /// <summary>
         /// Gets or sets a value indicating whether [record any channel].
         /// </summary>
         /// <value><c>true</c> if [record any channel]; otherwise, <c>false</c>.</value>
         public bool RecordAnyChannel { get; set; }
+
+        public int KeepUpTo { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether [record new only].
@@ -63,5 +67,13 @@ namespace MediaBrowser.Model.LiveTv
             ImageTags = new Dictionary<ImageType, string>();
             Days = new List<DayOfWeek>();
         }
+    }
+
+    public enum KeepUntil
+    {
+        UntilDeleted,
+        UntilSpaceNeeded,
+        UntilWatched,
+        UntilDate
     }
 }
