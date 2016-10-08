@@ -144,7 +144,7 @@
                 <div id="moreFromItems"></div>
             </div>
             <div id="similarCollapsible" class="detailSection hide">
-                <h1 class="similiarHeader"></h1>
+                <h1>${HeaderMoreLikeThis}</h1>
                 <div id="similarContent"></div>
             </div>
             <div id="criticReviewsCollapsible" class="detailSection hide">
@@ -168,12 +168,9 @@
             </div>
 
             <div id="scenesCollapsible" class="detailSection hide">
-                <div style="display: flex; align-items: center; margin: .5em 0;">
-                    <h1 style="margin: 0;">
-                        ${HeaderScenes}
-                    </h1>
-                    <button is="paper-icon-button-light" class="chapterSettingsButton hide"><i class="md-icon">settings</i></button>
-                </div>
+                <h1>
+                    ${HeaderScenes}
+                </h1>
                 <div is="emby-itemscontainer" id="scenesContent" class="itemsContainer"></div>
                 <button is="emby-button" type="button" class="raised more moreScenes hide">${ButtonMore}</button>
             </div>

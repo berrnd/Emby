@@ -218,12 +218,6 @@
                 }
             });
 
-            if (user.Policy.IsAdministrator) {
-                page.querySelector('.chapterSettingsButton').classList.remove('hide');
-            } else {
-                page.querySelector('.chapterSettingsButton').classList.add('hide');
-            }
-
             var itemBirthday = page.querySelector('#itemBirthday');
             if (item.Type == "Person" && item.PremiereDate) {
 
@@ -256,9 +250,9 @@
             }
 
             var itemBirthLocation = page.querySelector('#itemBirthLocation');
-            if (item.Type == "Person" && item.ProductionLocations && item.ProductionLocations.length) {
+            if (item.Type == "Person" && item.PlaceOfBirth) {
 
-                var gmap = '<a class="textlink" target="_blank" href="https://maps.google.com/maps?q=' + item.ProductionLocations[0] + '">' + item.ProductionLocations[0] + '</a>';
+                var gmap = '<a class="textlink" target="_blank" href="https://maps.google.com/maps?q=' + item.PlaceOfBirth + '">' + item.PlaceOfBirth + '</a>';
 
                 itemBirthLocation.classList.remove('hide');
                 itemBirthLocation.innerHTML = Globalize.translate('BirthPlaceValue').replace('{0}', gmap);
@@ -940,7 +934,6 @@
             }
 
             similarCollapsible.classList.remove('hide');
-            similarCollapsible.querySelector('.similiarHeader').innerHTML = Globalize.translate('HeaderIfYouLikeCheckTheseOut', item.Name);
 
             var html = '';
 
@@ -1133,7 +1126,8 @@
                     showIndexNumber: true,
                     playFromHere: true,
                     action: 'playallfromhere',
-                    lazy: true
+                    image: false,
+                    artist: false
                 });
                 isList = true;
             }
@@ -1162,7 +1156,7 @@
                     overlayText: true,
                     lazy: true,
                     showDetailsMenu: true,
-                    overlayPlayButton: AppInfo.enableAppLayouts
+                    overlayPlayButton: true
                 });
             }
             else if (item.Type == "GameSystem") {
@@ -2194,10 +2188,6 @@
             }
 
         }
-
-        view.querySelector('.chapterSettingsButton').addEventListener('click', function () {
-            Dashboard.navigate('librarysettings.html');
-        });
 
         view.addEventListener('viewbeforeshow', function () {
             var page = this;

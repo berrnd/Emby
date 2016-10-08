@@ -1,4 +1,4 @@
-﻿define(['datetime', 'dom', 'seriesRecordingEditor', 'emby-itemscontainer'], function (datetime, dom, seriesRecordingEditor) {
+﻿define(['datetime', 'dom', 'seriesRecordingEditor', 'listView', 'emby-itemscontainer'], function (datetime, dom, seriesRecordingEditor, listView) {
 
     return function (view, params) {
 
@@ -9,9 +9,31 @@
             Dashboard.hideLoadingMsg();
         }
 
+        function getProgramScheduleHtml(items, options) {
+
+            options = options || {};
+
+            var html = '';
+            html += '<div is="emby-itemscontainer" class="itemsContainer vertical-list" data-contextmenu="false">';
+            html += listView.getListViewHtml({
+                items: items,
+                enableUserDataButtons: false,
+                image: false,
+                showProgramDateTime: true,
+                mediaInfo: false,
+                action: 'none',
+                moreButton: false,
+                recordButton: false
+            });
+
+            html += '</div>';
+
+            return html;
+        }
+
         function renderSchedule(page) {
 
-            ApiClient.getLiveTvPrograms({
+            ApiClient.getLiveTvTimers({
                 UserId: ApiClient.getCurrentUserId(),
                 ImageTypeLimit: 1,
                 EnableImageTypes: "Primary,Backdrop,Thumb",
@@ -23,24 +45,17 @@
 
             }).then(function (result) {
 
-                LiveTvHelpers.getProgramScheduleHtml(result.Items).then(function (html) {
+                if (result.Items.length && result.Items[0].SeriesTimerId != params.id) {
+                    result.Items = [];
+                }
 
-                    var scheduleTab = page.querySelector('.scheduleTab');
-                    scheduleTab.innerHTML = html;
+                var html = getProgramScheduleHtml(result.Items);
 
-                    ImageLoader.lazyChildren(scheduleTab);
-                });
+                var scheduleTab = page.querySelector('.scheduleTab');
+                scheduleTab.innerHTML = html;
+
+                ImageLoader.lazyChildren(scheduleTab);
             });
-
-            //var timers = result.Items;
-
-            //LiveTvHelpers.getTimersHtml(timers).then(function (html) {
-
-            //    var scheduleTab = page.querySelector('.scheduleTab');
-            //    scheduleTab.innerHTML = html;
-
-            //    ImageLoader.lazyChildren(scheduleTab);
-            //});
         }
 
         function reload() {

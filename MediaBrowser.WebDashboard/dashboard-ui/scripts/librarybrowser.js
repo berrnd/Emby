@@ -268,6 +268,10 @@ define(['viewManager', 'appSettings', 'appStorage', 'apphost', 'datetime', 'item
                 // Handle search hints
                 var id = item.Id || item.ItemId;
 
+                if (item.Type == "SeriesTimer") {
+                    return "livetvseriestimer.html?id=" + id;
+                }
+
                 if (item.CollectionType == 'livetv') {
                     return 'livetv.html';
                 }

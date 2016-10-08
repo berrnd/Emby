@@ -147,6 +147,11 @@ define(['appStorage', 'browser'], function (appStorage, browser) {
         if (supportsFullscreen()) {
             features.push('fullscreen');
         }
+
+        if (!browser.slow) {
+            features.push('imageanalysis');
+        }
+
         return features;
     }();
 

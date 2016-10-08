@@ -787,11 +787,7 @@ namespace MediaBrowser.Model.Dto
         /// <value>The home page URL.</value>
         public string HomePageUrl { get; set; }
 
-        /// <summary>
-        /// Gets or sets the production locations.
-        /// </summary>
-        /// <value>The production locations.</value>
-        public List<string> ProductionLocations { get; set; }
+        public string PlaceOfBirth { get; set; }
 
         /// <summary>
         /// Gets or sets the budget.
@@ -1215,6 +1211,7 @@ namespace MediaBrowser.Model.Dto
         /// </summary>
         /// <value>The timer identifier.</value>
         public string TimerId { get; set; }
+        public RecordingStatus TimerStatus { get; set; }
         /// <summary>
         /// Gets or sets the current program.
         /// </summary>

@@ -168,6 +168,8 @@ namespace MediaBrowser.Model.Configuration
         public MetadataOptions[] MetadataOptions { get; set; }
 
         public bool EnableAutomaticRestart { get; set; }
+        public bool SkipDeserializationForBasicTypes { get; set; }
+        public bool SkipDeserializationForPrograms { get; set; }
 
         public PathSubstitution[] PathSubstitutions { get; set; }
 
@@ -203,6 +205,7 @@ namespace MediaBrowser.Model.Configuration
         public string[] CodecsUsed { get; set; }
         public bool EnableChannelView { get; set; }
         public bool EnableExternalContentInSuggestions { get; set; }
+        public bool EnableSimpleArtistDetection { get; set; }
 
         public int ImageExtractionTimeoutMs { get; set; }
         /// <summary>

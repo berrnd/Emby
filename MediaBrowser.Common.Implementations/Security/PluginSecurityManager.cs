@@ -169,7 +169,8 @@ namespace MediaBrowser.Common.Implementations.Security
             var options = new HttpRequestOptions()
             {
                 Url = AppstoreRegUrl,
-                CancellationToken = CancellationToken.None
+                CancellationToken = CancellationToken.None,
+                BufferContent = false
             };
             options.RequestHeaders.Add("X-Emby-Token", _appHost.SystemId);
             options.RequestContent = parameters;
@@ -250,7 +251,7 @@ namespace MediaBrowser.Common.Implementations.Security
 
             if (!(lastChecked > DateTime.UtcNow.AddDays(-1)))
             {
-				//myproduction-change-start
+                //myproduction-change-start
 				//Removed Emby Premiere subscription
                 //var data = new Dictionary<string, string>
                 //{
@@ -267,39 +268,36 @@ namespace MediaBrowser.Common.Implementations.Security
 
                 try
                 {
-					//myproduction-change-start
+                    //myproduction-change-start
 					//Removed Emby Premiere subscription
-                    //var options = new HttpRequestOptions
+					//var options = new HttpRequestOptions
                     //{
                     //    Url = MBValidateUrl,
-
+					//
                     //    // Seeing block length errors
-                    //    EnableHttpCompression = false
+                    //    EnableHttpCompression = false,
+                    //    BufferContent = false
                     //};
-
+					//
                     //options.SetPostData(data);
-
+					//
                     //using (var json = (await _httpClient.Post(options).ConfigureAwait(false)).Content)
                     //{
                     //    reg = _jsonSerializer.DeserializeFromStream<RegRecord>(json);
                     //    success = true;
                     //}
-                    reg.featId = feature;
-                    reg.registered = true;
-                    reg.expDate = DateTime.UtcNow.AddDays(365);
-                    reg.key = feature;
-                    success = true;
+					//
+                    //if (reg.registered)
+                    //{
+                    //    LicenseFile.AddRegCheck(feature);
+                    //}
+                    //else
+                    //{
+                    //    LicenseFile.RemoveRegCheck(feature);
+                    //}
+					reg.registered = true;
+					LicenseFile.AddRegCheck(feature);
 					//myproduction-change-end
-
-                    if (reg.registered)
-                    {
-                        LicenseFile.AddRegCheck(feature);
-                    }
-                    else
-                    {
-                        LicenseFile.RemoveRegCheck(feature);
-                    }
-
                 }
                 catch (Exception e)
                 {

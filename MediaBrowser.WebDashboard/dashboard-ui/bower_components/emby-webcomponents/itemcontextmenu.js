@@ -29,10 +29,17 @@ define(['apphost', 'globalize', 'connectionManager', 'itemHelper', 'embyRouter',
                 });
             }
 
-            if (item.Type == 'Timer' && user.Policy.EnableLiveTvManagement) {
+            if ((item.Type == 'Timer') && user.Policy.EnableLiveTvManagement && options.cancelTimer !== false) {
                 commands.push({
                     name: globalize.translate('sharedcomponents#ButtonCancel'),
                     id: 'canceltimer'
+                });
+            }
+
+            if ((item.Type == 'SeriesTimer') && user.Policy.EnableLiveTvManagement && options.cancelTimer !== false) {
+                commands.push({
+                    name: globalize.translate('sharedcomponents#CancelSeries'),
+                    id: 'cancelseriestimer'
                 });
             }
 
@@ -53,9 +60,9 @@ define(['apphost', 'globalize', 'connectionManager', 'itemHelper', 'embyRouter',
 
             if (itemHelper.canEdit(user, item.Type)) {
 
-                if (options.edit !== false) {
+                if (options.edit !== false && item.Type != 'SeriesTimer') {
 
-                    var text = item.Type == 'Timer' ? globalize.translate('sharedcomponents#Edit') : globalize.translate('sharedcomponents#EditInfo');
+                    var text = (item.Type == 'Timer' || item.Type == 'SeriesTimer') ? globalize.translate('sharedcomponents#Edit') : globalize.translate('sharedcomponents#EditInfo');
 
                     commands.push({
                         name: text,
@@ -120,15 +127,6 @@ define(['apphost', 'globalize', 'connectionManager', 'itemHelper', 'embyRouter',
                 }
             }
 
-            //if (options.open !== false) {
-            //    if (item.Type != 'Timer' && item.Type != 'Audio') {
-            //        commands.push({
-            //            name: globalize.translate('sharedcomponents#Open'),
-            //            id: 'open'
-            //        });
-            //    }
-            //}
-
             if (canPlay) {
                 if (options.play !== false) {
                     commands.push({
@@ -178,7 +176,7 @@ define(['apphost', 'globalize', 'connectionManager', 'itemHelper', 'embyRouter',
 
             if (user.Policy.IsAdministrator) {
 
-                if (item.Type != 'Timer' && item.Type != 'Program') {
+                if (item.Type != 'Timer' && item.Type != 'SeriesTimer' && item.Type != 'Program') {
                     commands.push({
                         name: globalize.translate('sharedcomponents#Refresh'),
                         id: 'refresh'
@@ -488,6 +486,9 @@ define(['apphost', 'globalize', 'connectionManager', 'itemHelper', 'embyRouter',
                 case 'canceltimer':
                     deleteTimer(apiClient, item, resolve, id);
                     break;
+                case 'cancelseriestimer':
+                    deleteSeriesTimer(apiClient, item, resolve, id);
+                    break;
                 default:
                     reject();
                     break;
@@ -497,21 +498,20 @@ define(['apphost', 'globalize', 'connectionManager', 'itemHelper', 'embyRouter',
 
     function deleteTimer(apiClient, item, resolve, command) {
 
-        require(['confirm'], function (confirm) {
+        require(['recordingHelper'], function (recordingHelper) {
 
-            confirm(globalize.translate('sharedcomponents#MessageConfirmRecordingCancellation'), globalize.translate('sharedcomponents#HeaderConfirmRecordingCancellation')).then(function () {
+            recordingHelper.cancelTimerWithConfirmation(item.Id, item.ServerId).then(function() {
+                getResolveFunction(resolve, command, true)();
+            });
+        });
+    }
 
-                loading.show();
+    function deleteSeriesTimer(apiClient, item, resolve, command) {
 
-                apiClient.cancelLiveTvTimer(item.Id).then(function () {
+        require(['recordingHelper'], function (recordingHelper) {
 
-                    require(['toast'], function (toast) {
-                        toast(globalize.translate('sharedcomponents#RecordingCancelled'));
-                    });
-
-                    loading.hide();
-                    getResolveFunction(resolve, command, true)();
-                });
+            recordingHelper.cancelSeriesTimerWithConfirmation(item.Id, item.ServerId).then(function () {
+                getResolveFunction(resolve, command, true)();
             });
         });
     }
@@ -546,6 +546,11 @@ define(['apphost', 'globalize', 'connectionManager', 'itemHelper', 'embyRouter',
 
             if (item.Type == 'Timer') {
                 require(['recordingEditor'], function (recordingEditor) {
+
+                    recordingEditor.show(item.Id, serverId).then(resolve, reject);
+                });
+            } else if (item.Type == 'SeriesTimer') {
+                require(['seriesRecordingEditor'], function (recordingEditor) {
 
                     recordingEditor.show(item.Id, serverId).then(resolve, reject);
                 });
@@ -601,6 +606,10 @@ define(['apphost', 'globalize', 'connectionManager', 'itemHelper', 'embyRouter',
     function show(options) {
 
         return getCommands(options).then(function (commands) {
+
+            if (!commands.length) {
+                return Promise.reject();
+            }
 
             return new Promise(function (resolve, reject) {
 

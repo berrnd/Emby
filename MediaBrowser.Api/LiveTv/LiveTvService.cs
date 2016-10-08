@@ -19,6 +19,7 @@ using System.Threading.Tasks;
 using CommonIO;
 using MediaBrowser.Api.Playback.Progressive;
 using MediaBrowser.Controller.Configuration;
+using MediaBrowser.Server.Implementations.LiveTv.EmbyTV;
 
 namespace MediaBrowser.Api.LiveTv
 {
@@ -315,6 +316,8 @@ namespace MediaBrowser.Api.LiveTv
         public string SeriesTimerId { get; set; }
 
         public bool? IsActive { get; set; }
+
+        public bool? IsScheduled { get; set; }
     }
 
     [Route("/LiveTv/Programs", "GET,POST", Summary = "Gets available live tv epgs..")]
@@ -672,8 +675,6 @@ namespace MediaBrowser.Api.LiveTv
     {
         public string Id { get; set; }
         public string Container { get; set; }
-        public long T { get; set; }
-        public long S { get; set; }
     }
 
     public class LiveTvService : BaseApiService
@@ -697,45 +698,18 @@ namespace MediaBrowser.Api.LiveTv
             _fileSystem = fileSystem;
         }
 
-        public object Get(GetLiveStreamFile request)
+        public async Task<object> Get(GetLiveStreamFile request)
         {
-            var filePath = Path.Combine(_config.ApplicationPaths.TranscodingTempPath, request.Id + ".ts");
-
+            var directStreamProvider = (await EmbyTV.Current.GetLiveStream(request.Id).ConfigureAwait(false)) as IDirectStreamProvider;
             var outputHeaders = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-            outputHeaders["Content-Type"] = MimeTypes.GetMimeType(filePath);
+            // TODO: Don't hardcode this
+            outputHeaders["Content-Type"] = Model.Net.MimeTypes.GetMimeType("file.ts");
 
-            long startPosition = 0;
-
-            if (request.T > 0)
+            var streamSource = new ProgressiveFileCopier(directStreamProvider, outputHeaders, null, Logger, CancellationToken.None)
             {
-                var now = DateTime.UtcNow;
-
-                var totalTicks = now.Ticks - request.S;
-
-                if (totalTicks > 0)
-                {
-                    double requestedOffset = request.T;
-                    requestedOffset = Math.Max(0, requestedOffset - TimeSpan.FromSeconds(10).Ticks);
-
-                    var pct = requestedOffset / totalTicks;
-
-                    Logger.Info("Live stream offset pct {0}", pct);
-
-                    var bytes = new FileInfo(filePath).Length;
-                    Logger.Info("Live stream total bytes {0}", bytes);
-                    startPosition = Convert.ToInt64(pct * bytes);
-                }
-            }
-
-            Logger.Info("Live stream starting byte position {0}", startPosition);
-
-            var streamSource = new ProgressiveFileCopier(_fileSystem, filePath, outputHeaders, null, Logger, CancellationToken.None)
-            {
-                AllowEndOfFile = false,
-                StartPosition = startPosition
+                AllowEndOfFile = false
             };
-
             return ResultFactory.GetAsyncStreamWriter(streamSource);
         }
 
@@ -809,7 +783,8 @@ namespace MediaBrowser.Api.LiveTv
 
             var response = await _httpClient.Get(new HttpRequestOptions
             {
-                Url = "https://json.schedulesdirect.org/20141201/available/countries"
+                Url = "https://json.schedulesdirect.org/20141201/available/countries",
+                BufferContent = false
 
             }).ConfigureAwait(false);
 
@@ -1095,7 +1070,8 @@ namespace MediaBrowser.Api.LiveTv
             {
                 ChannelId = request.ChannelId,
                 SeriesTimerId = request.SeriesTimerId,
-                IsActive = request.IsActive
+                IsActive = request.IsActive,
+                IsScheduled = request.IsScheduled
 
             }, CancellationToken.None).ConfigureAwait(false);
 

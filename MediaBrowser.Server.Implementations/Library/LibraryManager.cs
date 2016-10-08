@@ -43,6 +43,7 @@ using MediaBrowser.Server.Implementations.Library.Resolvers;
 using MoreLinq;
 using SortOrder = MediaBrowser.Model.Entities.SortOrder;
 using VideoResolver = MediaBrowser.Naming.Video.VideoResolver;
+using MediaBrowser.Common.Configuration;
 
 namespace MediaBrowser.Server.Implementations.Library
 {
@@ -1238,12 +1239,7 @@ namespace MediaBrowser.Server.Implementations.Library
             if (libraryFolder != null)
             {
                 info.ItemId = libraryFolder.Id.ToString("N");
-            }
-
-            var collectionFolder = libraryFolder as CollectionFolder;
-            if (collectionFolder != null)
-            {
-                info.LibraryOptions = collectionFolder.GetLibraryOptions();
+                info.LibraryOptions = GetLibraryOptions(libraryFolder);
             }
 
             return info;
@@ -1911,11 +1907,41 @@ namespace MediaBrowser.Server.Implementations.Library
 
         public LibraryOptions GetLibraryOptions(BaseItem item)
         {
-            var collectionFolder = GetCollectionFolders(item)
-                .OfType<CollectionFolder>()
-                .FirstOrDefault();
+            var collectionFolder = item as CollectionFolder;
+            if (collectionFolder == null)
+            {
+                collectionFolder = GetCollectionFolders(item)
+                   .OfType<CollectionFolder>()
+                   .FirstOrDefault();
+            }
 
-            return collectionFolder == null ? new LibraryOptions() : collectionFolder.GetLibraryOptions();
+            var options = collectionFolder == null ? new LibraryOptions() : collectionFolder.GetLibraryOptions();
+
+            if (options.SchemaVersion < 3)
+            {
+                options.SaveLocalMetadata = ConfigurationManager.Configuration.SaveLocalMeta;
+                options.EnableInternetProviders = ConfigurationManager.Configuration.EnableInternetProviders;
+            }
+
+            if (options.SchemaVersion < 2)
+            {
+                var chapterOptions = ConfigurationManager.GetConfiguration<ChapterOptions>("chapters");
+                options.ExtractChapterImagesDuringLibraryScan = chapterOptions.ExtractDuringLibraryScan;
+
+                if (collectionFolder != null)
+                {
+                    if (string.Equals(collectionFolder.CollectionType, "movies", StringComparison.OrdinalIgnoreCase))
+                    {
+                        options.EnableChapterImageExtraction = chapterOptions.EnableMovieChapterImageExtraction;
+                    }
+                    else if (string.Equals(collectionFolder.CollectionType, CollectionType.TvShows, StringComparison.OrdinalIgnoreCase))
+                    {
+                        options.EnableChapterImageExtraction = chapterOptions.EnableEpisodeChapterImageExtraction;
+                    }
+                }
+            }
+
+            return options;
         }
 
         public string GetContentType(BaseItem item)
@@ -2459,7 +2485,7 @@ namespace MediaBrowser.Server.Implementations.Library
 
         public IEnumerable<Video> FindTrailers(BaseItem owner, List<FileSystemMetadata> fileSystemChildren, IDirectoryService directoryService)
         {
-            var files = owner.IsInMixedFolder ? new List<FileSystemMetadata>() : fileSystemChildren.Where(i => i.IsDirectory)
+            var files = owner.DetectIsInMixedFolder() ? new List<FileSystemMetadata>() : fileSystemChildren.Where(i => i.IsDirectory)
                 .Where(i => string.Equals(i.Name, BaseItem.TrailerFolderName, StringComparison.OrdinalIgnoreCase))
                 .SelectMany(i => _fileSystem.GetFiles(i.FullName, false))
                 .ToList();

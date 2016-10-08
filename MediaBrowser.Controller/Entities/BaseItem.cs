@@ -73,6 +73,8 @@ namespace MediaBrowser.Controller.Entities
         public long? Size { get; set; }
         public string Container { get; set; }
         public string ShortOverview { get; set; }
+        [IgnoreDataMember]
+        public string Tagline { get; set; }
 
         public List<ItemImageInfo> ImageInfos { get; set; }
 
@@ -114,6 +116,22 @@ namespace MediaBrowser.Controller.Entities
         /// <value><c>true</c> if this instance is in mixed folder; otherwise, <c>false</c>.</value>
         [IgnoreDataMember]
         public bool IsInMixedFolder { get; set; }
+
+        [IgnoreDataMember]
+        protected virtual bool SupportsIsInMixedFolderDetection
+        {
+            get { return false; }
+        }
+
+        public bool DetectIsInMixedFolder()
+        {
+            if (SupportsIsInMixedFolderDetection)
+            {
+                    
+            }
+
+            return IsInMixedFolder;
+        }
 
         [IgnoreDataMember]
         public virtual bool SupportsRemoteImageDownloading
@@ -422,7 +440,7 @@ namespace MediaBrowser.Controller.Entities
 
         public virtual bool IsInternetMetadataEnabled()
         {
-            return ConfigurationManager.Configuration.EnableInternetProviders;
+            return LibraryManager.GetLibraryOptions(this).EnableInternetProviders;
         }
 
         public virtual bool CanDelete()
@@ -1116,7 +1134,7 @@ namespace MediaBrowser.Controller.Entities
                 var hasThemeMedia = this as IHasThemeMedia;
                 if (hasThemeMedia != null)
                 {
-                    if (!IsInMixedFolder)
+                    if (!DetectIsInMixedFolder())
                     {
                         themeSongsChanged = await RefreshThemeSongs(hasThemeMedia, options, fileSystemChildren, cancellationToken).ConfigureAwait(false);
 
@@ -1266,7 +1284,15 @@ namespace MediaBrowser.Controller.Entities
         {
             var current = this;
 
-            return current.IsInMixedFolder == newItem.IsInMixedFolder;
+            if (!SupportsIsInMixedFolderDetection)
+            {
+                if (current.IsInMixedFolder != newItem.IsInMixedFolder)
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         public void AfterMetadataRefresh()
@@ -1341,7 +1367,9 @@ namespace MediaBrowser.Controller.Entities
                 return false;
             }
 
-            return ConfigurationManager.Configuration.SaveLocalMeta;
+            var libraryOptions = LibraryManager.GetLibraryOptions(this);
+
+            return libraryOptions.SaveLocalMetadata;
         }
 
         /// <summary>

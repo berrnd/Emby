@@ -1,4 +1,4 @@
-﻿define(['libraryBrowser', 'cardBuilder', 'appSettings', 'components/groupedcards', 'dom', 'scrollStyles', 'emby-button', 'paper-icon-button-light', 'emby-itemscontainer'], function (libraryBrowser, cardBuilder, appSettings, groupedcards, dom) {
+﻿define(['libraryBrowser', 'cardBuilder', 'appSettings', 'components/groupedcards', 'dom', 'apphost', 'scrollStyles', 'emby-button', 'paper-icon-button-light', 'emby-itemscontainer'], function (libraryBrowser, cardBuilder, appSettings, groupedcards, dom, appHost) {
 
     function getUserViews(userId) {
 
@@ -453,6 +453,7 @@
                 } else {
                     html += '<div is="emby-itemscontainer" class="itemsContainer vertical-wrap">';
                 }
+
                 html += cardBuilder.getCardsHtml({
                     items: items,
                     shape: scrollX ? 'overflowBackdrop' : shape,
@@ -558,6 +559,9 @@
                 } else {
                     html += '<div is="emby-itemscontainer" class="itemsContainer vertical-wrap">';
                 }
+
+                var supportsImageAnalysis = appHost.supports('imageanalysis');
+
                 html += cardBuilder.getCardsHtml({
                     items: result.Items,
                     preferThumb: true,
@@ -569,7 +573,10 @@
                     overlayPlayButton: true,
                     context: 'home',
                     centerText: true,
-                    allowBottomPadding: !enableScrollX()
+                    allowBottomPadding: !enableScrollX(),
+                    cardLayout: supportsImageAnalysis,
+                    vibrant: supportsImageAnalysis,
+                    cardFooterAside: 'none'
                 });
                 html += '</div>';
             }
@@ -687,6 +694,9 @@
             } else {
                 html += '<div is="emby-itemscontainer" class="itemsContainer vertical-wrap">';
             }
+
+            var supportsImageAnalysis = appHost.supports('imageanalysis');
+
             html += cardBuilder.getCardsHtml({
                 items: result.Items,
                 shape: enableScrollX() ? 'autooverflow' : 'auto',
@@ -696,8 +706,13 @@
                 lazy: true,
                 showDetailsMenu: true,
                 centerText: true,
+                overlayText: false,
                 overlayPlayButton: true,
-                allowBottomPadding: !enableScrollX()
+                allowBottomPadding: !enableScrollX(),
+                preferThumb: true,
+                cardLayout: supportsImageAnalysis,
+                vibrant: supportsImageAnalysis,
+                cardFooterAside: 'none'
 
             });
             html += '</div>';

@@ -37,6 +37,7 @@ namespace MediaBrowser.Api.Playback
         /// </summary>
         /// <value>The log file stream.</value>
         public Stream LogFileStream { get; set; }
+        public IDirectStreamProvider DirectStreamProvider { get; set; }
 
         public string InputContainer { get; set; }
 
@@ -62,7 +63,6 @@ namespace MediaBrowser.Api.Playback
             get { return Request is VideoStreamRequest; }
         }
         public bool IsInputVideo { get; set; }
-        public bool IsInputArchive { get; set; }
 
         public VideoType VideoType { get; set; }
         public IsoType? IsoType { get; set; }
@@ -514,6 +514,19 @@ namespace MediaBrowser.Api.Playback
                 }
 
                 return false;
+            }
+        }
+
+        public bool? IsTargetAVC
+        {
+            get
+            {
+                if (Request.Static)
+                {
+                    return VideoStream == null ? null : VideoStream.IsAVC;
+                }
+
+                return true;
             }
         }
     }
