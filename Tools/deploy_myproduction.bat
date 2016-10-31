@@ -1,9 +1,9 @@
 @echo off
 
-set productionServerName=BestelServer
+set productionServerName=host-home
 set buildSystemPath=..\.deploy\Server\System
-set productionSystemPath=\\BestelServer\C$\LocalApps\Emby\System
-set productionBackupSystemPath=\\BestelServer\C$\LocalApps\Emby\SystemOLD
+set productionSystemPath=\\host-home\C$\LocalApps\Emby\System
+set productionBackupSystemPath=\\host-home\C$\LocalApps\Emby\SystemOLD
 
 echo Stopping service on remote machine
 sc \\%productionServerName% stop Emby
