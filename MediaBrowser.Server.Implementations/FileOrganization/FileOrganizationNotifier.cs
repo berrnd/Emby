@@ -1,5 +1,4 @@
-﻿using MediaBrowser.Common.ScheduledTasks;
-using MediaBrowser.Controller.FileOrganization;
+﻿using MediaBrowser.Controller.FileOrganization;
 using MediaBrowser.Controller.Plugins;
 using MediaBrowser.Controller.Session;
 using MediaBrowser.Model.Events;
@@ -7,6 +6,7 @@ using MediaBrowser.Model.FileOrganization;
 using MediaBrowser.Model.Logging;
 using System;
 using System.Threading;
+using MediaBrowser.Model.Tasks;
 
 namespace MediaBrowser.Server.Implementations.FileOrganization
 {

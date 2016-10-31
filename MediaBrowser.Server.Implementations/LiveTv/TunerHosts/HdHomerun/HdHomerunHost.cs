@@ -14,10 +14,12 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using CommonIO;
+using MediaBrowser.Model.IO;
 using MediaBrowser.Common.Extensions;
+using MediaBrowser.Common.IO;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Configuration;
+using MediaBrowser.Controller.IO;
 using MediaBrowser.Controller.MediaEncoding;
 using MediaBrowser.Model.Configuration;
 using MediaBrowser.Model.Net;
@@ -387,8 +389,6 @@ namespace MediaBrowser.Server.Implementations.LiveTv.TunerHosts.HdHomerun
             }
             id += "_" + url.GetMD5().ToString("N");
 
-            var enableLocalBuffer = EnableLocalBuffer();
-
             var mediaSource = new MediaSourceInfo
             {
                 Path = url,
@@ -422,8 +422,8 @@ namespace MediaBrowser.Server.Implementations.LiveTv.TunerHosts.HdHomerun
                 BufferMs = 0,
                 Container = "ts",
                 Id = id,
-                SupportsDirectPlay = !enableLocalBuffer,
-                SupportsDirectStream = enableLocalBuffer,
+                SupportsDirectPlay = false,
+                SupportsDirectStream = true,
                 SupportsTranscoding = true,
                 IsInfiniteStream = true
             };
@@ -490,11 +490,6 @@ namespace MediaBrowser.Server.Implementations.LiveTv.TunerHosts.HdHomerun
             return channelId.StartsWith(ChannelIdPrefix, StringComparison.OrdinalIgnoreCase);
         }
 
-        private bool EnableLocalBuffer()
-        {
-            return true;
-        }
-
         protected override async Task<LiveStream> GetChannelStream(TunerHostInfo info, string channelId, string streamId, CancellationToken cancellationToken)
         {
             var profile = streamId.Split('_')[0];
@@ -509,34 +504,9 @@ namespace MediaBrowser.Server.Implementations.LiveTv.TunerHosts.HdHomerun
 
             var mediaSource = await GetMediaSource(info, hdhrId, profile).ConfigureAwait(false);
 
-            if (EnableLocalBuffer())
-            {
-                var liveStream = new HdHomerunLiveStream(mediaSource, streamId, _fileSystem, _httpClient, Logger, Config.ApplicationPaths, _appHost);
-                if (info.AllowHWTranscoding)
-                {
-                    var model = await GetModelInfo(info, cancellationToken).ConfigureAwait(false);
-
-                    if ((model ?? string.Empty).IndexOf("hdtc", StringComparison.OrdinalIgnoreCase) != -1)
-                    {
-                        liveStream.EnableStreamSharing = !info.AllowHWTranscoding;
-                    }
-                    else
-                    {
-                        liveStream.EnableStreamSharing = true;
-                    }
-                }
-                else
-                {
-                    liveStream.EnableStreamSharing = true;
-                }
-                return liveStream;
-            }
-            else
-            {
-                var liveStream = new LiveStream(mediaSource);
-                liveStream.EnableStreamSharing = false;
-                return liveStream;
-            }
+            var liveStream = new HdHomerunLiveStream(mediaSource, streamId, _fileSystem, _httpClient, Logger, Config.ApplicationPaths, _appHost);
+            liveStream.EnableStreamSharing = true;
+            return liveStream;
         }
 
         public async Task Validate(TunerHostInfo info)

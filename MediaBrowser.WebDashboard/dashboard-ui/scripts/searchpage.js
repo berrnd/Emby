@@ -1,4 +1,5 @@
 ﻿define(['libraryBrowser', 'focusManager', 'embyRouter', 'cardBuilder', 'emby-input', 'paper-icon-button-light', 'material-icons', 'emby-itemscontainer'], function (libraryBrowser, focusManager, embyRouter, cardBuilder) {
+    'use strict';
 
     function loadSuggestions(page) {
 
@@ -113,7 +114,6 @@
             var html = cardBuilder.getCardsHtml({
                 items: hints,
                 shape: "auto",
-                lazy: true,
                 overlayText: false,
                 showTitle: true,
                 centerImage: true,

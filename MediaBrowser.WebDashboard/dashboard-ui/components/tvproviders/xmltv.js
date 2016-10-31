@@ -1,4 +1,5 @@
-﻿define(['jQuery', 'registrationservices', 'emby-checkbox', 'emby-input', 'listViewStyle', 'paper-icon-button-light'], function ($, registrationServices) {
+﻿define(['jQuery', 'registrationServices', 'emby-checkbox', 'emby-input', 'listViewStyle', 'paper-icon-button-light'], function ($, registrationServices) {
+    'use strict';
 
     return function (page, providerId, options) {
 

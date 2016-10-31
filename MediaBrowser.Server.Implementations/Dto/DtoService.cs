@@ -19,13 +19,15 @@ using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Logging;
 using MediaBrowser.Model.Querying;
 using MediaBrowser.Model.Sync;
-using MoreLinq;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using CommonIO;
+using MediaBrowser.Common.IO;
+using MediaBrowser.Controller.IO;
+using MediaBrowser.Model.IO;
+using MediaBrowser.Model.Extensions;
 
 namespace MediaBrowser.Server.Implementations.Dto
 {
@@ -598,7 +600,7 @@ namespace MediaBrowser.Server.Implementations.Dto
             dto.Altitude = item.Altitude;
             dto.IsoSpeedRating = item.IsoSpeedRating;
 
-            var album = item.Album;
+            var album = item.AlbumEntity;
 
             if (album != null)
             {
@@ -905,15 +907,6 @@ namespace MediaBrowser.Server.Implementations.Dto
             if (fields.Contains(ItemFields.Keywords))
             {
                 dto.Keywords = item.Keywords;
-            }
-
-            if (fields.Contains(ItemFields.PlaceOfBirth))
-            {
-                var person = item as Person;
-                if (person != null)
-                {
-                    dto.PlaceOfBirth = person.PlaceOfBirth;
-                }
             }
 
             var hasAspectRatio = item as IHasAspectRatio;
@@ -1430,6 +1423,11 @@ namespace MediaBrowser.Server.Implementations.Dto
             if (book != null)
             {
                 SetBookProperties(dto, book);
+            }
+
+            if (item.ProductionLocations.Count > 0 || item is Movie)
+            {
+                dto.ProductionLocations = item.ProductionLocations.ToArray();
             }
 
             var photo = item as Photo;

@@ -6,18 +6,18 @@ using MediaBrowser.Controller.Net;
 using MediaBrowser.Controller.Session;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Logging;
-using ServiceStack.Text.Controller;
-using ServiceStack.Web;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using MediaBrowser.Model.Services;
 
 namespace MediaBrowser.Api
 {
     /// <summary>
     /// Class BaseApiService
     /// </summary>
-    public class BaseApiService : IHasResultFactory, IRestfulService, IHasSession
+    public class BaseApiService : IHasResultFactory, IService, IHasSession
     {
         /// <summary>
         /// Gets or sets the logger.
@@ -275,8 +275,8 @@ namespace MediaBrowser.Api
 
         protected string GetPathValue(int index)
         {
-            var pathInfo = PathInfo.Parse(Request.PathInfo);
-            var first = pathInfo.GetArgumentValue<string>(0);
+            var pathInfo = Parse(Request.PathInfo);
+            var first = pathInfo[0];
 
             // backwards compatibility
             if (string.Equals(first, "mediabrowser", StringComparison.OrdinalIgnoreCase) ||
@@ -285,7 +285,24 @@ namespace MediaBrowser.Api
                 index++;
             }
 
-            return pathInfo.GetArgumentValue<string>(index);
+            return pathInfo[index];
+        }
+
+        private static List<string> Parse(string pathUri)
+        {
+            var actionParts = pathUri.Split(new[] { "://" }, StringSplitOptions.None);
+
+            var pathInfo = actionParts[actionParts.Length - 1];
+
+            var optionsPos = pathInfo.LastIndexOf('?');
+            if (optionsPos != -1)
+            {
+                pathInfo = pathInfo.Substring(0, optionsPos);
+            }
+
+            var args = pathInfo.Split('/');
+
+            return args.Skip(1).ToList();
         }
 
         /// <summary>

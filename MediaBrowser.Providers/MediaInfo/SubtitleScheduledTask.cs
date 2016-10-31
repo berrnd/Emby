@@ -1,5 +1,4 @@
 ﻿using MediaBrowser.Common.Configuration;
-using MediaBrowser.Common.ScheduledTasks;
 using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Movies;
@@ -16,6 +15,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.IO;
 using MediaBrowser.Model.Serialization;
+using MediaBrowser.Model.Tasks;
 
 namespace MediaBrowser.Providers.MediaInfo
 {
@@ -26,7 +26,7 @@ namespace MediaBrowser.Providers.MediaInfo
         private readonly ISubtitleManager _subtitleManager;
         private readonly IMediaSourceManager _mediaSourceManager;
         private readonly ILogger _logger;
-        private IJsonSerializer _json;
+        private readonly IJsonSerializer _json;
 
         public SubtitleScheduledTask(ILibraryManager libraryManager, IJsonSerializer json, IServerConfigurationManager config, ISubtitleManager subtitleManager, ILogger logger, IMediaSourceManager mediaSourceManager)
         {
@@ -88,39 +88,22 @@ namespace MediaBrowser.Providers.MediaInfo
             }).OfType<Video>()
                 .ToList();
 
-            var failHistoryPath = Path.Combine(_config.ApplicationPaths.CachePath, "subtitlehistory.json");
-            var history = GetHistory(failHistoryPath);
+            if (videos.Count == 0)
+            {
+                return;
+            }
 
             var numComplete = 0;
 
             foreach (var video in videos)
             {
-                DateTime lastAttempt;
-                if (history.TryGetValue(video.Id.ToString("N"), out lastAttempt))
-                {
-                    if ((DateTime.UtcNow - lastAttempt).TotalDays <= 7)
-                    {
-                        continue;
-                    }
-                }
-
                 try
                 {
-                    var shouldRetry = await DownloadSubtitles(video, options, cancellationToken).ConfigureAwait(false);
-
-                    if (shouldRetry)
-                    {
-                        history[video.Id.ToString("N")] = DateTime.UtcNow;
-                    }
-                    else
-                    {
-                        history.Remove(video.Id.ToString("N"));
-                    }
+                    await DownloadSubtitles(video, options, cancellationToken).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
                     _logger.ErrorException("Error downloading subtitles for {0}", ex, video.Path);
-                    history[video.Id.ToString("N")] = DateTime.UtcNow;
                 }
 
                 // Update progress
@@ -129,20 +112,6 @@ namespace MediaBrowser.Providers.MediaInfo
                 percent /= videos.Count;
 
                 progress.Report(100 * percent);
-            }
-
-            _json.SerializeToFile(history, failHistoryPath);
-        }
-
-        private Dictionary<string,DateTime> GetHistory(string path)
-        {
-            try
-            {
-                return _json.DeserializeFromFile<Dictionary<string, DateTime>>(path);
-            }
-            catch
-            {
-                return new Dictionary<string, DateTime>();
             }
         }
 
@@ -178,12 +147,18 @@ namespace MediaBrowser.Providers.MediaInfo
             return false;
         }
 
-        public IEnumerable<ITaskTrigger> GetDefaultTriggers()
+        public IEnumerable<TaskTriggerInfo> GetDefaultTriggers()
         {
-            return new ITaskTrigger[]
-                {
-                new IntervalTrigger{ Interval = TimeSpan.FromHours(8)}
-                };
+            return new[] { 
+            
+                // Every so often
+                new TaskTriggerInfo { Type = TaskTriggerInfo.TriggerInterval, IntervalTicks = TimeSpan.FromHours(24).Ticks}
+            };
+        }
+
+        public string Key
+        {
+            get { return "DownloadSubtitles"; }
         }
     }
 }

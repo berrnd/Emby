@@ -1,4 +1,5 @@
 ﻿define(['libraryBrowser', 'cardBuilder'], function (libraryBrowser, cardBuilder) {
+    'use strict';
 
     return function (view, params, tabContent) {
 
@@ -78,7 +79,7 @@
                         showTitle: true,
                         scalable: true,
                         showItemCounts: true,
-                        centerText: true,
+                        centerText: false,
                         cardLayout: true
                     });
                 }
@@ -89,7 +90,7 @@
                         showTitle: true,
                         scalable: true,
                         showItemCounts: true,
-                        centerText: true,
+                        centerText: false,
                         cardLayout: true
                     });
                 }

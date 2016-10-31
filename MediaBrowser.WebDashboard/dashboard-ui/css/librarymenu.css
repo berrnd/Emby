@@ -239,13 +239,13 @@ body:not(.dashboardDocument) .btnNotifications {
     }
 
 i.sidebarLinkIcon {
-    font-size: 120%;
+    font-size: 114%;
     height: auto;
     width: auto;
 }
 
 .darkDrawer i.sidebarLinkIcon {
-    margin-left: 1em;
+    margin-left: 1.7em;
 }
 
 .darkDrawer .sidebarLinkText, .darkDrawer .sidebarLink {

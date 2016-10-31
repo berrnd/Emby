@@ -1,7 +1,72 @@
 ﻿define(['libraryBrowser', 'cardBuilder', 'apphost', 'scrollStyles', 'emby-itemscontainer', 'emby-tabs', 'emby-button'], function (libraryBrowser, cardBuilder, appHost) {
+    'use strict';
 
     function enableScrollX() {
         return browserInfo.mobile && AppInfo.enableAppLayouts;
+    }
+
+    function renderRecordings(elem, recordings, cardOptions) {
+
+        if (recordings.length) {
+            elem.classList.remove('hide');
+        } else {
+            elem.classList.add('hide');
+        }
+
+        var recordingItems = elem.querySelector('.recordingItems');
+
+        if (enableScrollX()) {
+            recordingItems.classList.add('hiddenScrollX');
+            recordingItems.classList.remove('vertical-wrap');
+        } else {
+            recordingItems.classList.remove('hiddenScrollX');
+            recordingItems.classList.add('vertical-wrap');
+        }
+
+        recordingItems.innerHTML = cardBuilder.getCardsHtml(Object.assign({
+            items: recordings,
+            shape: (enableScrollX() ? 'autooverflow' : 'auto'),
+            showTitle: true,
+            showParentTitle: true,
+            coverImage: true,
+            lazy: true,
+            cardLayout: true,
+            vibrant: true,
+            allowBottomPadding: !enableScrollX(),
+            preferThumb: 'auto'
+
+        }, cardOptions || {}));
+
+        ImageLoader.lazyChildren(recordingItems);
+    }
+
+    function getBackdropShape() {
+        return enableScrollX() ? 'overflowBackdrop' : 'backdrop';
+    }
+
+    function renderActiveRecordings(context, promise) {
+
+        promise.then(function (result) {
+
+            // The IsActive param is new, so handle older servers that don't support it
+            if (result.Items.length && result.Items[0].Status != 'InProgress') {
+                result.Items = [];
+            }
+
+            renderRecordings(context.querySelector('#activeRecordings'), result.Items, {
+                shape: getBackdropShape(),
+                showParentTitle: false,
+                showTitle: true,
+                showAirTime: true,
+                showAirEndTime: true,
+                showChannelName: true,
+                cardLayout: true,
+                vibrant: true,
+                preferThumb: true,
+                coverImage: true,
+                overlayText: false
+            });
+        });
     }
 
     function getPortraitShape() {
@@ -34,12 +99,27 @@
 
         }).then(function (result) {
 
-            renderItems(page, result.Items, 'activeProgramItems', 'play');
+            renderItems(page, result.Items, 'activeProgramItems', 'play', {
+                showAirDateTime: false,
+                showAirEndTime: true
+            });
             Dashboard.hideLoadingMsg();
         });
     }
 
-    function reload(page) {
+    function reload(page, enableFullRender) {
+
+        renderActiveRecordings(page, ApiClient.getLiveTvRecordings({
+            UserId: Dashboard.getCurrentUserId(),
+            IsInProgress: true,
+            Fields: 'CanDelete,PrimaryImageAspectRatio,BasicSyncInfo',
+            EnableTotalRecordCount: false,
+            EnableImageTypes: "Primary,Thumb,Backdrop"
+        }));
+
+        if (!enableFullRender) {
+            return;
+        }
 
         loadRecommendedPrograms(page);
 
@@ -75,7 +155,10 @@
 
         }).then(function (result) {
 
-            renderItems(page, result.Items, 'upcomingTvMovieItems', null, getPortraitShape());
+            renderItems(page, result.Items, 'upcomingTvMovieItems', null, {
+                shape: getPortraitShape(),
+                preferThumb: null
+            });
         });
 
         ApiClient.getLiveTvRecommendedPrograms({
@@ -111,18 +194,20 @@
         });
     }
 
-    function renderItems(page, items, sectionClass, overlayButton, shape) {
+    function renderItems(page, items, sectionClass, overlayButton, cardOptions) {
 
         var supportsImageAnalysis = appHost.supports('imageanalysis');
 
-        var html = cardBuilder.getCardsHtml({
+        cardOptions = cardOptions || {};
+
+        var html = cardBuilder.getCardsHtml(Object.assign({
             items: items,
-            preferThumb: !shape,
+            preferThumb: true,
             inheritThumb: false,
-            shape: shape || (enableScrollX() ? 'overflowBackdrop' : 'backdrop'),
+            shape: (enableScrollX() ? 'overflowBackdrop' : 'backdrop'),
             showParentTitleOrTitle: true,
             showTitle: false,
-            centerText: true,
+            centerText: !supportsImageAnalysis,
             coverImage: true,
             overlayText: false,
             lazy: true,
@@ -134,8 +219,8 @@
             showChannelName: true,
             vibrant: true,
             cardLayout: supportsImageAnalysis
-            //cardFooterAside: 'logo'
-        });
+
+        }, cardOptions));
 
         var elem = page.querySelector('.' + sectionClass);
 
@@ -146,6 +231,10 @@
     return function (view, params) {
 
         var self = this;
+        var lastFullRender = 0;
+        function enableFullRender() {
+            return (new Date().getTime() - lastFullRender) > 300000;
+        }
 
         self.initTab = function () {
 
@@ -166,11 +255,14 @@
 
         self.renderTab = function () {
             var tabContent = view.querySelector('.pageTabContent[data-index=\'' + 0 + '\']');
-            reload(tabContent);
-        };
 
-        var tabControllers = [];
-        var renderedTabs = [];
+            if (enableFullRender()) {
+                reload(tabContent, true);
+                lastFullRender = new Date().getTime();
+            } else {
+                reload(tabContent);
+            }
+        };
 
         var tabControllers = [];
         var renderedTabs = [];
@@ -247,7 +339,7 @@
 
                 if (renderedTabs.indexOf(index) == -1) {
 
-                    if (index < 2) {
+                    if (index === 1) {
                         renderedTabs.push(index);
                     }
                     controller.renderTab();

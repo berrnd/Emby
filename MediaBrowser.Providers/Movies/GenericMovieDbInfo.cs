@@ -13,7 +13,9 @@ using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
-using CommonIO;
+using MediaBrowser.Common.IO;
+using MediaBrowser.Controller.IO;
+using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Extensions;
 
 namespace MediaBrowser.Providers.Movies
@@ -148,14 +150,10 @@ namespace MediaBrowser.Providers.Movies
 
             if (movieData.production_countries != null)
             {
-                //var hasProductionLocations = movie as IHasProductionLocations;
-                //if (hasProductionLocations != null)
-                //{
-                //    hasProductionLocations.ProductionLocations = movieData
-                //        .production_countries
-                //        .Select(i => i.name)
-                //        .ToList();
-                //}
+                movie.ProductionLocations = movieData
+                    .production_countries
+                    .Select(i => i.name)
+                    .ToList();
             }
 
             movie.SetProviderId(MetadataProviders.Tmdb, movieData.id.ToString(_usCulture));

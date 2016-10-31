@@ -1,5 +1,5 @@
 {
-    "SynologyUpdateInstructions": "Please login to DSM and go to Package Center to update.",
+    "HeaderContinueWatching": "Continue Watching",
     "LabelExit": "Avsluta",
     "LabelApiDocumentation": "Api-dokumentation",
     "LabelBrowseLibrary": "Bl\u00e4ddra i biblioteket",
@@ -619,7 +619,6 @@
     "NotificationOptionTaskFailed": "Schemalagd aktivitet har misslyckats",
     "NotificationOptionInstallationFailed": "Fel vid installation",
     "NotificationOptionNewLibraryContent": "Nytt inneh\u00e5ll har tillkommit",
-    "NotificationOptionNewLibraryContentMultiple": "Nytillkommet inneh\u00e5ll finns (flera objekt)",
     "NotificationOptionCameraImageUploaded": "Kaberabild uppladdad",
     "NotificationOptionUserLockedOut": "Anv\u00e4ndare har l\u00e5sts ute",
     "HeaderSendNotificationHelp": "Meddelanden skickas till din Emby-inkorg. Fler val kan installeras under menyn Tj\u00e4nster.",
@@ -1802,7 +1801,7 @@
     "MediaInfoLongitude": "Longitud",
     "MediaInfoShutterSpeed": "Slutartid",
     "MediaInfoSoftware": "Programvara",
-    "HeaderIfYouLikeCheckTheseOut": "Om du gillar  {0}, ta en titt p\u00e5...",
+    "HeaderMoreLikeThis": "More Like This",
     "HeaderMovies": "Filmer",
     "HeaderAlbums": "Album",
     "HeaderGames": "Spel",
@@ -2143,5 +2142,6 @@
     "LabelOptionalNetworkPathHelp": "If this folder is shared on your network, supplying the network share path can allow Emby apps on other devices to access media files directly.",
     "ButtonPlayExternalPlayer": "Spela upp med extern uppspelare",
     "WillRecord": "Will record",
-    "NotScheduledToRecord": "Not scheduled to record"
+    "NotScheduledToRecord": "Not scheduled to record",
+    "SynologyUpdateInstructions": "Please login to DSM and go to Package Center to update."
 }

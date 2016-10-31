@@ -1,4 +1,5 @@
 ﻿define(['libraryBrowser', 'cardBuilder', 'appSettings', 'components/groupedcards', 'dom', 'apphost', 'scrollStyles', 'emby-button', 'paper-icon-button-light', 'emby-itemscontainer'], function (libraryBrowser, cardBuilder, appSettings, groupedcards, dom, appHost) {
+    'use strict';
 
     function getUserViews(userId) {
 
@@ -9,7 +10,6 @@
     }
 
     function enableScrollX() {
-
         return browserInfo.mobile && AppInfo.enableAppLayouts;
     }
 
@@ -171,8 +171,6 @@
                 infos.push(getUpgradeMobileLayoutsInfo);
             }
 
-            appSettings.set(cacheKey, new Date().getTime());
-
             return infos[getRandomInt(0, infos.length - 1)]();
         });
     }
@@ -259,48 +257,18 @@
 
     function loadRecentlyAdded(elem, user) {
 
-        var options = {
+        var moviesFrag = document.createElement('div');
+        var episodesFrag = document.createElement('div');
 
-            Limit: 20,
-            Fields: "PrimaryImageAspectRatio,BasicSyncInfo",
-            ImageTypeLimit: 1,
-            EnableImageTypes: "Primary,Backdrop,Thumb"
-        };
+        elem.classList.remove('homePageSection');
+        moviesFrag.classList.add('homePageSection');
+        episodesFrag.classList.add('homePageSection');
 
-        return ApiClient.getJSON(ApiClient.getUrl('Users/' + user.Id + '/Items/Latest', options)).then(function (items) {
+        elem.appendChild(moviesFrag);
+        elem.appendChild(episodesFrag);
 
-            var html = '';
-
-            var cardLayout = false;
-
-            if (items.length) {
-                html += '<div>';
-                html += '<h1 class="listHeader">' + Globalize.translate('HeaderLatestMedia') + '</h1>';
-
-                html += '</div>';
-
-                html += '<div is="emby-itemscontainer" class="itemsContainer vertical-wrap">';
-
-                html += cardBuilder.getCardsHtml({
-                    items: items,
-                    preferThumb: true,
-                    shape: 'backdrop',
-                    showUnplayedIndicator: false,
-                    showChildCountIndicator: true,
-                    lazy: true,
-                    cardLayout: cardLayout,
-                    showTitle: cardLayout,
-                    showYear: cardLayout,
-                    showDetailsMenu: true,
-                    context: 'home'
-                });
-                html += '</div>';
-            }
-
-            elem.innerHTML = html;
-            elem.addEventListener('click', groupedcards.onItemsContainerClick);
-            ImageLoader.lazyChildren(elem);
-        });
+        loadLatestMovies(moviesFrag, user);
+        loadLatestEpisodes(episodesFrag, user);
     }
 
     function loadLatestMovies(elem, user) {
@@ -508,7 +476,7 @@
             var html = '';
 
             if (result.Items.length) {
-                html += '<h1 class="listHeader">' + Globalize.translate('HeaderResume') + '</h1>';
+                html += '<h1 class="listHeader">' + Globalize.translate('HeaderContinueWatching') + '</h1>';
                 if (enableScrollX()) {
                     html += '<div is="emby-itemscontainer" class="hiddenScrollX itemsContainer">';
                 } else {
@@ -541,7 +509,7 @@
 
         var query = {
 
-            Limit: 20,
+            Limit: enableScrollX() ? 20 : 10,
             Fields: "PrimaryImageAspectRatio,SeriesInfo,DateCreated,BasicSyncInfo",
             UserId: userId,
             ImageTypeLimit: 1,
@@ -572,11 +540,10 @@
                     lazy: true,
                     overlayPlayButton: true,
                     context: 'home',
-                    centerText: true,
+                    centerText: !supportsImageAnalysis,
                     allowBottomPadding: !enableScrollX(),
                     cardLayout: supportsImageAnalysis,
-                    vibrant: supportsImageAnalysis,
-                    cardFooterAside: 'none'
+                    vibrant: supportsImageAnalysis
                 });
                 html += '</div>';
             }
@@ -665,7 +632,7 @@
         });
     }
 
-    function loadLatestLiveTvRecordings(elem, userId, index) {
+    function loadLatestLiveTvRecordings(elem, userId) {
 
         return ApiClient.getLiveTvRecordings({
 
@@ -681,10 +648,8 @@
 
             if (result.Items.length) {
 
-                var cssClass = index !== 0 ? 'listHeader' : 'listHeader';
-
                 html += '<div>';
-                html += '<h1 style="display:inline-block; vertical-align:middle;" class="' + cssClass + '">' + Globalize.translate('HeaderLatestTvRecordings') + '</h1>';
+                html += '<h1 style="display:inline-block; vertical-align:middle;" class="listHeader">' + Globalize.translate('HeaderLatestTvRecordings') + '</h1>';
                 html += '<a href="livetv.html?tab=3" onclick="LibraryBrowser.showTab(\'livetv.html\',3);" class="clearLink" style="margin-left:2em;"><button is="emby-button" type="button" class="raised more mini"><span>' + Globalize.translate('ButtonMore') + '</span></button></a>';
                 html += '</div>';
             }
@@ -705,14 +670,13 @@
                 coverImage: true,
                 lazy: true,
                 showDetailsMenu: true,
-                centerText: true,
+                centerText: !supportsImageAnalysis,
                 overlayText: false,
                 overlayPlayButton: true,
                 allowBottomPadding: !enableScrollX(),
                 preferThumb: true,
                 cardLayout: supportsImageAnalysis,
-                vibrant: supportsImageAnalysis,
-                cardFooterAside: 'none'
+                vibrant: supportsImageAnalysis
 
             });
             html += '</div>';
@@ -730,9 +694,7 @@
         loadNextUp: loadNextUp,
         loadLatestChannelItems: loadLatestChannelItems,
         loadLatestLiveTvRecordings: loadLatestLiveTvRecordings,
-        loadlibraryButtons: loadlibraryButtons,
-        loadLatestMovies: loadLatestMovies,
-        loadLatestEpisodes: loadLatestEpisodes
+        loadlibraryButtons: loadlibraryButtons
     };
 
     return window.Sections;

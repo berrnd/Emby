@@ -154,8 +154,6 @@
         /// </summary>
         People,
 
-        PlaceOfBirth,
-
         /// <summary>
         /// The production locations
         /// </summary>
@@ -262,6 +260,8 @@
         /// <summary>
         /// The service name
         /// </summary>
-        ServiceName
+        ServiceName,
+        ThemeSongIds,
+        ThemeVideoIds
     }
 }

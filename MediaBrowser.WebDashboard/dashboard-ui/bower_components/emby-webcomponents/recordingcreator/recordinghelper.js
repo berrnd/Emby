@@ -1,4 +1,5 @@
-﻿define(['globalize', 'loading'], function (globalize, loading) {
+﻿define(['globalize', 'loading', 'connectionManager'], function (globalize, loading, connectionManager) {
+    'use strict';
 
     function changeRecordingToSeries(apiClient, timerId, programId) {
 
@@ -129,7 +130,7 @@
 
         var apiClient = connectionManager.getApiClient(serverId);
 
-        var hasTimer = timerId && timerStatus != 'Cancelled';
+        var hasTimer = timerId && timerStatus !== 'Cancelled';
 
         if (seriesTimerId && hasTimer) {
 

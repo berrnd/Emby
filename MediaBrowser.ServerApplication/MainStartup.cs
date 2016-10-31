@@ -1,5 +1,4 @@
-﻿using MediaBrowser.Common.Implementations.Logging;
-using MediaBrowser.Model.Logging;
+﻿using MediaBrowser.Model.Logging;
 using MediaBrowser.Server.Implementations;
 using MediaBrowser.Server.Startup.Common;
 using MediaBrowser.Server.Startup.Common.Browser;
@@ -19,10 +18,10 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using CommonIO.Windows;
+using Emby.Common.Implementations.IO;
+using Emby.Common.Implementations.Logging;
 using ImageMagickSharp;
 using MediaBrowser.Common.Net;
-using MediaBrowser.Server.Implementations.Logging;
 
 namespace MediaBrowser.ServerApplication
 {
@@ -71,7 +70,7 @@ namespace MediaBrowser.ServerApplication
 
             if (_isRunningAsService)
             {
-                _canRestartService = CanRestartWindowsService();
+                //_canRestartService = CanRestartWindowsService();
             }
 
             var currentProcess = Process.GetCurrentProcess();
@@ -192,7 +191,7 @@ namespace MediaBrowser.ServerApplication
             {
                 _logger.Info("Found a duplicate process. Giving it time to exit.");
 
-                if (!duplicate.WaitForExit(20000))
+                if (!duplicate.WaitForExit(30000))
                 {
                     _logger.Info("The duplicate process did not exit.");
                     return true;
@@ -308,9 +307,9 @@ namespace MediaBrowser.ServerApplication
         /// <param name="options">The options.</param>
         private static void RunApplication(ServerApplicationPaths appPaths, ILogManager logManager, bool runService, StartupOptions options)
         {
-            var fileSystem = new WindowsFileSystem(new PatternsLogger(logManager.GetLogger("FileSystem")));
+            var fileSystem = new WindowsFileSystem(logManager.GetLogger("FileSystem"));
+            fileSystem.AddShortcutHandler(new LnkShortcutHandler());
             fileSystem.AddShortcutHandler(new MbLinkShortcutHandler(fileSystem));
-            //fileSystem.AddShortcutHandler(new LnkShortcutHandler(fileSystem));
 
             var nativeApp = new WindowsApp(fileSystem, _logger)
             {
@@ -351,8 +350,8 @@ namespace MediaBrowser.ServerApplication
                 task = InstallVcredist2013IfNeeded(_appHost, _logger);
                 Task.WaitAll(task);
 
-                SystemEvents.SessionEnding += SystemEvents_SessionEnding;
-                SystemEvents.SessionSwitch += SystemEvents_SessionSwitch;
+                Microsoft.Win32.SystemEvents.SessionEnding += SystemEvents_SessionEnding;
+                Microsoft.Win32.SystemEvents.SessionSwitch += SystemEvents_SessionSwitch;
 
                 HideSplashScreen();
 
@@ -704,7 +703,7 @@ namespace MediaBrowser.ServerApplication
                 WindowStyle = ProcessWindowStyle.Hidden,
                 Verb = "runas",
                 ErrorDialog = false,
-                Arguments = String.Format("/c sc stop {0} & sc start {0}", BackgroundService.GetExistingServiceName())
+                Arguments = String.Format("/c sc stop {0} & sc start {0} & sc start {0}", BackgroundService.GetExistingServiceName())
             };
             Process.Start(startInfo);
         }

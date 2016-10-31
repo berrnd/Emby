@@ -4,7 +4,11 @@ using MediaBrowser.Controller.Playlists;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using CommonIO;
+using MediaBrowser.Model.IO;
+using MediaBrowser.Model.Querying;
+using System.Threading.Tasks;
+using MediaBrowser.Common.IO;
+using MediaBrowser.Controller.IO;
 
 namespace MediaBrowser.Server.Implementations.Playlists
 {
@@ -17,7 +21,7 @@ namespace MediaBrowser.Server.Implementations.Playlists
 
         public override bool IsVisible(User user)
         {
-            return base.IsVisible(user);
+            return base.IsVisible(user) && GetChildren(user, true).Any();
         }
 
         protected override IEnumerable<BaseItem> GetEligibleChildrenForRecursiveChildren(User user)
@@ -36,6 +40,12 @@ namespace MediaBrowser.Server.Implementations.Playlists
         public override string CollectionType
         {
             get { return Model.Entities.CollectionType.Playlists; }
+        }
+
+        protected override Task<QueryResult<BaseItem>> GetItemsInternal(InternalItemsQuery query)
+        {
+            query.Recursive = false;
+            return base.GetItemsInternal(query);
         }
     }
 

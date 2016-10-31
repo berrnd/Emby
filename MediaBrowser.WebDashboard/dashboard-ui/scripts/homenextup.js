@@ -1,4 +1,5 @@
 ﻿define(['components/categorysyncbuttons', 'cardBuilder', 'apphost', 'emby-itemscontainer'], function (categorysyncbuttons, cardBuilder, appHost) {
+    'use strict';
 
     function getNextUpPromise() {
 
@@ -36,7 +37,7 @@
                 lazy: true,
                 preferThumb: true,
                 showDetailsMenu: true,
-                centerText: true,
+                centerText: !supportsImageAnalysis,
                 overlayPlayButton: AppInfo.enableAppLayouts && !supportsImageAnalysis,
                 context: 'home-nextup',
                 cardLayout: supportsImageAnalysis,

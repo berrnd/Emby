@@ -1,9 +1,8 @@
 ﻿define([], function () {
+    'use strict';
 
     function goNext() {
-        require(['scripts/wizardcontroller'], function (wizardcontroller) {
-            wizardcontroller.navigateToService();
-        });
+        Dashboard.navigate('wizardagreement.html');
     }
 
     function loadDownloadInfo(view) {

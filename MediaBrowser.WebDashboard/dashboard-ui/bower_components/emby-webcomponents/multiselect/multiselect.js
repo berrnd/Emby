@@ -1,4 +1,5 @@
 ﻿define(['browser', 'appStorage', 'apphost', 'loading', 'connectionManager', 'globalize', 'embyRouter', 'dom', 'css!./multiselect'], function (browser, appStorage, appHost, loading, connectionManager, globalize, embyRouter, dom) {
+    'use strict';
 
     var selectedItems = [];
     var selectedElements = [];
@@ -22,38 +23,6 @@
                 parent.classList.remove('withMultiSelect');
             }
         }
-    }
-
-    var initCount = 0;
-    function showTapHoldHelp(element) {
-
-        if (initCount >= 15) {
-            // All done
-            return;
-        }
-
-        initCount++;
-
-        if (initCount < 15) {
-            return;
-        }
-
-        var expectedValue = "8";
-        if (appStorage.getItem("tapholdhelp") == expectedValue) {
-            return;
-        }
-
-        appStorage.setItem("tapholdhelp", expectedValue);
-
-        //myproduction-change-start
-        //Don't show multi select hint
-        //require(['alert'], function (alert) {
-        //    alert({
-        //        text: globalize.translate('sharedcomponents#TryMultiSelectMessage'),
-        //        title: globalize.translate('sharedcomponents#TryMultiSelect')
-        //    });
-        //});
-        //myproduction-change-end
     }
 
     function onItemSelectionPanelClick(e, itemSelectionPanel) {
@@ -86,7 +55,7 @@
         if (selected) {
 
             var current = selectedItems.filter(function (i) {
-                return i == id;
+                return i === id;
             });
 
             if (!current.length) {
@@ -96,10 +65,10 @@
 
         } else {
             selectedItems = selectedItems.filter(function (i) {
-                return i != id;
+                return i !== id;
             });
             selectedElements = selectedElements.filter(function (i) {
-                return i != chkItemSelect;
+                return i !== chkItemSelect;
             });
         }
 
@@ -162,7 +131,7 @@
             html += '<span class="itemSelectionCount"></span>';
             html += '</div>';
 
-            var moreIcon = appHost.moreIcon == 'dots-horiz' ? '&#xE5D3;' : '&#xE5D4;';
+            var moreIcon = appHost.moreIcon === 'dots-horiz' ? '&#xE5D3;' : '&#xE5D4;';
             html += '<button is="paper-icon-button-light" class="btnSelectionPanelOptions autoSize" style="margin-left:auto;"><i class="md-icon">' + moreIcon + '</i></button>';
 
             selectionCommandsPanel.innerHTML = html;
@@ -386,7 +355,7 @@
 
             var container = dom.parentWithAttribute(i, 'is', 'emby-itemscontainer');
 
-            if (container && elems.indexOf(container) == -1) {
+            if (container && elems.indexOf(container) === -1) {
                 elems.push(container);
             }
         });
@@ -432,7 +401,7 @@
         require(['emby-checkbox'], function () {
             var cards = document.querySelectorAll('.card');
             for (var i = 0, length = cards.length; i < length; i++) {
-                showSelection(cards[i], initialCard == cards[i]);
+                showSelection(cards[i], initialCard === cards[i]);
             }
 
             showSelectionCommands();
@@ -507,8 +476,6 @@
                     self.manager = manager;
                 });
             }
-
-            showTapHoldHelp(element);
         }
 
         initTapHold(container);

@@ -5,12 +5,12 @@ using MediaBrowser.Controller.Persistence;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Logging;
 using MediaBrowser.Model.Querying;
-using ServiceStack;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MediaBrowser.Model.Dto;
+using MediaBrowser.Model.Services;
 
 namespace MediaBrowser.Api
 {
@@ -82,7 +82,7 @@ namespace MediaBrowser.Api
             {
                 IncludeItemTypes = includeTypes.Select(i => i.Name).ToArray(),
                 Recursive = true,
-                Fields = dtoOptions.Fields
+                DtoOptions = dtoOptions
             };
 
             // ExcludeArtistIds

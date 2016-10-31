@@ -1,7 +1,6 @@
 ﻿using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Events;
 using MediaBrowser.Common.Extensions;
-using MediaBrowser.Common.ScheduledTasks;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Drawing;
 using MediaBrowser.Controller.Dto;
@@ -21,7 +20,6 @@ using MediaBrowser.Model.Querying;
 using MediaBrowser.Model.Serialization;
 using MediaBrowser.Model.Sync;
 using MediaBrowser.Model.Users;
-using MoreLinq;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -29,8 +27,8 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using CommonIO;
-using MediaBrowser.Common.IO;
+using MediaBrowser.Model.IO;
+using MediaBrowser.Model.Tasks;
 
 namespace MediaBrowser.Server.Implementations.Sync
 {
@@ -602,7 +600,10 @@ namespace MediaBrowser.Server.Implementations.Sync
 
             if (query.AddMetadata)
             {
-                result.Items.ForEach(FillMetadata);
+                foreach (var item in result.Items)
+                {
+                    FillMetadata(item);
+                }
             }
 
             return result;

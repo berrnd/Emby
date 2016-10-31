@@ -16,7 +16,9 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using CommonIO;
+using MediaBrowser.Controller.IO;
+using MediaBrowser.Model.IO;
+using MediaBrowser.Model.IO;
 
 namespace MediaBrowser.Providers.Manager
 {
@@ -72,7 +74,7 @@ namespace MediaBrowser.Providers.Manager
             return SaveImage(item, source, mimeType, type, imageIndex, null, cancellationToken);
         }
 
-        public async Task SaveImage(IHasImages item, Stream source, string mimeType, ImageType type, int? imageIndex, string internalCacheKey, CancellationToken cancellationToken)
+        public async Task SaveImage(IHasImages item, Stream source, string mimeType, ImageType type, int? imageIndex, bool? saveLocallyWithMedia, CancellationToken cancellationToken)
         {
             if (string.IsNullOrEmpty(mimeType))
             {
@@ -109,9 +111,9 @@ namespace MediaBrowser.Providers.Manager
                     }
                 }
             }
-            if (!string.IsNullOrEmpty(internalCacheKey))
+            if (saveLocallyWithMedia.HasValue && !saveLocallyWithMedia.Value)
             {
-                saveLocally = false;
+                saveLocally = saveLocallyWithMedia.Value;
             }
 
             if (!imageIndex.HasValue && item.AllowsMultipleImages(type))
@@ -172,14 +174,14 @@ namespace MediaBrowser.Providers.Manager
 
                 try
                 {
-                    var currentFile = new FileInfo(currentPath);
+                    var currentFile = _fileSystem.GetFileInfo(currentPath);
 
                     // This will fail if the file is hidden
                     if (currentFile.Exists)
                     {
-                        if ((currentFile.Attributes & FileAttributes.Hidden) == FileAttributes.Hidden)
+                        if (currentFile.IsHidden)
                         {
-                            currentFile.Attributes &= ~FileAttributes.Hidden;
+                            _fileSystem.SetHidden(currentFile.FullName, false);
                         }
 
                         _fileSystem.DeleteFile(currentFile.FullName);
@@ -254,18 +256,18 @@ namespace MediaBrowser.Providers.Manager
                 _fileSystem.CreateDirectory(Path.GetDirectoryName(path));
 
                 // If the file is currently hidden we'll have to remove that or the save will fail
-                var file = new FileInfo(path);
+                var file = _fileSystem.GetFileInfo(path);
 
                 // This will fail if the file is hidden
                 if (file.Exists)
                 {
-                    if ((file.Attributes & FileAttributes.Hidden) == FileAttributes.Hidden)
+                    if (file.IsHidden)
                     {
-                        file.Attributes &= ~FileAttributes.Hidden;
+                        _fileSystem.SetHidden(file.FullName, false);
                     }
                 }
 
-                using (var fs = _fileSystem.GetFileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read, true))
+                using (var fs = _fileSystem.GetFileStream(path, FileOpenMode.Create, FileAccessMode.Write, FileShareMode.Read, true))
                 {
                     await source.CopyToAsync(fs, StreamDefaults.DefaultCopyToBufferSize, cancellationToken)
                             .ConfigureAwait(false);
@@ -273,10 +275,7 @@ namespace MediaBrowser.Providers.Manager
 
                 if (_config.Configuration.SaveMetadataHidden)
                 {
-                    file.Refresh();
-
-                    // Add back the attribute
-                    file.Attributes |= FileAttributes.Hidden;
+                    _fileSystem.SetHidden(file.FullName, true);
                 }
             }
             finally
@@ -355,6 +354,11 @@ namespace MediaBrowser.Providers.Manager
         {
             var season = item as Season;
             var extension = MimeTypes.ToExtension(mimeType);
+
+            if (string.IsNullOrWhiteSpace(extension))
+            {
+                throw new ArgumentException(string.Format("Unable to determine image file extension from mime type {0}", mimeType));
+            }
 
             if (type == ImageType.Thumb && saveLocally)
             {

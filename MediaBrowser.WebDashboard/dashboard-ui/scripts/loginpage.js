@@ -1,4 +1,5 @@
 ﻿define(['appSettings', 'dom', 'connectionManager', 'cardStyle', 'emby-checkbox'], function (appSettings, dom, connectionManager) {
+    'use strict';
 
     function authenticateUserByName(page, apiClient, username, password) {
 
@@ -131,7 +132,7 @@
             html += '</div>';
 
             html += '<div class="cardFooter visualCardBox-cardFooter">';
-            html += '<div class="cardText singleCardText">' + user.Name + '</div>';
+            html += '<div class="cardText singleCardText cardTextCentered">' + user.Name + '</div>';
 
             html += '</div>';
             html += '</div>';

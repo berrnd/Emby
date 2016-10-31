@@ -1,4 +1,5 @@
 ﻿define(['libraryBrowser', 'cardBuilder', 'apphost'], function (libraryBrowser, cardBuilder, appHost) {
+    'use strict';
 
     // The base query options
     var data = {};
@@ -44,19 +45,15 @@
 
             var elem = context.querySelector('#items');
 
-            var supportsImageAnalysis = appHost.supports('imageanalysis');
-
             cardBuilder.buildCards(result.Items, {
                 itemsContainer: elem,
                 shape: "backdrop",
                 preferThumb: true,
-                showTitle: supportsImageAnalysis,
+                showTitle: false,
                 scalable: true,
                 showItemCounts: true,
-                centerText: !supportsImageAnalysis,
-                overlayMoreButton: !supportsImageAnalysis,
-                cardLayout: supportsImageAnalysis,
-                vibrant: supportsImageAnalysis
+                centerText: true,
+                overlayMoreButton: true
             });
 
             Dashboard.hideLoadingMsg();

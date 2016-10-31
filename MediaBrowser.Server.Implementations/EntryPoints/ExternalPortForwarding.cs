@@ -8,8 +8,10 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Net;
-using MediaBrowser.Common.Threading;
+using MediaBrowser.Common.Net;
+using MediaBrowser.Model.Dlna;
 using MediaBrowser.Model.Events;
+using MediaBrowser.Server.Implementations.Threading;
 
 namespace MediaBrowser.Server.Implementations.EntryPoints
 {
@@ -17,18 +19,20 @@ namespace MediaBrowser.Server.Implementations.EntryPoints
     {
         private readonly IServerApplicationHost _appHost;
         private readonly ILogger _logger;
+        private readonly IHttpClient _httpClient;
         private readonly IServerConfigurationManager _config;
         private readonly IDeviceDiscovery _deviceDiscovery;
 
         private PeriodicTimer _timer;
         private bool _isStarted;
 
-        public ExternalPortForwarding(ILogManager logmanager, IServerApplicationHost appHost, IServerConfigurationManager config, IDeviceDiscovery deviceDiscovery)
+        public ExternalPortForwarding(ILogManager logmanager, IServerApplicationHost appHost, IServerConfigurationManager config, IDeviceDiscovery deviceDiscovery, IHttpClient httpClient)
         {
             _logger = logmanager.GetLogger("PortMapper");
             _appHost = appHost;
             _config = config;
             _deviceDiscovery = deviceDiscovery;
+            _httpClient = httpClient;
         }
 
         private string _lastConfigIdentifier;
@@ -63,6 +67,7 @@ namespace MediaBrowser.Server.Implementations.EntryPoints
         public void Run()
         {
             NatUtility.Logger = _logger;
+            NatUtility.HttpClient = _httpClient;
 
             if (_config.Configuration.EnableUPnP)
             {
@@ -87,9 +92,6 @@ namespace MediaBrowser.Server.Implementations.EntryPoints
             NatUtility.DeviceLost += NatUtility_DeviceLost;
 
 
-            // it is hard to say what one should do when an unhandled exception is raised
-            // because there isn't anything one can do about it. Probably save a log or ignored it.
-            NatUtility.UnhandledException += NatUtility_UnhandledException;
             NatUtility.StartDiscovery();
 
             _timer = new PeriodicTimer(ClearCreatedRules, null, TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(5));
@@ -122,57 +124,61 @@ namespace MediaBrowser.Server.Implementations.EntryPoints
 
             var identifier = string.IsNullOrWhiteSpace(usn) ? nt : usn;
 
-            if (info.Location != null && !_usnsHandled.Contains(identifier))
+            if (info.Location == null)
             {
-                _usnsHandled.Add(identifier);
+                return;
+            }
 
-                _logger.Debug("Calling Nat.Handle on " + identifier);
-
-                IPAddress address;
-                if (IPAddress.TryParse(info.Location.Host, out address))
+            lock (_usnsHandled)
+            {
+                if (_usnsHandled.Contains(identifier))
                 {
-                    // The Handle method doesn't need the port
-                    var endpoint = new IPEndPoint(address, info.Location.Port);
+                    return;
+                }
+                _usnsHandled.Add(identifier);
+            }
 
-                    IPAddress localAddress = null;
+            _logger.Debug("Found NAT device: " + identifier);
 
-                    try
+            IPAddress address;
+            if (IPAddress.TryParse(info.Location.Host, out address))
+            {
+                // The Handle method doesn't need the port
+                var endpoint = new IPEndPoint(address, info.Location.Port);
+
+                IPAddress localAddress = null;
+
+                try
+                {
+                    var localAddressString = await _appHost.GetLocalApiUrl().ConfigureAwait(false);
+
+                    Uri uri;
+                    if (Uri.TryCreate(localAddressString, UriKind.Absolute, out uri))
                     {
-                        var localAddressString = await _appHost.GetLocalApiUrl().ConfigureAwait(false);
+                        localAddressString = uri.Host;
 
                         if (!IPAddress.TryParse(localAddressString, out localAddress))
                         {
                             return;
                         }
                     }
-                    catch
-                    {
-                        return;
-                    }
-
-                    NatUtility.Handle(localAddress, info, endpoint, NatProtocol.Upnp);
                 }
+                catch (Exception ex)
+                {
+                    return;
+                }
+
+                _logger.Debug("Calling Nat.Handle on " + identifier);
+                NatUtility.Handle(localAddress, info, endpoint, NatProtocol.Upnp);
             }
         }
 
         private void ClearCreatedRules(object state)
         {
             _createdRules = new List<string>();
-            _usnsHandled = new List<string>();
-        }
-
-        void NatUtility_UnhandledException(object sender, UnhandledExceptionEventArgs e)
-        {
-            var ex = e.ExceptionObject as Exception;
-
-            if (ex == null)
+            lock (_usnsHandled)
             {
-                //_logger.Error("Unidentified error reported by Mono.Nat");
-            }
-            else
-            {
-                // Seeing some blank exceptions coming through here
-                //_logger.ErrorException("Error reported by Mono.Nat: ", ex);
+                _usnsHandled.Clear();
             }
         }
 
@@ -217,13 +223,21 @@ namespace MediaBrowser.Server.Implementations.EntryPoints
             }
         }
 
-        private void CreatePortMap(INatDevice device, int privatePort, int publicPort)
+        private async void CreatePortMap(INatDevice device, int privatePort, int publicPort)
         {
             _logger.Debug("Creating port map on port {0}", privatePort);
-            device.CreatePortMap(new Mapping(Protocol.Tcp, privatePort, publicPort)
+
+            try
             {
-                Description = _appHost.Name
-            });
+                await device.CreatePortMap(new Mapping(Protocol.Tcp, privatePort, publicPort)
+                {
+                    Description = _appHost.Name
+                }).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.ErrorException("Error creating port map", ex);
+            }
         }
 
         // As I said before, this method will be never invoked. You can remove it.
@@ -256,7 +270,6 @@ namespace MediaBrowser.Server.Implementations.EntryPoints
                 NatUtility.StopDiscovery();
                 NatUtility.DeviceFound -= NatUtility_DeviceFound;
                 NatUtility.DeviceLost -= NatUtility_DeviceLost;
-                NatUtility.UnhandledException -= NatUtility_UnhandledException;
             }
             // Statements in try-block will no fail because StopDiscovery is a one-line 
             // method that was no chances to fail.

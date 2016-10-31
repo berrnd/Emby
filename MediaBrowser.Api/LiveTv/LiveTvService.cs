@@ -8,7 +8,6 @@ using MediaBrowser.Model.Dto;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.LiveTv;
 using MediaBrowser.Model.Querying;
-using ServiceStack;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -16,9 +15,13 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using CommonIO;
+using MediaBrowser.Model.IO;
 using MediaBrowser.Api.Playback.Progressive;
+using MediaBrowser.Common.IO;
 using MediaBrowser.Controller.Configuration;
+using MediaBrowser.Controller.Entities.TV;
+using MediaBrowser.Controller.IO;
+using MediaBrowser.Model.Services;
 using MediaBrowser.Server.Implementations.LiveTv.EmbyTV;
 
 namespace MediaBrowser.Api.LiveTv
@@ -390,6 +393,7 @@ namespace MediaBrowser.Api.LiveTv
         public bool? EnableUserData { get; set; }
 
         public string SeriesTimerId { get; set; }
+        public string LibrarySeriesId { get; set; }
 
         /// <summary>
         /// Fields to return within the items, in addition to basic information
@@ -677,6 +681,12 @@ namespace MediaBrowser.Api.LiveTv
         public string Container { get; set; }
     }
 
+    [Route("/LiveTv/LiveRecordings/{Id}/stream", "GET", Summary = "Gets a live tv channel")]
+    public class GetLiveRecordingFile
+    {
+        public string Id { get; set; }
+    }
+
     public class LiveTvService : BaseApiService
     {
         private readonly ILiveTvManager _liveTvManager;
@@ -698,19 +708,36 @@ namespace MediaBrowser.Api.LiveTv
             _fileSystem = fileSystem;
         }
 
+        public async Task<object> Get(GetLiveRecordingFile request)
+        {
+            var path = EmbyTV.Current.GetActiveRecordingPath(request.Id);
+
+            if (path == null)
+            {
+                throw new FileNotFoundException();
+            }
+
+            var outputHeaders = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+            outputHeaders["Content-Type"] = Model.Net.MimeTypes.GetMimeType(path);
+
+            return new ProgressiveFileCopier(_fileSystem, path, outputHeaders, null, Logger, CancellationToken.None)
+            {
+                AllowEndOfFile = false
+            };
+        }
+
         public async Task<object> Get(GetLiveStreamFile request)
         {
             var directStreamProvider = (await EmbyTV.Current.GetLiveStream(request.Id).ConfigureAwait(false)) as IDirectStreamProvider;
             var outputHeaders = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-            // TODO: Don't hardcode this
-            outputHeaders["Content-Type"] = Model.Net.MimeTypes.GetMimeType("file.ts");
+            outputHeaders["Content-Type"] = Model.Net.MimeTypes.GetMimeType("file." + request.Container);
 
-            var streamSource = new ProgressiveFileCopier(directStreamProvider, outputHeaders, null, Logger, CancellationToken.None)
+            return new ProgressiveFileCopier(directStreamProvider, outputHeaders, null, Logger, CancellationToken.None)
             {
                 AllowEndOfFile = false
             };
-            return ResultFactory.GetAsyncStreamWriter(streamSource);
         }
 
         public object Get(GetDefaultListingProvider request)
@@ -964,6 +991,17 @@ namespace MediaBrowser.Api.LiveTv
             query.IsSports = request.IsSports;
             query.SeriesTimerId = request.SeriesTimerId;
             query.Genres = (request.Genres ?? String.Empty).Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+
+            if (!string.IsNullOrWhiteSpace(request.LibrarySeriesId))
+            {
+                query.IsSeries = true;
+
+                var series = _libraryManager.GetItemById(request.LibrarySeriesId) as Series;
+                if (series != null)
+                {
+                    query.Name = series.Name;
+                }
+            }
 
             var result = await _liveTvManager.GetPrograms(query, GetDtoOptions(request), CancellationToken.None).ConfigureAwait(false);
 

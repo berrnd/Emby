@@ -8,12 +8,12 @@ using MediaBrowser.Controller.Persistence;
 using MediaBrowser.Controller.TV;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Querying;
-using ServiceStack;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MediaBrowser.Model.Dto;
+using MediaBrowser.Model.Services;
 
 namespace MediaBrowser.Api
 {
@@ -312,7 +312,7 @@ namespace MediaBrowser.Api
                         typeof(Series).Name
                 },
                 SimilarTo = item,
-                Fields = dtoOptions.Fields
+                DtoOptions = dtoOptions
 
             }).ToList();
 
@@ -346,7 +346,7 @@ namespace MediaBrowser.Api
                 Limit = request.Limit,
                 ParentId = parentIdGuid,
                 Recursive = true,
-                Fields = options.Fields
+                DtoOptions = options
 
             }).ToList();
 

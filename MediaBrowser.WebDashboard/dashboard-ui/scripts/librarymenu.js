@@ -1,4 +1,5 @@
-﻿define(['imageLoader', 'layoutManager', 'viewManager', 'libraryBrowser', 'apphost', 'paper-icon-button-light', 'material-icons'], function (imageLoader, layoutManager, viewManager, libraryBrowser, appHost) {
+﻿define(['imageLoader', 'layoutManager', 'viewManager', 'libraryBrowser', 'apphost', 'embyRouter', 'paper-icon-button-light', 'material-icons'], function (imageLoader, layoutManager, viewManager, libraryBrowser, appHost, embyRouter) {
+    'use strict';
 
     var enableBottomTabs = AppInfo.isNativeApp;
     var enableLibraryNavDrawer = !enableBottomTabs;
@@ -60,7 +61,7 @@
 
     function onBackClick() {
 
-        Emby.Page.back();
+        embyRouter.back();
     }
 
     function updateUserInHeader(user) {
@@ -908,7 +909,7 @@
         var backButton = document.querySelector('.headerBackButton');
 
         if (backButton) {
-            if (page.getAttribute('data-backbutton') == 'true' && Emby.Page.canGoBack()) {
+            if (page.getAttribute('data-backbutton') == 'true' && embyRouter.canGoBack()) {
                 backButton.classList.remove('hide');
             } else {
                 backButton.classList.add('hide');
@@ -984,7 +985,7 @@
         // At least 240
         drawerWidth = Math.max(drawerWidth, 240);
         // But not exceeding 280
-        drawerWidth = Math.min(drawerWidth, 280);
+        drawerWidth = Math.min(drawerWidth, 260);
 
         var disableEdgeSwipe = false;
 

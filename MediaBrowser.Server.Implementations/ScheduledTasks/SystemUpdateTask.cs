@@ -1,18 +1,18 @@
 ﻿using MediaBrowser.Common;
 using MediaBrowser.Common.Configuration;
-using MediaBrowser.Common.ScheduledTasks;
 using MediaBrowser.Model.Logging;
 using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using MediaBrowser.Model.Tasks;
 
 namespace MediaBrowser.Server.Implementations.ScheduledTasks
 {
     /// <summary>
     /// Plugin Update Task
     /// </summary>
-    public class SystemUpdateTask : IScheduledTask, IHasKey
+    public class SystemUpdateTask : IScheduledTask
     {
         /// <summary>
         /// The _app host
@@ -47,16 +47,15 @@ namespace MediaBrowser.Server.Implementations.ScheduledTasks
         /// Creates the triggers that define when the task will run
         /// </summary>
         /// <returns>IEnumerable{BaseTaskTrigger}.</returns>
-        public IEnumerable<ITaskTrigger> GetDefaultTriggers()
+        public IEnumerable<TaskTriggerInfo> GetDefaultTriggers()
         {
-            // Until we can vary these default triggers per server and MBT, we need something that makes sense for both
-            return new ITaskTrigger[] { 
+            return new[] { 
             
                 // At startup
-                new StartupTrigger(),
+                new TaskTriggerInfo {Type = TaskTriggerInfo.TriggerStartup},
 
                 // Every so often
-                new IntervalTrigger { Interval = TimeSpan.FromHours(24)}
+                new TaskTriggerInfo { Type = TaskTriggerInfo.TriggerInterval, IntervalTicks = TimeSpan.FromHours(24).Ticks}
             };
         }
 

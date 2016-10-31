@@ -1,5 +1,4 @@
-﻿using MediaBrowser.Common.ScheduledTasks;
-using MediaBrowser.Controller.Configuration;
+﻿using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Plugins;
@@ -12,8 +11,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using CommonIO;
+using MediaBrowser.Common.IO;
+using MediaBrowser.Model.IO;
 using MediaBrowser.Controller;
+using MediaBrowser.Controller.IO;
+using MediaBrowser.Model.Tasks;
 
 namespace MediaBrowser.Server.Implementations.IO
 {
@@ -174,6 +176,11 @@ namespace MediaBrowser.Server.Implementations.IO
 
         private bool IsLibraryMonitorEnabaled(BaseItem item)
         {
+            if (item is BasePluginFolder)
+            {
+                return false;
+            }
+
             var options = LibraryManager.GetLibraryOptions(item);
 
             if (options != null)

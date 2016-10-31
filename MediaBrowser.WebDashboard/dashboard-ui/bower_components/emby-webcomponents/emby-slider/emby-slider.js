@@ -1,4 +1,4 @@
-﻿define(['browser', 'css!./emby-slider', 'registerElement', 'emby-input'], function (browser) {
+﻿define(['browser', 'dom', 'css!./emby-slider', 'registerElement', 'emby-input'], function (browser, dom) {
     'use strict';
 
     var EmbySliderPrototype = Object.create(HTMLInputElement.prototype);
@@ -29,9 +29,8 @@
         });
     }
 
-    function updateBubble(range, bubble) {
+    function updateBubble(range, value, bubble) {
 
-        var value = range.value;
         bubble.style.left = (value - 1) + '%';
 
         if (range.getBubbleText) {
@@ -70,21 +69,58 @@
 
         var hasHideClass = sliderBubble.classList.contains('hide');
 
-        this.addEventListener('input', function (e) {
+        dom.addEventListener(this, 'input', function (e) {
             this.dragging = true;
-            updateBubble(this, sliderBubble);
+
+            updateBubble(this, this.value, sliderBubble);
 
             if (hasHideClass) {
                 sliderBubble.classList.remove('hide');
                 hasHideClass = false;
             }
+        }, {
+            passive: true
         });
-        this.addEventListener('change', function () {
+
+        dom.addEventListener(this, 'change', function () {
             this.dragging = false;
             updateValues(this, backgroundLower, backgroundUpper);
+
             sliderBubble.classList.add('hide');
             hasHideClass = true;
+
+        }, {
+            passive: true
         });
+
+        // In firefox this feature disrupts the ability to move the slider
+        if (!browser.firefox) {
+            dom.addEventListener(this, 'mousemove', function (e) {
+
+                if (!this.dragging) {
+                    var rect = this.getBoundingClientRect();
+                    var clientX = e.clientX;
+                    var bubbleValue = (clientX - rect.left) / rect.width;
+                    bubbleValue *= 100;
+                    updateBubble(this, Math.round(bubbleValue), sliderBubble);
+
+                    if (hasHideClass) {
+                        sliderBubble.classList.remove('hide');
+                        hasHideClass = false;
+                    }
+                }
+
+            }, {
+                passive: true
+            });
+
+            dom.addEventListener(this, 'mouseleave', function () {
+                sliderBubble.classList.add('hide');
+                hasHideClass = true;
+            }, {
+                passive: true
+            });
+        }
 
         if (!supportsNativeProgressStyle) {
 

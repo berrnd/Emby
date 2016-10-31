@@ -8,12 +8,14 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Runtime.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
-using CommonIO;
 using MediaBrowser.Common.Extensions;
+using MediaBrowser.Common.IO;
 using MediaBrowser.Controller.Channels;
+using MediaBrowser.Controller.IO;
+using MediaBrowser.Model.IO;
+using MediaBrowser.Model.Serialization;
 
 namespace MediaBrowser.Controller.Entities
 {
@@ -24,7 +26,6 @@ namespace MediaBrowser.Controller.Entities
         IHasAspectRatio,
         ISupportsPlaceHolders,
         IHasMediaSources,
-        IHasShortOverview,
         IThemeMedia
     {
         [IgnoreDataMember]
@@ -41,6 +42,24 @@ namespace MediaBrowser.Controller.Entities
             get
             {
                 return ExtraType.HasValue && ExtraType.Value == Model.Entities.ExtraType.ThemeVideo;
+            }
+        }
+
+        [IgnoreDataMember]
+        public override bool SupportsPlayedStatus
+        {
+            get
+            {
+                return true;
+            }
+        }
+
+        [IgnoreDataMember]
+        protected override bool SupportsIsInMixedFolderDetection
+        {
+            get
+            {
+                return true;
             }
         }
 
@@ -61,6 +80,12 @@ namespace MediaBrowser.Controller.Entities
             {
                 return VideoType == VideoType.VideoFile || VideoType == VideoType.Iso;
             }
+        }
+
+        [IgnoreDataMember]
+        public override bool SupportsThemeMedia
+        {
+            get { return true; }
         }
 
         public int? TotalBitrate { get; set; }
@@ -164,7 +189,7 @@ namespace MediaBrowser.Controller.Entities
         [IgnoreDataMember]
         public override bool SupportsAddingToPlaylist
         {
-            get { return LocationType == LocationType.FileSystem && RunTimeTicks.HasValue; }
+            get { return true; }
         }
 
         [IgnoreDataMember]
@@ -403,7 +428,7 @@ namespace MediaBrowser.Controller.Entities
             if (IsStacked)
             {
                 var tasks = AdditionalParts
-                    .Select(i => RefreshMetadataForOwnedVideo(options, i, cancellationToken));
+                    .Select(i => RefreshMetadataForOwnedVideo(options, true, i, cancellationToken));
 
                 await Task.WhenAll(tasks).ConfigureAwait(false);
             }
@@ -418,7 +443,7 @@ namespace MediaBrowser.Controller.Entities
                     RefreshLinkedAlternateVersions();
 
                     var tasks = LocalAlternateVersions
-                        .Select(i => RefreshMetadataForOwnedVideo(options, i, cancellationToken));
+                        .Select(i => RefreshMetadataForOwnedVideo(options, false, i, cancellationToken));
 
                     await Task.WhenAll(tasks).ConfigureAwait(false);
                 }

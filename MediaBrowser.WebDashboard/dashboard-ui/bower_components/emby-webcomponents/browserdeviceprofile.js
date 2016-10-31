@@ -264,12 +264,14 @@ define(['browser'], function (browser) {
         // Otherwise with HLS and mp3 audio we're seeing some browsers
         // safari is lying
         if ((videoTestElement.canPlayType('audio/mp4; codecs="ac-3"').replace(/no/, '') && !browser.safari) || browser.edgeUwp || browser.tizen) {
-            videoAudioCodecs.push('ac3');
+            if ((options.disableVideoAudioCodecs || []).indexOf('ac3') === -1) {
+                videoAudioCodecs.push('ac3');
 
-            // This works in edge desktop, but not mobile
-            // TODO: Retest this on mobile
-            if (!browser.edge || !browser.touch) {
-                hlsVideoAudioCodecs.push('ac3');
+                // This works in edge desktop, but not mobile
+                // TODO: Retest this on mobile
+                if (!browser.edge || !browser.touch) {
+                    hlsVideoAudioCodecs.push('ac3');
+                }
             }
         }
 
@@ -402,6 +404,7 @@ define(['browser'], function (browser) {
                 AudioCodec: videoAudioCodecs.join(','),
                 VideoCodec: 'h264',
                 Context: 'Streaming',
+                MaxAudioChannels: physicalAudioChannels.toString(),
                 CopyTimestamps: copyTimestamps
             });
         }
@@ -414,7 +417,8 @@ define(['browser'], function (browser) {
                 VideoCodec: 'h264',
                 Context: 'Streaming',
                 Protocol: 'hls',
-                MaxAudioChannels: physicalAudioChannels.toString()
+                MaxAudioChannels: physicalAudioChannels.toString(),
+                EnableSplittingOnNonKeyFrames: browser.safari ? true : false
             });
         }
 
@@ -480,8 +484,6 @@ define(['browser'], function (browser) {
             }]
         });
 
-        var videoAudioChannels = browser.tizen ? '8' : '6';
-
         // Handle he-aac not supported
         if (!videoTestElement.canPlayType('video/mp4; codecs="avc1.640029, mp4a.40.5"').replace(/no/, '')) {
             profile.CodecProfiles.push({
@@ -492,11 +494,6 @@ define(['browser'], function (browser) {
                         Condition: 'NotEquals',
                         Property: 'AudioProfile',
                         Value: 'HE-AAC'
-                    },
-                    {
-                        Condition: 'LessThanEqual',
-                        Property: 'AudioChannels',
-                        Value: videoAudioChannels
                     },
                     {
                         Condition: 'LessThanEqual',
@@ -516,11 +513,6 @@ define(['browser'], function (browser) {
         profile.CodecProfiles.push({
             Type: 'VideoAudio',
             Conditions: [
-                {
-                    Condition: 'LessThanEqual',
-                    Property: 'AudioChannels',
-                    Value: videoAudioChannels
-                },
                 {
                     Condition: 'Equals',
                     Property: 'IsSecondaryAudio',

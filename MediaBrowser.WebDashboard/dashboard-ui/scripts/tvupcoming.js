@@ -1,4 +1,5 @@
 ﻿define(['datetime', 'libraryBrowser', 'cardBuilder', 'apphost', 'scrollStyles', 'emby-itemscontainer'], function (datetime, libraryBrowser, cardBuilder, appHost) {
+    'use strict';
 
     function getUpcomingPromise(context, params) {
 
@@ -120,7 +121,7 @@
                 preferThumb: true,
                 lazy: true,
                 showDetailsMenu: true,
-                centerText: true,
+                centerText: !supportsImageAnalysis,
                 showParentTitle: true,
                 allowBottomPadding: allowBottomPadding,
                 cardLayout: supportsImageAnalysis,

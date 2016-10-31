@@ -1,5 +1,4 @@
 ﻿using MediaBrowser.Common.Progress;
-using MediaBrowser.Common.ScheduledTasks;
 using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
@@ -12,12 +11,15 @@ using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using CommonIO;
+using MediaBrowser.Common.IO;
+using MediaBrowser.Model.IO;
 using MediaBrowser.Controller.Channels;
 using MediaBrowser.Controller.Entities.Audio;
+using MediaBrowser.Controller.IO;
 using MediaBrowser.Controller.LiveTv;
-using MediaBrowser.Controller.Localization;
 using MediaBrowser.Controller.Net;
+using MediaBrowser.Model.Globalization;
+using MediaBrowser.Model.Tasks;
 using MediaBrowser.Server.Implementations.ScheduledTasks;
 
 namespace MediaBrowser.Server.Implementations.Persistence
@@ -337,12 +339,22 @@ namespace MediaBrowser.Server.Implementations.Persistence
             }
         }
 
-        public IEnumerable<ITaskTrigger> GetDefaultTriggers()
+        /// <summary>
+        /// Creates the triggers that define when the task will run
+        /// </summary>
+        /// <returns>IEnumerable{BaseTaskTrigger}.</returns>
+        public IEnumerable<TaskTriggerInfo> GetDefaultTriggers()
         {
-            return new ITaskTrigger[]
-            {
-                new IntervalTrigger{ Interval = TimeSpan.FromHours(24)}
+            return new[] { 
+            
+                // Every so often
+                new TaskTriggerInfo { Type = TaskTriggerInfo.TriggerInterval, IntervalTicks = TimeSpan.FromHours(24).Ticks}
             };
+        }
+
+        public string Key
+        {
+            get { return "CleanDatabase"; }
         }
     }
 }

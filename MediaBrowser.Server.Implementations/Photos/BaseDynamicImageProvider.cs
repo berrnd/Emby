@@ -12,8 +12,10 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using CommonIO;
+using MediaBrowser.Common.IO;
+using MediaBrowser.Model.IO;
 using MediaBrowser.Controller.Entities.Audio;
+using MediaBrowser.Controller.IO;
 using MediaBrowser.Model.Configuration;
 
 namespace MediaBrowser.Server.Implementations.Photos
@@ -144,7 +146,7 @@ namespace MediaBrowser.Server.Implementations.Photos
                 return ItemUpdateType.None;
             }
 
-            await ProviderManager.SaveImage(item, outputPath, "image/png", imageType, null, Guid.NewGuid().ToString("N"), cancellationToken).ConfigureAwait(false);
+            await ProviderManager.SaveImage(item, outputPath, "image/png", imageType, null, false, cancellationToken).ConfigureAwait(false);
 
             return ItemUpdateType.ImageUpdate;
         }

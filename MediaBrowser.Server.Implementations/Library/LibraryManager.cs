@@ -1,7 +1,5 @@
-﻿using Interfaces.IO;
-using MediaBrowser.Common.Extensions;
+﻿using MediaBrowser.Common.Extensions;
 using MediaBrowser.Common.Progress;
-using MediaBrowser.Common.ScheduledTasks;
 using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Audio;
@@ -32,7 +30,7 @@ using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
-using CommonIO;
+using MediaBrowser.Model.IO;
 using MediaBrowser.Controller.Channels;
 using MediaBrowser.Model.Channels;
 using MediaBrowser.Model.Dto;
@@ -40,10 +38,11 @@ using MediaBrowser.Model.Extensions;
 using MediaBrowser.Model.Library;
 using MediaBrowser.Model.Net;
 using MediaBrowser.Server.Implementations.Library.Resolvers;
-using MoreLinq;
 using SortOrder = MediaBrowser.Model.Entities.SortOrder;
 using VideoResolver = MediaBrowser.Naming.Video.VideoResolver;
 using MediaBrowser.Common.Configuration;
+using MediaBrowser.Common.IO;
+using MediaBrowser.Model.Tasks;
 
 namespace MediaBrowser.Server.Implementations.Library
 {
@@ -355,15 +354,6 @@ namespace MediaBrowser.Server.Implementations.Library
                     _logger.ErrorException("Error saving {0}", ex, season.Path);
                 }
             }
-        }
-
-        /// <summary>
-        /// Updates the item in library cache.
-        /// </summary>
-        /// <param name="item">The item.</param>
-        private void UpdateItemInLibraryCache(BaseItem item)
-        {
-            RegisterItem(item);
         }
 
         public void RegisterItem(BaseItem item)
@@ -1799,7 +1789,7 @@ namespace MediaBrowser.Server.Implementations.Library
 
             foreach (var item in list)
             {
-                UpdateItemInLibraryCache(item);
+                RegisterItem(item);
             }
 
             if (ItemAdded != null)
@@ -1840,7 +1830,7 @@ namespace MediaBrowser.Server.Implementations.Library
 
             await ItemRepository.SaveItem(item, cancellationToken).ConfigureAwait(false);
 
-            UpdateItemInLibraryCache(item);
+            RegisterItem(item);
 
             if (ItemUpdated != null)
             {
@@ -2492,12 +2482,7 @@ namespace MediaBrowser.Server.Implementations.Library
 
             var videoListResolver = new VideoListResolver(GetNamingOptions(), new PatternsLogger());
 
-            var videos = videoListResolver.Resolve(fileSystemChildren.Select(i => new FileMetadata
-            {
-                Id = i.FullName,
-                IsFolder = (i.Attributes & FileAttributes.Directory) == FileAttributes.Directory
-
-            }).ToList());
+            var videos = videoListResolver.Resolve(fileSystemChildren);
 
             var currentVideo = videos.FirstOrDefault(i => string.Equals(owner.Path, i.Files.First().Path, StringComparison.OrdinalIgnoreCase));
 
@@ -2541,12 +2526,7 @@ namespace MediaBrowser.Server.Implementations.Library
 
             var videoListResolver = new VideoListResolver(GetNamingOptions(), new PatternsLogger());
 
-            var videos = videoListResolver.Resolve(fileSystemChildren.Select(i => new FileMetadata
-            {
-                Id = i.FullName,
-                IsFolder = (i.Attributes & FileAttributes.Directory) == FileAttributes.Directory
-
-            }).ToList());
+            var videos = videoListResolver.Resolve(fileSystemChildren);
 
             var currentVideo = videos.FirstOrDefault(i => string.Equals(owner.Path, i.Files.First().Path, StringComparison.OrdinalIgnoreCase));
 
@@ -2869,9 +2849,13 @@ namespace MediaBrowser.Server.Implementations.Library
 
         private bool ValidateNetworkPath(string path)
         {
-            if (Environment.OSVersion.Platform == PlatformID.Win32NT || !path.StartsWith("\\\\", StringComparison.OrdinalIgnoreCase))
+            if (Environment.OSVersion.Platform == PlatformID.Win32NT)
             {
-                return Directory.Exists(path);
+                // We can't validate protocol-based paths, so just allow them
+                if (path.IndexOf("://", StringComparison.OrdinalIgnoreCase) == -1)
+                {
+                    return Directory.Exists(path);
+                }
             }
 
             // Without native support for unc, we cannot validate this when running under mono

@@ -10,7 +10,6 @@ using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Extensions;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Serialization;
-using ServiceStack;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -19,7 +18,10 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using CommonIO;
+using MediaBrowser.Common.IO;
+using MediaBrowser.Controller.IO;
+using MediaBrowser.Model.IO;
+using MediaBrowser.Model.Services;
 using MimeTypes = MediaBrowser.Model.Net.MimeTypes;
 
 namespace MediaBrowser.Api.Playback.Hls
@@ -67,7 +69,6 @@ namespace MediaBrowser.Api.Playback.Hls
     }
 
     [Route("/Videos/{Id}/hls1/{PlaylistId}/{SegmentId}.ts", "GET")]
-    [Api(Description = "Gets an Http live streaming segment file. Internal use only.")]
     public class GetHlsVideoSegment : VideoStreamRequest
     {
         public string PlaylistId { get; set; }
@@ -81,7 +82,6 @@ namespace MediaBrowser.Api.Playback.Hls
 
     [Route("/Audio/{Id}/hls1/{PlaylistId}/{SegmentId}.aac", "GET")]
     [Route("/Audio/{Id}/hls1/{PlaylistId}/{SegmentId}.ts", "GET")]
-    [Api(Description = "Gets an Http live streaming segment file. Internal use only.")]
     public class GetHlsAudioSegment : StreamRequest
     {
         public string PlaylistId { get; set; }
@@ -466,7 +466,7 @@ namespace MediaBrowser.Api.Playback.Hls
             return ResultFactory.GetStaticFileResult(Request, new StaticFileResultOptions
             {
                 Path = segmentPath,
-                FileShare = FileShare.ReadWrite,
+                FileShare = FileShareMode.ReadWrite,
                 OnComplete = () =>
                 {
                     if (transcodingJob != null)
@@ -885,14 +885,16 @@ namespace MediaBrowser.Api.Playback.Hls
             }
 
             var mapArgs = state.IsOutputVideo ? GetMapArgs(state) : string.Empty;
+            var enableSplittingOnNonKeyFrames = state.VideoRequest.EnableSplittingOnNonKeyFrames && string.Equals(state.OutputVideoCodec, "copy", StringComparison.OrdinalIgnoreCase);
 
-            var enableGenericSegmenter = false;
+            // TODO: check libavformat version for 57 50.100 and use -hls_flags split_by_time
+            var hlsProtocolSupportsSplittingByTime = false;
 
-            if (enableGenericSegmenter)
+            if (enableSplittingOnNonKeyFrames && !hlsProtocolSupportsSplittingByTime)
             {
                 var outputTsArg = Path.Combine(Path.GetDirectoryName(outputPath), Path.GetFileNameWithoutExtension(outputPath)) + "%d" + GetSegmentFileExtension(state);
 
-                return string.Format("{0} {10} {1} -map_metadata -1 -threads {2} {3} {4} {5} -f segment -max_delay 5000000 -avoid_negative_ts disabled -start_at_zero -segment_time {6} -segment_format mpegts -segment_list_type m3u8 -segment_start_number {7} -segment_list \"{8}\" -y \"{9}\"",
+                return string.Format("{0} {10} {1} -map_metadata -1 -threads {2} {3} {4} {5} -f segment -max_delay 5000000 -avoid_negative_ts disabled -start_at_zero -segment_time {6} -break_non_keyframes  1 -segment_format mpegts -segment_list_type m3u8 -segment_start_number {7} -segment_list \"{8}\" -y \"{9}\"",
                     inputModifier,
                     GetInputArgument(state),
                     threads,
@@ -907,8 +909,10 @@ namespace MediaBrowser.Api.Playback.Hls
                     ).Trim();
             }
 
-            // TODO: check libavformat version for 57 50.100 and use -hls_flags split_by_time
-            return string.Format("{0}{11} {1} -map_metadata -1 -threads {2} {3} {4}{5} {6} -max_delay 5000000 -avoid_negative_ts disabled -start_at_zero -hls_time {7} -start_number {8} -hls_list_size {9} -y \"{10}\"",
+            var splitByTime = hlsProtocolSupportsSplittingByTime && enableSplittingOnNonKeyFrames;
+            var splitByTimeArg = splitByTime ? " -hls_flags split_by_time" : "";
+
+            return string.Format("{0}{12} {1} -map_metadata -1 -threads {2} {3} {4}{5} {6} -max_delay 5000000 -avoid_negative_ts disabled -start_at_zero -hls_time {7}{8} -start_number {9} -hls_list_size {10} -y \"{11}\"",
                             inputModifier,
                             GetInputArgument(state),
                             threads,
@@ -917,6 +921,7 @@ namespace MediaBrowser.Api.Playback.Hls
                             timestampOffsetParam,
                             GetAudioArguments(state),
                             state.SegmentLength.ToString(UsCulture),
+                            splitByTimeArg,
                             startNumberParam,
                             state.HlsListSize.ToString(UsCulture),
                             outputPath,

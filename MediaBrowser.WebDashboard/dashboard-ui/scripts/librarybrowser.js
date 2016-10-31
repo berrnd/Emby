@@ -2,6 +2,7 @@
 //Added jQuery
 define(['viewManager', 'appSettings', 'appStorage', 'apphost', 'datetime', 'itemHelper', 'mediaInfo', 'scroller', 'indicators', 'dom', 'browser', 'imageLoader', 'scrollStyles', 'jQuery'], function (viewManager, appSettings, appStorage, appHost, datetime, itemHelper, mediaInfo, scroller, indicators, dom, browser, imageLoader, scrollStyles, jQuery) {
 //myproduction-change-end
+    'use strict';
 
     function fadeInRight(elem) {
 
@@ -903,8 +904,8 @@ define(['viewManager', 'appSettings', 'appStorage', 'apphost', 'datetime', 'item
 
                 return hasbackdrop;
             },
-            
-            //myproduction-change-start
+			
+			//myproduction-change-start
             //Added functions
             ExecuteItemDetailsPageDownload: function()
             {

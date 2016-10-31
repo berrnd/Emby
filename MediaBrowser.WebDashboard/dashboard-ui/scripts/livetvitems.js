@@ -1,4 +1,5 @@
 ﻿define(['cardBuilder', 'apphost', 'emby-itemscontainer'], function (cardBuilder, appHost) {
+    'use strict';
 
     return function (view, params) {
 
@@ -64,7 +65,7 @@
                     preferThumb: !query.IsMovie && params.type != 'RecordingSeries',
                     inheritThumb: params.type == 'Recordings',
                     context: 'livetv',
-                    centerText: true,
+                    centerText: !supportsImageAnalysis,
                     lazy: true,
                     overlayText: false,
                     showParentTitleOrTitle: true,

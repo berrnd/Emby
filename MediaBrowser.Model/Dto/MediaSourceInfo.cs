@@ -3,7 +3,7 @@ using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Extensions;
 using MediaBrowser.Model.MediaInfo;
 using System.Collections.Generic;
-using System.Runtime.Serialization;
+using MediaBrowser.Model.Serialization;
 
 namespace MediaBrowser.Model.Dto
 {
@@ -31,6 +31,7 @@ namespace MediaBrowser.Model.Dto
         public bool RequiresOpening { get; set; }
         public string OpenToken { get; set; }
         public bool RequiresClosing { get; set; }
+        public bool SupportsProbing { get; set; }
         public string LiveStreamId { get; set; }
         public int? BufferMs { get; set; }
 
@@ -54,8 +55,6 @@ namespace MediaBrowser.Model.Dto
         public string TranscodingSubProtocol { get; set; }
         public string TranscodingContainer { get; set; }
 
-        public DateTime? DateLiveStreamOpened { get; set; }
-
         public MediaSourceInfo()
         {
             Formats = new List<string>();
@@ -65,6 +64,7 @@ namespace MediaBrowser.Model.Dto
             SupportsTranscoding = true;
             SupportsDirectStream = true;
             SupportsDirectPlay = true;
+            SupportsProbing = true;
         }
 
         public int? DefaultAudioStreamIndex { get; set; }

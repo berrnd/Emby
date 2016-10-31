@@ -20,7 +20,9 @@ using System.Net;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using CommonIO;
+using MediaBrowser.Common.IO;
+using MediaBrowser.Controller.IO;
+using MediaBrowser.Model.IO;
 
 namespace MediaBrowser.Providers.TV
 {
@@ -108,7 +110,7 @@ namespace MediaBrowser.Providers.TV
                 {
                     // No biggie. Don't blow up
                 }
-                catch (DirectoryNotFoundException)
+                catch (IOException)
                 {
                     // No biggie. Don't blow up
                 }
@@ -222,8 +224,7 @@ namespace MediaBrowser.Providers.TV
             return _httpClient.GetResponse(new HttpRequestOptions
             {
                 CancellationToken = cancellationToken,
-                Url = url,
-                ResourcePool = FanartArtistProvider.Current.FanArtResourcePool
+                Url = url
             });
         }
 
@@ -323,7 +324,7 @@ namespace MediaBrowser.Providers.TV
 
                 }).ConfigureAwait(false))
                 {
-                    using (var fileStream = _fileSystem.GetFileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read, true))
+                    using (var fileStream = _fileSystem.GetFileStream(path, FileOpenMode.Create, FileAccessMode.Write, FileShareMode.Read, true))
                     {
                         await response.CopyToAsync(fileStream).ConfigureAwait(false);
                     }

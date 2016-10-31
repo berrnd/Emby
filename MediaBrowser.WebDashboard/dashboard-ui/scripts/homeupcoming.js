@@ -1,4 +1,5 @@
 ﻿define(['datetime', 'cardBuilder', 'apphost', 'emby-itemscontainer', 'scrollStyles'], function (datetime, cardBuilder, appHost) {
+    'use strict';
 
     function getUpcomingPromise() {
 
@@ -118,7 +119,7 @@
                 preferThumb: true,
                 lazy: true,
                 showDetailsMenu: true,
-                centerText: true,
+                centerText: !supportsImageAnalysis,
                 context: 'home-upcoming',
                 overlayMoreButton: !supportsImageAnalysis,
                 showParentTitle: true,

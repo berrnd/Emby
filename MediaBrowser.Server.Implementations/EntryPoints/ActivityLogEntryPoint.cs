@@ -1,14 +1,10 @@
 ﻿using MediaBrowser.Common.Configuration;
-using MediaBrowser.Common.Implementations.Logging;
 using MediaBrowser.Common.Plugins;
-using MediaBrowser.Common.ScheduledTasks;
 using MediaBrowser.Common.Updates;
 using MediaBrowser.Controller;
-using MediaBrowser.Controller.Activity;
 using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
-using MediaBrowser.Controller.Localization;
 using MediaBrowser.Controller.Plugins;
 using MediaBrowser.Controller.Session;
 using MediaBrowser.Controller.Subtitles;
@@ -21,6 +17,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using MediaBrowser.Model.Globalization;
 
 namespace MediaBrowser.Server.Implementations.EntryPoints
 {
@@ -401,8 +398,8 @@ namespace MediaBrowser.Server.Implementations.EntryPoints
         {
             var task = e.Argument;
 
-            var activityTask = task.ScheduledTask as IScheduledTaskActivityLog;
-            if (activityTask != null && !activityTask.IsActivityLogged)
+            var activityTask = task.ScheduledTask as IConfigurableScheduledTask;
+            if (activityTask != null && !activityTask.IsLogged)
             {
                 return;
             }
@@ -419,8 +416,8 @@ namespace MediaBrowser.Server.Implementations.EntryPoints
             var result = e.Result;
             var task = e.Task;
 
-            var activityTask = task.ScheduledTask as IScheduledTaskActivityLog;
-            if (activityTask != null && !activityTask.IsActivityLogged)
+            var activityTask = task.ScheduledTask as IConfigurableScheduledTask;
+            if (activityTask != null && !activityTask.IsLogged)
             {
                 return;
             }

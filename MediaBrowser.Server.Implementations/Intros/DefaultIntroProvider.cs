@@ -4,7 +4,6 @@ using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Movies;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
-using MediaBrowser.Controller.Localization;
 using MediaBrowser.Model.Configuration;
 using MediaBrowser.Model.Entities;
 using System;
@@ -12,8 +11,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using CommonIO;
-using MoreLinq;
+using MediaBrowser.Common.IO;
+using MediaBrowser.Controller.IO;
+using MediaBrowser.Model.IO;
+using MediaBrowser.Model.Extensions;
+using MediaBrowser.Model.Globalization;
 
 namespace MediaBrowser.Server.Implementations.Intros
 {
@@ -66,10 +68,12 @@ namespace MediaBrowser.Server.Implementations.Intros
             var candidates = new List<ItemWithTrailer>();
 
             var trailerTypes = new List<TrailerType>();
+            var sourceTypes = new List<SourceType>();
 
             if (config.EnableIntrosFromMoviesInLibrary)
             {
                 trailerTypes.Add(TrailerType.LocalTrailer);
+                sourceTypes.Add(SourceType.Library);
             }
 
             if (IsSupporter)
@@ -77,18 +81,22 @@ namespace MediaBrowser.Server.Implementations.Intros
                 if (config.EnableIntrosFromUpcomingTrailers)
                 {
                     trailerTypes.Add(TrailerType.ComingSoonToTheaters);
+                    sourceTypes.Clear();
                 }
                 if (config.EnableIntrosFromUpcomingDvdMovies)
                 {
                     trailerTypes.Add(TrailerType.ComingSoonToDvd);
+                    sourceTypes.Clear();
                 }
                 if (config.EnableIntrosFromUpcomingStreamingMovies)
                 {
                     trailerTypes.Add(TrailerType.ComingSoonToStreaming);
+                    sourceTypes.Clear();
                 }
                 if (config.EnableIntrosFromSimilarMovies)
                 {
                     trailerTypes.Add(TrailerType.Archive);
+                    sourceTypes.Clear();
                 }
             }
 
@@ -102,8 +110,12 @@ namespace MediaBrowser.Server.Implementations.Intros
                     IsPlayed = config.EnableIntrosForWatchedContent ? (bool?)null : false,
                     MaxParentalRating = config.EnableIntrosParentalControl ? ratingLevel : null,
                     BlockUnratedItems = config.EnableIntrosParentalControl ? new[] { UnratedItem.Trailer } : new UnratedItem[] { },
-                    Limit = config.TrailerLimit
-                });
+
+                    // Account for duplicates by imdb id, since the database doesn't support this yet
+                    Limit = config.TrailerLimit * 2,
+                    SourceTypes = sourceTypes.ToArray()
+
+                }).Where(i => string.IsNullOrWhiteSpace(i.GetProviderId(MetadataProviders.Imdb)) || !string.Equals(i.GetProviderId(MetadataProviders.Imdb), item.GetProviderId(MetadataProviders.Imdb), StringComparison.OrdinalIgnoreCase)).Take(config.TrailerLimit);
 
                 candidates.AddRange(trailerResult.Select(i => new ItemWithTrailer
                 {

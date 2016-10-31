@@ -1,16 +1,16 @@
 ﻿using MediaBrowser.Controller.Dto;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
-using MediaBrowser.Controller.Localization;
 using MediaBrowser.Controller.Net;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Querying;
-using ServiceStack;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
+using MediaBrowser.Model.Globalization;
+using MediaBrowser.Model.Services;
 
 namespace MediaBrowser.Api.UserLibrary
 {
@@ -134,16 +134,26 @@ namespace MediaBrowser.Api.UserLibrary
         private async Task<QueryResult<BaseItem>> GetQueryResult(GetItems request, DtoOptions dtoOptions, User user)
         {
             var item = string.IsNullOrEmpty(request.ParentId) ?
-                user == null ? _libraryManager.RootFolder : user.RootFolder :
+                null :
                 _libraryManager.GetItemById(request.ParentId);
 
             if (string.Equals(request.IncludeItemTypes, "Playlist", StringComparison.OrdinalIgnoreCase))
             {
-                //item = user == null ? _libraryManager.RootFolder : user.RootFolder;
+                if (item == null || user != null)
+                {
+                    item = _libraryManager.RootFolder.Children.OfType<Folder>().FirstOrDefault(i => string.Equals(i.GetType().Name, "PlaylistsFolder", StringComparison.OrdinalIgnoreCase));
+                }
             }
             else if (string.Equals(request.IncludeItemTypes, "BoxSet", StringComparison.OrdinalIgnoreCase))
             {
                 item = user == null ? _libraryManager.RootFolder : user.RootFolder;
+            }
+
+            if (item == null)
+            {
+                item = string.IsNullOrEmpty(request.ParentId) ?
+                    user == null ? _libraryManager.RootFolder : user.RootFolder :
+                    _libraryManager.GetItemById(request.ParentId);
             }
 
             // Default list type = children
@@ -239,7 +249,7 @@ namespace MediaBrowser.Api.UserLibrary
                 AlbumArtistStartsWithOrGreater = request.AlbumArtistStartsWithOrGreater,
                 EnableTotalRecordCount = request.EnableTotalRecordCount,
                 ExcludeItemIds = request.GetExcludeItemIds(),
-                Fields = dtoOptions.Fields
+                DtoOptions = dtoOptions
             };
 
             if (!string.IsNullOrWhiteSpace(request.Ids))

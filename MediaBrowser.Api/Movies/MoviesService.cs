@@ -8,14 +8,14 @@ using MediaBrowser.Controller.Persistence;
 using MediaBrowser.Model.Dto;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Querying;
-using MoreLinq;
-using ServiceStack;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Controller.LiveTv;
+using MediaBrowser.Model.Extensions;
+using MediaBrowser.Model.Services;
 
 namespace MediaBrowser.Api.Movies
 {
@@ -165,7 +165,7 @@ namespace MediaBrowser.Api.Movies
                 IsMovie = true,
                 SimilarTo = item,
                 EnableGroupByMetadataKey = true,
-                Fields = dtoOptions.Fields
+                DtoOptions = dtoOptions
 
             }).ToList();
 
@@ -200,7 +200,7 @@ namespace MediaBrowser.Api.Movies
                 ParentId = parentIdGuid,
                 Recursive = true,
                 IsPlayed = true,
-                Fields = dtoOptions.Fields
+                DtoOptions = dtoOptions
             };
 
             var recentlyPlayedMovies = _libraryManager.GetItemList(query).ToList();
@@ -224,7 +224,7 @@ namespace MediaBrowser.Api.Movies
                 EnableGroupByMetadataKey = true,
                 ParentId = parentIdGuid,
                 Recursive = true,
-                Fields = dtoOptions.Fields
+                DtoOptions = dtoOptions
 
             }).ToList();
 
@@ -306,7 +306,7 @@ namespace MediaBrowser.Api.Movies
                     IncludeItemTypes = itemTypes.ToArray(),
                     IsMovie = true,
                     EnableGroupByMetadataKey = true,
-                    Fields = dtoOptions.Fields
+                    DtoOptions = dtoOptions
 
                 }).DistinctBy(i => i.GetProviderId(MetadataProviders.Imdb) ?? Guid.NewGuid().ToString("N"))
                 .Take(itemLimit)
@@ -344,7 +344,7 @@ namespace MediaBrowser.Api.Movies
                     IncludeItemTypes = itemTypes.ToArray(),
                     IsMovie = true,
                     EnableGroupByMetadataKey = true,
-                    Fields = dtoOptions.Fields
+                    DtoOptions = dtoOptions
 
                 }).DistinctBy(i => i.GetProviderId(MetadataProviders.Imdb) ?? Guid.NewGuid().ToString("N"))
                 .Take(itemLimit)
@@ -381,7 +381,7 @@ namespace MediaBrowser.Api.Movies
                     IsMovie = true,
                     SimilarTo = item,
                     EnableGroupByMetadataKey = true,
-                    Fields = dtoOptions.Fields
+                    DtoOptions = dtoOptions
 
                 }).ToList();
 

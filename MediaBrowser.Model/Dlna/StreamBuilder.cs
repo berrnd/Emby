@@ -6,6 +6,7 @@ using MediaBrowser.Model.MediaInfo;
 using MediaBrowser.Model.Session;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 
 namespace MediaBrowser.Model.Dlna
 {
@@ -478,11 +479,12 @@ namespace MediaBrowser.Model.Dlna
                 playlistItem.VideoCodec = transcodingProfile.VideoCodec;
                 playlistItem.CopyTimestamps = transcodingProfile.CopyTimestamps;
                 playlistItem.EnableSubtitlesInManifest = transcodingProfile.EnableSubtitlesInManifest;
+                playlistItem.EnableSplittingOnNonKeyFrames = transcodingProfile.EnableSplittingOnNonKeyFrames;
 
                 if (!string.IsNullOrEmpty(transcodingProfile.MaxAudioChannels))
                 {
                     int transcodingMaxAudioChannels;
-                    if (IntHelper.TryParseCultureInvariant(transcodingProfile.MaxAudioChannels, out transcodingMaxAudioChannels))
+                    if (int.TryParse(transcodingProfile.MaxAudioChannels, NumberStyles.Any, CultureInfo.InvariantCulture, out transcodingMaxAudioChannels))
                     {
                         playlistItem.TranscodingMaxAudioChannels = transcodingMaxAudioChannels;
                     }
@@ -1038,7 +1040,7 @@ namespace MediaBrowser.Model.Dlna
                     case ProfileConditionValue.AudioBitrate:
                         {
                             int num;
-                            if (IntHelper.TryParseCultureInvariant(value, out num))
+                            if (int.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out num))
                             {
                                 item.AudioBitrate = num;
                             }
@@ -1047,7 +1049,7 @@ namespace MediaBrowser.Model.Dlna
                     case ProfileConditionValue.AudioChannels:
                         {
                             int num;
-                            if (IntHelper.TryParseCultureInvariant(value, out num))
+                            if (int.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out num))
                             {
                                 item.MaxAudioChannels = num;
                             }
@@ -1068,7 +1070,7 @@ namespace MediaBrowser.Model.Dlna
                     case ProfileConditionValue.RefFrames:
                         {
                             int num;
-                            if (IntHelper.TryParseCultureInvariant(value, out num))
+                            if (int.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out num))
                             {
                                 item.MaxRefFrames = num;
                             }
@@ -1077,7 +1079,7 @@ namespace MediaBrowser.Model.Dlna
                     case ProfileConditionValue.VideoBitDepth:
                         {
                             int num;
-                            if (IntHelper.TryParseCultureInvariant(value, out num))
+                            if (int.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out num))
                             {
                                 item.MaxVideoBitDepth = num;
                             }
@@ -1091,7 +1093,7 @@ namespace MediaBrowser.Model.Dlna
                     case ProfileConditionValue.Height:
                         {
                             int num;
-                            if (IntHelper.TryParseCultureInvariant(value, out num))
+                            if (int.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out num))
                             {
                                 item.MaxHeight = num;
                             }
@@ -1100,7 +1102,7 @@ namespace MediaBrowser.Model.Dlna
                     case ProfileConditionValue.VideoBitrate:
                         {
                             int num;
-                            if (IntHelper.TryParseCultureInvariant(value, out num))
+                            if (int.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out num))
                             {
                                 item.VideoBitrate = num;
                             }
@@ -1109,7 +1111,7 @@ namespace MediaBrowser.Model.Dlna
                     case ProfileConditionValue.VideoFramerate:
                         {
                             float num;
-                            if (FloatHelper.TryParseCultureInvariant(value, out num))
+                            if (float.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out num))
                             {
                                 item.MaxFramerate = num;
                             }
@@ -1118,7 +1120,7 @@ namespace MediaBrowser.Model.Dlna
                     case ProfileConditionValue.VideoLevel:
                         {
                             int num;
-                            if (IntHelper.TryParseCultureInvariant(value, out num))
+                            if (int.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out num))
                             {
                                 item.VideoLevel = num;
                             }
@@ -1127,7 +1129,7 @@ namespace MediaBrowser.Model.Dlna
                     case ProfileConditionValue.Width:
                         {
                             int num;
-                            if (IntHelper.TryParseCultureInvariant(value, out num))
+                            if (int.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out num))
                             {
                                 item.MaxWidth = num;
                             }

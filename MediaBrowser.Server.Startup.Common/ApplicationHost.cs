@@ -6,12 +6,10 @@ using MediaBrowser.Common;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Events;
 using MediaBrowser.Common.Extensions;
-using MediaBrowser.Common.Implementations;
-using MediaBrowser.Common.Implementations.ScheduledTasks;
+using Emby.Common.Implementations.ScheduledTasks;
 using MediaBrowser.Common.Net;
 using MediaBrowser.Common.Progress;
 using MediaBrowser.Controller;
-using MediaBrowser.Controller.Activity;
 using MediaBrowser.Controller.Channels;
 using MediaBrowser.Controller.Chapters;
 using MediaBrowser.Controller.Collections;
@@ -25,10 +23,8 @@ using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.FileOrganization;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.LiveTv;
-using MediaBrowser.Controller.Localization;
 using MediaBrowser.Controller.MediaEncoding;
 using MediaBrowser.Controller.Net;
-using MediaBrowser.Controller.News;
 using MediaBrowser.Controller.Notifications;
 using MediaBrowser.Controller.Persistence;
 using MediaBrowser.Controller.Playlists;
@@ -37,17 +33,10 @@ using MediaBrowser.Controller.Providers;
 using MediaBrowser.Controller.Resolvers;
 using MediaBrowser.Controller.Security;
 using MediaBrowser.Controller.Session;
-using MediaBrowser.Controller.Social;
 using MediaBrowser.Controller.Sorting;
 using MediaBrowser.Controller.Subtitles;
 using MediaBrowser.Controller.Sync;
 using MediaBrowser.Controller.TV;
-using MediaBrowser.Dlna;
-using MediaBrowser.Dlna.ConnectionManager;
-using MediaBrowser.Dlna.ContentDirectory;
-using MediaBrowser.Dlna.Main;
-using MediaBrowser.Dlna.MediaReceiverRegistrar;
-using MediaBrowser.Dlna.Ssdp;
 using MediaBrowser.LocalMetadata.Savers;
 using MediaBrowser.MediaEncoding.BdInfo;
 using MediaBrowser.MediaEncoding.Encoder;
@@ -100,21 +89,52 @@ using System.Net.Sockets;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
-using CommonIO;
+using Emby.Common.Implementations;
+using Emby.Common.Implementations.Networking;
+using Emby.Common.Implementations.Updates;
+using Emby.Photos;
+using MediaBrowser.Model.IO;
 using MediaBrowser.Api.Playback;
-using MediaBrowser.Common.Implementations.Serialization;
-using MediaBrowser.Common.Implementations.Updates;
+using MediaBrowser.Common.Plugins;
+using MediaBrowser.Common.Security;
+using MediaBrowser.Common.Updates;
 using MediaBrowser.Controller.Entities.Audio;
 using MediaBrowser.Controller.Entities.Movies;
 using MediaBrowser.Controller.Entities.TV;
+using MediaBrowser.Controller.IO;
+using Emby.Dlna;
+using Emby.Dlna.ConnectionManager;
+using Emby.Dlna.ContentDirectory;
+using Emby.Dlna.Main;
+using Emby.Dlna.MediaReceiverRegistrar;
+using Emby.Dlna.Ssdp;
+using MediaBrowser.Model.Activity;
+using MediaBrowser.Model.Dlna;
+using MediaBrowser.Model.Globalization;
+using MediaBrowser.Model.Net;
+using MediaBrowser.Model.News;
+using MediaBrowser.Model.Reflection;
 using MediaBrowser.Model.Serialization;
+using MediaBrowser.Model.Services;
+using MediaBrowser.Model.Social;
+using MediaBrowser.Model.TextEncoding;
+using MediaBrowser.Model.Xml;
+using MediaBrowser.Server.Implementations.Archiving;
+using MediaBrowser.Server.Implementations.Reflection;
+using MediaBrowser.Server.Implementations.Serialization;
+using MediaBrowser.Server.Implementations.TextEncoding;
+using MediaBrowser.Server.Implementations.Updates;
+using MediaBrowser.Server.Implementations.Xml;
+using OpenSubtitlesHandler;
+using ServiceStack;
+using StringExtensions = MediaBrowser.Controller.Extensions.StringExtensions;
 
 namespace MediaBrowser.Server.Startup.Common
 {
     /// <summary>
     /// Class CompositionRoot
     /// </summary>
-    public class ApplicationHost : BaseApplicationHost<ServerApplicationPaths>, IServerApplicationHost
+    public class ApplicationHost : BaseApplicationHost<ServerApplicationPaths>, IServerApplicationHost, IDependencyContainer
     {
         /// <summary>
         /// Gets the server configuration manager.
@@ -209,6 +229,23 @@ namespace MediaBrowser.Server.Startup.Common
         private ICollectionManager CollectionManager { get; set; }
         private IMediaSourceManager MediaSourceManager { get; set; }
         private IPlaylistManager PlaylistManager { get; set; }
+
+        /// <summary>
+        /// Gets or sets the installation manager.
+        /// </summary>
+        /// <value>The installation manager.</value>
+        protected IInstallationManager InstallationManager { get; private set; }
+        /// <summary>
+        /// Gets the security manager.
+        /// </summary>
+        /// <value>The security manager.</value>
+        protected ISecurityManager SecurityManager { get; private set; }
+
+        /// <summary>
+        /// Gets or sets the zip client.
+        /// </summary>
+        /// <value>The zip client.</value>
+        protected IZipClient ZipClient { get; private set; }
 
         private readonly StartupOptions _startupOptions;
         private readonly string _releaseAssetFilename;
@@ -368,15 +405,41 @@ namespace MediaBrowser.Server.Startup.Common
             LogManager.RemoveConsoleOutput();
         }
 
+        protected override IMemoryStreamProvider CreateMemoryStreamProvider()
+        {
+            if (Environment.OSVersion.Platform == PlatformID.Win32NT)
+            {
+                return new RecyclableMemoryStreamProvider();
+            }
+
+            return new MemoryStreamProvider();
+        }
+
+        protected override ISystemEvents CreateSystemEvents()
+        {
+            return new SystemEvents(LogManager.GetLogger("SystemEvents"));
+        }
+
         protected override IJsonSerializer CreateJsonSerializer()
         {
-            var result = base.CreateJsonSerializer();
+            try
+            {
+                // https://github.com/ServiceStack/ServiceStack/blob/master/tests/ServiceStack.WebHost.IntegrationTests/Web.config#L4
+                Licensing.RegisterLicense("1001-e1JlZjoxMDAxLE5hbWU6VGVzdCBCdXNpbmVzcyxUeXBlOkJ1c2luZXNzLEhhc2g6UHVNTVRPclhvT2ZIbjQ5MG5LZE1mUTd5RUMzQnBucTFEbTE3TDczVEF4QUNMT1FhNXJMOWkzVjFGL2ZkVTE3Q2pDNENqTkQyUktRWmhvUVBhYTBiekJGUUZ3ZE5aZHFDYm9hL3lydGlwUHI5K1JsaTBYbzNsUC85cjVJNHE5QVhldDN6QkE4aTlvdldrdTgyTk1relY2eis2dFFqTThYN2lmc0JveHgycFdjPSxFeHBpcnk6MjAxMy0wMS0wMX0=");
+            }
+            catch
+            {
+                // Failing under mono
+            }
+
+            var result = new JsonSerializer(FileSystemManager, LogManager.GetLogger("JsonSerializer"));
 
             ServiceStack.Text.JsConfig<Movie>.ExcludePropertyNames = new[] { "ShortOverview" };
             ServiceStack.Text.JsConfig<Movie>.ExcludePropertyNames = new[] { "Taglines" };
             ServiceStack.Text.JsConfig<Movie>.ExcludePropertyNames = new[] { "Keywords" };
             ServiceStack.Text.JsConfig<Trailer>.ExcludePropertyNames = new[] { "ShortOverview" };
             ServiceStack.Text.JsConfig<Series>.ExcludePropertyNames = new[] { "ShortOverview" };
+            ServiceStack.Text.JsConfig<Person>.ExcludePropertyNames = new[] { "PlaceOfBirth" };
 
             ServiceStack.Text.JsConfig<LiveTvProgram>.ExcludePropertyNames = new[] { "ProviderIds" };
             ServiceStack.Text.JsConfig<LiveTvChannel>.ExcludePropertyNames = new[] { "ProviderIds" };
@@ -448,6 +511,111 @@ namespace MediaBrowser.Server.Startup.Common
             ServiceStack.Text.JsConfig<Channel>.ExcludePropertyNames = new[] { "ImageInfos" };
             ServiceStack.Text.JsConfig<AggregateFolder>.ExcludePropertyNames = new[] { "ImageInfos" };
 
+            ServiceStack.Text.JsConfig<LiveTvProgram>.ExcludePropertyNames = new[] { "ProductionLocations" };
+            ServiceStack.Text.JsConfig<LiveTvChannel>.ExcludePropertyNames = new[] { "ProductionLocations" };
+            ServiceStack.Text.JsConfig<LiveTvVideoRecording>.ExcludePropertyNames = new[] { "ProductionLocations" };
+            ServiceStack.Text.JsConfig<LiveTvAudioRecording>.ExcludePropertyNames = new[] { "ProductionLocations" };
+            ServiceStack.Text.JsConfig<Series>.ExcludePropertyNames = new[] { "ProductionLocations" };
+            ServiceStack.Text.JsConfig<Audio>.ExcludePropertyNames = new[] { "ProductionLocations" };
+            ServiceStack.Text.JsConfig<MusicAlbum>.ExcludePropertyNames = new[] { "ProductionLocations" };
+            ServiceStack.Text.JsConfig<MusicArtist>.ExcludePropertyNames = new[] { "ProductionLocations" };
+            ServiceStack.Text.JsConfig<MusicGenre>.ExcludePropertyNames = new[] { "ProductionLocations" };
+            ServiceStack.Text.JsConfig<MusicVideo>.ExcludePropertyNames = new[] { "ProductionLocations" };
+            ServiceStack.Text.JsConfig<Movie>.ExcludePropertyNames = new[] { "ProductionLocations" };
+            ServiceStack.Text.JsConfig<Playlist>.ExcludePropertyNames = new[] { "ProductionLocations" };
+            ServiceStack.Text.JsConfig<AudioPodcast>.ExcludePropertyNames = new[] { "ProductionLocations" };
+            ServiceStack.Text.JsConfig<Trailer>.ExcludePropertyNames = new[] { "ProductionLocations" };
+            ServiceStack.Text.JsConfig<BoxSet>.ExcludePropertyNames = new[] { "ProductionLocations" };
+            ServiceStack.Text.JsConfig<Episode>.ExcludePropertyNames = new[] { "ProductionLocations" };
+            ServiceStack.Text.JsConfig<Season>.ExcludePropertyNames = new[] { "ProductionLocations" };
+            ServiceStack.Text.JsConfig<Book>.ExcludePropertyNames = new[] { "ProductionLocations" };
+            ServiceStack.Text.JsConfig<CollectionFolder>.ExcludePropertyNames = new[] { "ProductionLocations" };
+            ServiceStack.Text.JsConfig<Folder>.ExcludePropertyNames = new[] { "ProductionLocations" };
+            ServiceStack.Text.JsConfig<Game>.ExcludePropertyNames = new[] { "ProductionLocations" };
+            ServiceStack.Text.JsConfig<GameGenre>.ExcludePropertyNames = new[] { "ProductionLocations" };
+            ServiceStack.Text.JsConfig<GameSystem>.ExcludePropertyNames = new[] { "ProductionLocations" };
+            ServiceStack.Text.JsConfig<Genre>.ExcludePropertyNames = new[] { "ProductionLocations" };
+            ServiceStack.Text.JsConfig<Person>.ExcludePropertyNames = new[] { "ProductionLocations" };
+            ServiceStack.Text.JsConfig<Photo>.ExcludePropertyNames = new[] { "ProductionLocations" };
+            ServiceStack.Text.JsConfig<PhotoAlbum>.ExcludePropertyNames = new[] { "ProductionLocations" };
+            ServiceStack.Text.JsConfig<Studio>.ExcludePropertyNames = new[] { "ProductionLocations" };
+            ServiceStack.Text.JsConfig<UserRootFolder>.ExcludePropertyNames = new[] { "ProductionLocations" };
+            ServiceStack.Text.JsConfig<UserView>.ExcludePropertyNames = new[] { "ProductionLocations" };
+            ServiceStack.Text.JsConfig<Video>.ExcludePropertyNames = new[] { "ProductionLocations" };
+            ServiceStack.Text.JsConfig<Year>.ExcludePropertyNames = new[] { "ProductionLocations" };
+            ServiceStack.Text.JsConfig<Channel>.ExcludePropertyNames = new[] { "ProductionLocations" };
+            ServiceStack.Text.JsConfig<AggregateFolder>.ExcludePropertyNames = new[] { "ProductionLocations" };
+
+            ServiceStack.Text.JsConfig<LiveTvProgram>.ExcludePropertyNames = new[] { "ThemeSongIds" };
+            ServiceStack.Text.JsConfig<LiveTvChannel>.ExcludePropertyNames = new[] { "ThemeSongIds" };
+            ServiceStack.Text.JsConfig<LiveTvVideoRecording>.ExcludePropertyNames = new[] { "ThemeSongIds" };
+            ServiceStack.Text.JsConfig<LiveTvAudioRecording>.ExcludePropertyNames = new[] { "ThemeSongIds" };
+            ServiceStack.Text.JsConfig<Series>.ExcludePropertyNames = new[] { "ThemeSongIds" };
+            ServiceStack.Text.JsConfig<Audio>.ExcludePropertyNames = new[] { "ThemeSongIds" };
+            ServiceStack.Text.JsConfig<MusicAlbum>.ExcludePropertyNames = new[] { "ThemeSongIds" };
+            ServiceStack.Text.JsConfig<MusicArtist>.ExcludePropertyNames = new[] { "ThemeSongIds" };
+            ServiceStack.Text.JsConfig<MusicGenre>.ExcludePropertyNames = new[] { "ThemeSongIds" };
+            ServiceStack.Text.JsConfig<MusicVideo>.ExcludePropertyNames = new[] { "ThemeSongIds" };
+            ServiceStack.Text.JsConfig<Movie>.ExcludePropertyNames = new[] { "ThemeSongIds" };
+            ServiceStack.Text.JsConfig<Playlist>.ExcludePropertyNames = new[] { "ThemeSongIds" };
+            ServiceStack.Text.JsConfig<AudioPodcast>.ExcludePropertyNames = new[] { "ThemeSongIds" };
+            ServiceStack.Text.JsConfig<Trailer>.ExcludePropertyNames = new[] { "ThemeSongIds" };
+            ServiceStack.Text.JsConfig<BoxSet>.ExcludePropertyNames = new[] { "ThemeSongIds" };
+            ServiceStack.Text.JsConfig<Episode>.ExcludePropertyNames = new[] { "ThemeSongIds" };
+            ServiceStack.Text.JsConfig<Season>.ExcludePropertyNames = new[] { "ThemeSongIds" };
+            ServiceStack.Text.JsConfig<Book>.ExcludePropertyNames = new[] { "ThemeSongIds" };
+            ServiceStack.Text.JsConfig<CollectionFolder>.ExcludePropertyNames = new[] { "ThemeSongIds" };
+            ServiceStack.Text.JsConfig<Folder>.ExcludePropertyNames = new[] { "ThemeSongIds" };
+            ServiceStack.Text.JsConfig<Game>.ExcludePropertyNames = new[] { "ThemeSongIds" };
+            ServiceStack.Text.JsConfig<GameGenre>.ExcludePropertyNames = new[] { "ThemeSongIds" };
+            ServiceStack.Text.JsConfig<GameSystem>.ExcludePropertyNames = new[] { "ThemeSongIds" };
+            ServiceStack.Text.JsConfig<Genre>.ExcludePropertyNames = new[] { "ThemeSongIds" };
+            ServiceStack.Text.JsConfig<Person>.ExcludePropertyNames = new[] { "ThemeSongIds" };
+            ServiceStack.Text.JsConfig<Photo>.ExcludePropertyNames = new[] { "ThemeSongIds" };
+            ServiceStack.Text.JsConfig<PhotoAlbum>.ExcludePropertyNames = new[] { "ThemeSongIds" };
+            ServiceStack.Text.JsConfig<Studio>.ExcludePropertyNames = new[] { "ThemeSongIds" };
+            ServiceStack.Text.JsConfig<UserRootFolder>.ExcludePropertyNames = new[] { "ThemeSongIds" };
+            ServiceStack.Text.JsConfig<UserView>.ExcludePropertyNames = new[] { "ThemeSongIds" };
+            ServiceStack.Text.JsConfig<Video>.ExcludePropertyNames = new[] { "ThemeSongIds" };
+            ServiceStack.Text.JsConfig<Year>.ExcludePropertyNames = new[] { "ThemeSongIds" };
+            ServiceStack.Text.JsConfig<Channel>.ExcludePropertyNames = new[] { "ThemeSongIds" };
+            ServiceStack.Text.JsConfig<AggregateFolder>.ExcludePropertyNames = new[] { "ThemeSongIds" };
+
+            ServiceStack.Text.JsConfig<LiveTvProgram>.ExcludePropertyNames = new[] { "ThemeVideoIds" };
+            ServiceStack.Text.JsConfig<LiveTvChannel>.ExcludePropertyNames = new[] { "ThemeVideoIds" };
+            ServiceStack.Text.JsConfig<LiveTvVideoRecording>.ExcludePropertyNames = new[] { "ThemeVideoIds" };
+            ServiceStack.Text.JsConfig<LiveTvAudioRecording>.ExcludePropertyNames = new[] { "ThemeVideoIds" };
+            ServiceStack.Text.JsConfig<Series>.ExcludePropertyNames = new[] { "ThemeVideoIds" };
+            ServiceStack.Text.JsConfig<Audio>.ExcludePropertyNames = new[] { "ThemeVideoIds" };
+            ServiceStack.Text.JsConfig<MusicAlbum>.ExcludePropertyNames = new[] { "ThemeVideoIds" };
+            ServiceStack.Text.JsConfig<MusicArtist>.ExcludePropertyNames = new[] { "ThemeVideoIds" };
+            ServiceStack.Text.JsConfig<MusicGenre>.ExcludePropertyNames = new[] { "ThemeVideoIds" };
+            ServiceStack.Text.JsConfig<MusicVideo>.ExcludePropertyNames = new[] { "ThemeVideoIds" };
+            ServiceStack.Text.JsConfig<Movie>.ExcludePropertyNames = new[] { "ThemeVideoIds" };
+            ServiceStack.Text.JsConfig<Playlist>.ExcludePropertyNames = new[] { "ThemeVideoIds" };
+            ServiceStack.Text.JsConfig<AudioPodcast>.ExcludePropertyNames = new[] { "ThemeVideoIds" };
+            ServiceStack.Text.JsConfig<Trailer>.ExcludePropertyNames = new[] { "ThemeVideoIds" };
+            ServiceStack.Text.JsConfig<BoxSet>.ExcludePropertyNames = new[] { "ThemeVideoIds" };
+            ServiceStack.Text.JsConfig<Episode>.ExcludePropertyNames = new[] { "ThemeVideoIds" };
+            ServiceStack.Text.JsConfig<Season>.ExcludePropertyNames = new[] { "ThemeVideoIds" };
+            ServiceStack.Text.JsConfig<Book>.ExcludePropertyNames = new[] { "ThemeVideoIds" };
+            ServiceStack.Text.JsConfig<CollectionFolder>.ExcludePropertyNames = new[] { "ThemeVideoIds" };
+            ServiceStack.Text.JsConfig<Folder>.ExcludePropertyNames = new[] { "ThemeVideoIds" };
+            ServiceStack.Text.JsConfig<Game>.ExcludePropertyNames = new[] { "ThemeVideoIds" };
+            ServiceStack.Text.JsConfig<GameGenre>.ExcludePropertyNames = new[] { "ThemeVideoIds" };
+            ServiceStack.Text.JsConfig<GameSystem>.ExcludePropertyNames = new[] { "ThemeVideoIds" };
+            ServiceStack.Text.JsConfig<Genre>.ExcludePropertyNames = new[] { "ThemeVideoIds" };
+            ServiceStack.Text.JsConfig<Person>.ExcludePropertyNames = new[] { "ThemeVideoIds" };
+            ServiceStack.Text.JsConfig<Photo>.ExcludePropertyNames = new[] { "ThemeVideoIds" };
+            ServiceStack.Text.JsConfig<PhotoAlbum>.ExcludePropertyNames = new[] { "ThemeVideoIds" };
+            ServiceStack.Text.JsConfig<Studio>.ExcludePropertyNames = new[] { "ThemeVideoIds" };
+            ServiceStack.Text.JsConfig<UserRootFolder>.ExcludePropertyNames = new[] { "ThemeVideoIds" };
+            ServiceStack.Text.JsConfig<UserView>.ExcludePropertyNames = new[] { "ThemeVideoIds" };
+            ServiceStack.Text.JsConfig<Video>.ExcludePropertyNames = new[] { "ThemeVideoIds" };
+            ServiceStack.Text.JsConfig<Year>.ExcludePropertyNames = new[] { "ThemeVideoIds" };
+            ServiceStack.Text.JsConfig<Channel>.ExcludePropertyNames = new[] { "ThemeVideoIds" };
+            ServiceStack.Text.JsConfig<AggregateFolder>.ExcludePropertyNames = new[] { "ThemeVideoIds" };
+
             return result;
         }
 
@@ -483,7 +651,6 @@ namespace MediaBrowser.Server.Startup.Common
         {
             var migrations = new List<IVersionMigration>
             {
-                new MovieDbEpisodeProviderMigration(ServerConfigurationManager),
                 new DbMigration(ServerConfigurationManager, TaskManager)
             };
 
@@ -507,6 +674,15 @@ namespace MediaBrowser.Server.Startup.Common
         {
             await base.RegisterResources(progress).ConfigureAwait(false);
 
+            SecurityManager = new PluginSecurityManager(this, HttpClient, JsonSerializer, ApplicationPaths, LogManager, FileSystemManager);
+            RegisterSingleInstance(SecurityManager);
+
+            InstallationManager = new InstallationManager(LogManager.GetLogger("InstallationManager"), this, ApplicationPaths, HttpClient, JsonSerializer, SecurityManager, ConfigurationManager, FileSystemManager);
+            RegisterSingleInstance(InstallationManager);
+
+            ZipClient = new ZipClient(FileSystemManager);
+            RegisterSingleInstance(ZipClient);
+
             RegisterSingleInstance<IHttpResultFactory>(new HttpResultFactory(LogManager, FileSystemManager, JsonSerializer));
 
             RegisterSingleInstance<IServerApplicationHost>(this);
@@ -515,9 +691,16 @@ namespace MediaBrowser.Server.Startup.Common
             RegisterSingleInstance(ServerConfigurationManager);
 
             LocalizationManager = new LocalizationManager(ServerConfigurationManager, FileSystemManager, JsonSerializer, LogManager.GetLogger("LocalizationManager"));
+            StringExtensions.LocalizationManager = LocalizationManager;
             RegisterSingleInstance(LocalizationManager);
 
-            RegisterSingleInstance<IBlurayExaminer>(() => new BdInfoExaminer());
+            IEncoding textEncoding = new TextEncoding();
+            RegisterSingleInstance(textEncoding);
+            Utilities.EncodingHelper = textEncoding;
+            RegisterSingleInstance<IBlurayExaminer>(() => new BdInfoExaminer(FileSystemManager, textEncoding));
+
+            RegisterSingleInstance<IXmlReaderSettingsFactory>(new XmlReaderSettingsFactory());
+            RegisterSingleInstance<IAssemblyInfo>(new AssemblyInfo());
 
             UserDataManager = new UserDataManager(LogManager, ServerConfigurationManager);
             RegisterSingleInstance(UserDataManager);
@@ -853,6 +1036,7 @@ namespace MediaBrowser.Server.Startup.Common
             CollectionFolder.XmlSerializer = XmlSerializer;
             BaseStreamingService.AppHost = this;
             BaseStreamingService.HttpClient = HttpClient;
+            Utilities.CryptographyProvider = CryptographyProvider;
         }
 
         /// <summary>
@@ -860,28 +1044,18 @@ namespace MediaBrowser.Server.Startup.Common
         /// </summary>
         protected override void FindParts()
         {
-            var isAuthorized = ServerConfigurationManager.Configuration.IsPortAuthorized;
-            if (isAuthorized)
-            {
-                try
-                {
-                    isAuthorized = !NativeApp.PortsRequireAuthorization(ConfigurationManager.CommonApplicationPaths.ApplicationPath);
-                }
-                catch
-                {
-
-                }
-            }
-            if (!isAuthorized)
+            if (!ServerConfigurationManager.Configuration.IsPortAuthorized)
             {
                 RegisterServerWithAdministratorAccess();
                 ServerConfigurationManager.Configuration.IsPortAuthorized = true;
                 ConfigurationManager.SaveConfiguration();
             }
 
+            RegisterModules();
+
             base.FindParts();
 
-            HttpServer.Init(GetExports<IRestfulService>(false));
+            HttpServer.Init(GetExports<IService>(false));
 
             ServerManager.AddWebSocketListeners(GetExports<IWebSocketListener>(false));
 
@@ -1124,6 +1298,9 @@ namespace MediaBrowser.Server.Startup.Common
             // Include composable parts in the Providers assembly 
             list.Add(typeof(ProviderUtils).Assembly);
 
+            // Include composable parts in the Photos assembly 
+            list.Add(typeof(PhotoProvider).Assembly);
+
             // Common implementations
             list.Add(typeof(TaskManager).Assembly);
 
@@ -1159,6 +1336,7 @@ namespace MediaBrowser.Server.Startup.Common
             try
             {
                 return Directory.EnumerateFiles(ApplicationPaths.PluginsPath, "*.dll", SearchOption.TopDirectoryOnly)
+                    .Where(EnablePlugin)
                     .Select(LoadAssembly)
                     .Where(a => a != null)
                     .ToList();
@@ -1167,6 +1345,19 @@ namespace MediaBrowser.Server.Startup.Common
             {
                 return new List<Assembly>();
             }
+        }
+
+        private bool EnablePlugin(string path)
+        {
+            var filename = Path.GetFileName(path);
+
+            var exclude = new[]
+            {
+                "mbplus.dll",
+                "mbintros.dll"
+            };
+
+            return !exclude.Contains(filename ?? string.Empty, StringComparer.OrdinalIgnoreCase);
         }
 
         /// <summary>
@@ -1212,7 +1403,7 @@ namespace MediaBrowser.Server.Startup.Common
                 EncoderLocationType = MediaEncoder.EncoderLocationType,
                 SystemArchitecture = NativeApp.Environment.SystemArchitecture,
                 SystemUpdateLevel = ConfigurationManager.CommonConfiguration.SystemUpdateLevel,
-                PackageName = _startupOptions.GetOption("package")
+                PackageName = _startupOptions.GetOption("-package")
             };
         }
 
@@ -1234,7 +1425,7 @@ namespace MediaBrowser.Server.Startup.Common
             try
             {
                 // Return the first matched address, if found, or the first known local address
-                var address = (await GetLocalIpAddresses().ConfigureAwait(false)).FirstOrDefault(i => !IPAddress.IsLoopback(i));
+                var address = (await GetLocalIpAddressesInternal().ConfigureAwait(false)).FirstOrDefault(i => !IPAddress.IsLoopback(i));
 
                 if (address != null)
                 {
@@ -1253,12 +1444,17 @@ namespace MediaBrowser.Server.Startup.Common
 
         public string GetLocalApiUrl(IPAddress ipAddress)
         {
-            if (ipAddress.AddressFamily == AddressFamily.InterNetworkV6)
+            return GetLocalApiUrl(ipAddress.ToString(), ipAddress.AddressFamily == AddressFamily.InterNetworkV6);
+        }
+
+        public string GetLocalApiUrl(string ipAddress, bool isIpv6)
+        {
+            if (isIpv6)
             {
                 return GetLocalApiUrl("[" + ipAddress + "]");
             }
 
-            return GetLocalApiUrl(ipAddress.ToString());
+            return GetLocalApiUrl(ipAddress);
         }
 
         public string GetLocalApiUrl(string host)
@@ -1268,9 +1464,24 @@ namespace MediaBrowser.Server.Startup.Common
                 HttpPort.ToString(CultureInfo.InvariantCulture));
         }
 
-        public async Task<List<IPAddress>> GetLocalIpAddresses()
+        public async Task<List<IpAddressInfo>> GetLocalIpAddresses()
         {
-            var addresses = NetworkManager.GetLocalIpAddresses().ToList();
+            var list = await GetLocalIpAddressesInternal().ConfigureAwait(false);
+
+            return list.Select(i => new IpAddressInfo
+            {
+                Address = i.ToString(),
+                IsIpv6 = i.AddressFamily == AddressFamily.InterNetworkV6
+
+            }).ToList();
+        }
+
+        private async Task<List<IPAddress>> GetLocalIpAddressesInternal()
+        {
+            // Need to do this until Common will compile with this method
+            var nativeNetworkManager = (BaseNetworkManager)NetworkManager;
+
+            var addresses = nativeNetworkManager.GetLocalIpAddresses().ToList();
             var list = new List<IPAddress>();
 
             foreach (var address in addresses)
@@ -1297,7 +1508,7 @@ namespace MediaBrowser.Server.Startup.Common
             var apiUrl = GetLocalApiUrl(address);
             apiUrl += "/system/ping";
 
-            if ((DateTime.UtcNow - _lastAddressCacheClear).TotalMinutes >= 10)
+            if ((DateTime.UtcNow - _lastAddressCacheClear).TotalMinutes >= 15)
             {
                 _lastAddressCacheClear = DateTime.UtcNow;
                 _validAddressResults.Clear();
@@ -1518,5 +1729,40 @@ namespace MediaBrowser.Server.Startup.Common
         {
             NativeApp.EnableLoopback(appName);
         }
+
+        private void RegisterModules()
+        {
+            var moduleTypes = GetExportTypes<IDependencyModule>();
+
+            foreach (var type in moduleTypes)
+            {
+                try
+                {
+                    var instance = Activator.CreateInstance(type) as IDependencyModule;
+                    if (instance != null)
+                        instance.BindDependencies(this);
+                }
+                catch (Exception ex)
+                {
+                    Logger.ErrorException("Error setting up dependency bindings for " + type.Name, ex);
+                }
+            }
+        }
+
+        void IDependencyContainer.RegisterSingleInstance<T>(T obj, bool manageLifetime)
+        {
+            RegisterSingleInstance(obj, manageLifetime);
+        }
+
+        void IDependencyContainer.RegisterSingleInstance<T>(Func<T> func)
+        {
+            RegisterSingleInstance(func);
+        }
+
+        void IDependencyContainer.Register(Type typeInterface, Type typeImplementation)
+        {
+            Container.Register(typeInterface, typeImplementation);
+        }
+
     }
 }

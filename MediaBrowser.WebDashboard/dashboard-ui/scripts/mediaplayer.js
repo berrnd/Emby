@@ -1,4 +1,5 @@
 define(['appSettings', 'userSettings', 'appStorage', 'datetime'], function (appSettings, userSettings, appStorage, datetime) {
+    'use strict';
 
     function mediaPlayer() {
 
@@ -157,8 +158,12 @@ define(['appSettings', 'userSettings', 'appStorage', 'datetime'], function (appS
 
             if (!AppInfo.isNativeApp) {
                 options.enableMkvProgressive = item.RunTimeTicks != null;
-                options.enableTsProgressive = item.RunTimeTicks != null;
-                options.enableHls = !browserInfo.firefox || item.RunTimeTicks == null;
+
+                if (item.RunTimeTicks == null) {
+                    options.enableHls = true;
+                }
+
+                options.enableMkvProgressive = false;
                 options.disableVideoAudioCodecs = disableVideoAudioCodecs;
             }
 
@@ -430,26 +435,26 @@ define(['appSettings', 'userSettings', 'appStorage', 'datetime'], function (appS
 
             Dashboard.showLoadingMsg();
 
-            Dashboard.getCurrentUser().then(function (user) {
+            return Dashboard.getCurrentUser().then(function (user) {
 
                 if (options.items) {
 
-                    translateItemsForPlayback(options.items, true).then(function (items) {
+                    return translateItemsForPlayback(options.items, true).then(function (items) {
 
-                        self.playWithIntros(items, options, user);
+                        return self.playWithIntros(items, options, user);
                     });
 
                 } else {
 
-                    self.getItemsForPlayback({
+                    return self.getItemsForPlayback({
 
                         Ids: options.ids.join(',')
 
                     }).then(function (result) {
 
-                        translateItemsForPlayback(result.Items, true).then(function (items) {
+                        return translateItemsForPlayback(result.Items, true).then(function (items) {
 
-                            self.playWithIntros(items, options, user);
+                            return self.playWithIntros(items, options, user);
                         });
 
                     });
@@ -485,6 +490,8 @@ define(['appSettings', 'userSettings', 'appStorage', 'datetime'], function (appS
                 });
 
             });
+            // Todo: rework above methods to use promises
+            return Promise.resolve();
         };
 
         function getOptimalMediaSource(mediaType, versions) {

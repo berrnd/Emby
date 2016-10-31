@@ -2,15 +2,15 @@
 using MediaBrowser.Model.Configuration;
 using MediaBrowser.Model.Entities;
 using System.Collections.Generic;
-using System.Runtime.Serialization;
 using MediaBrowser.Model.Providers;
+using MediaBrowser.Model.Serialization;
 
 namespace MediaBrowser.Controller.Entities
 {
     /// <summary>
     /// Class Trailer
     /// </summary>
-    public class Trailer : Video, IHasCriticRating, IHasBudget, IHasMetascore, IHasOriginalTitle, IHasLookupInfo<TrailerInfo>
+    public class Trailer : Video, IHasBudget, IHasMetascore, IHasOriginalTitle, IHasLookupInfo<TrailerInfo>
     {
         public Trailer()
         {

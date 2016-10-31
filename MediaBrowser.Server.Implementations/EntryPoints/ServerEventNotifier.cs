@@ -1,5 +1,4 @@
 ﻿using MediaBrowser.Common.Plugins;
-using MediaBrowser.Common.ScheduledTasks;
 using MediaBrowser.Common.Updates;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Entities;
@@ -13,6 +12,7 @@ using MediaBrowser.Model.Sync;
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using MediaBrowser.Model.Tasks;
 
 namespace MediaBrowser.Server.Implementations.EntryPoints
 {

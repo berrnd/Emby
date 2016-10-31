@@ -1,6 +1,6 @@
 ﻿using MediaBrowser.Model.Drawing;
 using System.Linq;
-using System.Runtime.Serialization;
+using MediaBrowser.Model.Serialization;
 
 namespace MediaBrowser.Controller.Entities
 {
@@ -29,13 +29,13 @@ namespace MediaBrowser.Controller.Entities
         {
             get
             {
-                return Album;
+                return AlbumEntity;
             }
         }
 
 
         [IgnoreDataMember]
-        public PhotoAlbum Album
+        public PhotoAlbum AlbumEntity
         {
             get
             {

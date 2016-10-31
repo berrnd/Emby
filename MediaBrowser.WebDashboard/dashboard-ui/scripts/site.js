@@ -1,4 +1,5 @@
 ﻿function getWindowLocationSearch(win) {
+    'use strict';
 
     var search = (win || window).location.search;
 
@@ -14,6 +15,8 @@
 }
 
 function getParameterByName(name, url) {
+    'use strict';
+
     name = name.replace(/[\[]/, "\\\[").replace(/[\]]/, "\\\]");
     var regexS = "[\\?&]" + name + "=([^&#]*)";
     var regex = new RegExp(regexS, "i");
@@ -703,6 +706,14 @@ var Dashboard = {
                         Method: 'External'
                     });
                     profile.SubtitleProfiles.push({
+                        Format: 'ssa',
+                        Method: 'External'
+                    });
+                    profile.SubtitleProfiles.push({
+                        Format: 'ass',
+                        Method: 'External'
+                    });
+                    profile.SubtitleProfiles.push({
                         Format: 'srt',
                         Method: 'Embed'
                     });
@@ -713,9 +724,21 @@ var Dashboard = {
                     profile.SubtitleProfiles.push({
                         Format: 'ass',
                         Method: 'Embed'
-                    });
+                    }); 
                     profile.SubtitleProfiles.push({
                         Format: 'ssa',
+                        Method: 'Embed'
+                    });
+                    profile.SubtitleProfiles.push({
+                        Format: 'dvb_teletext',
+                        Method: 'Embed'
+                    });
+                    profile.SubtitleProfiles.push({
+                        Format: 'dvb_subtitle',
+                        Method: 'Embed'
+                    });
+                    profile.SubtitleProfiles.push({
+                        Format: 'dvbsub',
                         Method: 'Embed'
                     });
                     profile.SubtitleProfiles.push({
@@ -755,18 +778,6 @@ var Dashboard = {
                                 Condition: 'NotEqual',
                                 Property: 'CodecTag',
                                 Value: 'xvid'
-                            }
-                        ]
-                    });
-
-                    profile.CodecProfiles.push({
-                        Type: 'VideoAudio',
-                        Codec: 'aac,mp3',
-                        Conditions: [
-                            {
-                                Condition: 'LessThanEqual',
-                                Property: 'AudioChannels',
-                                Value: '6'
                             }
                         ]
                     });
@@ -883,6 +894,7 @@ var Dashboard = {
 var AppInfo = {};
 
 (function () {
+    'use strict';
 
     function setAppInfo() {
 
@@ -1023,7 +1035,7 @@ var AppInfo = {};
                         var capabilities = Dashboard.capabilities();
                         capabilities.DeviceProfile = deviceProfile;
 
-                        connectionManager = new MediaBrowser.ConnectionManager(credentialProviderInstance, appInfo.appName, appInfo.appVersion, appInfo.deviceName, appInfo.deviceId, capabilities, window.devicePixelRatio);
+                        var connectionManager = new MediaBrowser.ConnectionManager(credentialProviderInstance, appInfo.appName, appInfo.appVersion, appInfo.deviceName, appInfo.deviceId, capabilities, window.devicePixelRatio);
 
                         defineConnectionManager(connectionManager);
                         bindConnectionManagerEvents(connectionManager, events, userSettings);
@@ -1119,7 +1131,7 @@ var AppInfo = {};
         var headroom = new Headroom([], {
             // or scroll tolerance per direction
             tolerance: {
-                down: 20,
+                down: 0,
                 up: 0
             },
             classes: {
@@ -1155,7 +1167,7 @@ var AppInfo = {};
 
         var paths = {
             velocity: bowerPath + "/velocity/velocity.min",
-            vibrant: bowerPath + "/vibrant/dist/vibrant.min",
+            vibrant: bowerPath + "/vibrant/dist/vibrant",
             ironCardList: 'components/ironcardlist/ironcardlist',
             scrollThreshold: 'components/scrollthreshold',
             playlisteditor: 'components/playlisteditor/playlisteditor',
@@ -1185,7 +1197,6 @@ var AppInfo = {};
             globalize: embyWebComponentsBowerPath + "/globalize",
             itemHelper: embyWebComponentsBowerPath + '/itemhelper',
             itemShortcuts: embyWebComponentsBowerPath + "/shortcuts",
-            imageLoader: embyWebComponentsBowerPath + "/images/imagehelper",
             serverNotifications: embyWebComponentsBowerPath + '/servernotifications',
             webAnimations: bowerPath + '/web-animations-js/web-animations-next-lite.min'
         };
@@ -1203,16 +1214,15 @@ var AppInfo = {};
         if (Dashboard.isRunningInCordova()) {
             paths.sharingMenu = "cordova/sharingwidget";
             paths.wakeonlan = "cordova/wakeonlan";
-            paths.actionsheet = "cordova/actionsheet";
         } else {
             paths.wakeonlan = apiClientBowerPath + "/wakeonlan";
 
             define("sharingMenu", [embyWebComponentsBowerPath + "/sharing/sharingmenu"], returnFirstDependency);
-            define("actionsheet", ["webActionSheet"], returnFirstDependency);
         }
 
         define("libjass", [bowerPath + "/libjass/libjass.min", "css!" + bowerPath + "/libjass/libjass"], returnFirstDependency);
 
+        define("imageLoader", [embyWebComponentsBowerPath + "/images/imagehelper"], returnFirstDependency);
         define("syncJobList", ["components/syncjoblist/syncjoblist"], returnFirstDependency);
         define("appfooter", ["components/appfooter/appfooter"], returnFirstDependency);
         define("dockedtabs", ["components/dockedtabs/dockedtabs"], returnFirstDependency);
@@ -1361,17 +1371,14 @@ var AppInfo = {};
         define("formDialogStyle", ['css!' + embyWebComponentsBowerPath + "/formdialog"], returnFirstDependency);
         define("indicators", [embyWebComponentsBowerPath + "/indicators/indicators"], returnFirstDependency);
 
-        if (Dashboard.isRunningInCordova()) {
-            define('registrationservices', ['cordova/registrationservices'], returnFirstDependency);
-
-        } else {
-            define('registrationservices', ['scripts/registrationservices'], returnFirstDependency);
-        }
+        define("registrationServices", [embyWebComponentsBowerPath + "/registrationservices/registrationservices"], returnFirstDependency);
 
         if (Dashboard.isRunningInCordova()) {
+            define("iapManager", ["cordova/iap"], returnFirstDependency);
             define("localassetmanager", ["cordova/localassetmanager"], returnFirstDependency);
             define("fileupload", ["cordova/fileupload"], returnFirstDependency);
         } else {
+            define("iapManager", ["components/iap"], returnFirstDependency);
             define("localassetmanager", [apiClientBowerPath + "/localassetmanager"], returnFirstDependency);
             define("fileupload", [apiClientBowerPath + "/fileupload"], returnFirstDependency);
         }
@@ -1422,9 +1429,7 @@ var AppInfo = {};
         });
 
         // alias
-        define("historyManager", [], function () {
-            return Emby.Page;
-        });
+        define("historyManager", ['embyRouter'], returnFirstDependency);
 
         define("headroom-window", ['headroom'], createWindowHeadroom);
         define("hammer-main", ['hammer'], createMainContentHammer);
@@ -1444,11 +1449,11 @@ var AppInfo = {};
                     if (options.fullscreen === false) {
                         // theme backdrops - not supported
                         if (!options.items || options.items[0].MediaType == 'Video') {
-                            return;
+                            return Promise.reject();
                         }
                     }
 
-                    MediaController.play(options);
+                    return MediaController.play(options);
                 },
                 queue: function (options) {
 
@@ -1620,6 +1625,12 @@ var AppInfo = {};
         var bowerPath = getBowerPath();
 
         var embyWebComponentsBowerPath = bowerPath + '/emby-webcomponents';
+
+        if (Dashboard.isRunningInCordova()) {
+            define("actionsheet", ["cordova/actionsheet"], returnFirstDependency);
+        } else {
+            define("actionsheet", ["webActionSheet"], returnFirstDependency);
+        }
 
         if (!('registerElement' in document)) {
             if (browser.msie) {
@@ -2590,13 +2601,6 @@ var AppInfo = {};
         });
 
         defineRoute({
-            path: '/wizardservice.html',
-            dependencies: ['dashboardcss'],
-            autoFocus: false,
-            anonymous: true
-        });
-
-        defineRoute({
             path: '/wizardsettings.html',
             dependencies: ['dashboardcss'],
             autoFocus: false,
@@ -2662,7 +2666,7 @@ var AppInfo = {};
         loadTheme();
 
         if (Dashboard.isRunningInCordova()) {
-            deps.push('registrationservices');
+            deps.push('registrationServices');
 
             if (browserInfo.android) {
                 deps.push('cordova/android/androidcredentials');
@@ -2681,7 +2685,6 @@ var AppInfo = {};
 
             window.Emby = {};
             window.Emby.Page = pageObjects;
-            window.Emby.TransparencyLevel = pageObjects.TransparencyLevel;
             defineCoreRoutes();
             Emby.Page.start({
                 click: true,
@@ -2811,6 +2814,7 @@ var AppInfo = {};
 })();
 
 function pageClassOn(eventName, className, fn) {
+    'use strict';
 
     document.addEventListener(eventName, function (e) {
 
@@ -2822,6 +2826,7 @@ function pageClassOn(eventName, className, fn) {
 }
 
 function pageIdOn(eventName, id, fn) {
+    'use strict';
 
     document.addEventListener(eventName, function (e) {
 
@@ -2833,6 +2838,7 @@ function pageIdOn(eventName, id, fn) {
 }
 
 pageClassOn('viewinit', "page", function () {
+    'use strict';
 
     var page = this;
 
@@ -2873,6 +2879,7 @@ pageClassOn('viewinit', "page", function () {
 });
 
 pageClassOn('viewshow', "page", function () {
+    'use strict';
 
     var page = this;
 

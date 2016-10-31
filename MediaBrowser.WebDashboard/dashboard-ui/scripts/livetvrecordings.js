@@ -1,4 +1,5 @@
-﻿define(['components/categorysyncbuttons', 'cardBuilder', 'scripts/livetvcomponents', 'emby-button', 'listViewStyle', 'emby-itemscontainer'], function (categorysyncbuttons, cardBuilder) {
+﻿define(['components/categorysyncbuttons', 'cardBuilder', 'apphost', 'scripts/livetvcomponents', 'emby-button', 'listViewStyle', 'emby-itemscontainer'], function (categorysyncbuttons, cardBuilder, appHost) {
+    'use strict';
 
     function getRecordingGroupHtml(group) {
 
@@ -76,6 +77,9 @@
             recordingItems.classList.add('vertical-wrap');
         }
 
+        var supportsImageAnalysis = appHost.supports('imageanalysis');
+        var cardLayout = appHost.preferVisualCards || supportsImageAnalysis;
+
         recordingItems.innerHTML = cardBuilder.getCardsHtml(Object.assign({
             items: recordings,
             shape: (enableScrollX() ? 'autooverflow' : 'auto'),
@@ -83,14 +87,20 @@
             showParentTitle: true,
             coverImage: true,
             lazy: true,
-            cardLayout: true,
-            vibrant: true,
+            cardLayout: cardLayout,
+            centerText: !cardLayout,
+            vibrant: supportsImageAnalysis,
             allowBottomPadding: !enableScrollX(),
-            preferThumb: 'auto'
+            preferThumb: 'auto',
+            overlayText: false
 
         }, cardOptions || {}));
 
         ImageLoader.lazyChildren(recordingItems);
+    }
+
+    function getBackdropShape() {
+        return enableScrollX() ? 'overflowBackdrop' : 'backdrop';
     }
 
     function renderActiveRecordings(context, promise) {
@@ -102,8 +112,17 @@
                 result.Items = [];
             }
 
-            renderTimers(context.querySelector('#activeRecordings'), result.Items, {
-                indexByDate: false
+            renderRecordings(context.querySelector('#activeRecordings'), result.Items, {
+                shape: getBackdropShape(),
+                showParentTitle: false,
+                showTitle: true,
+                showAirTime: true,
+                showAirEndTime: true,
+                showChannelName: true,
+                cardLayout: true,
+                vibrant: true,
+                preferThumb: true,
+                coverImage: true
             });
         });
     }
@@ -112,7 +131,9 @@
 
         promise.then(function (result) {
 
-            renderRecordings(context.querySelector('#latestRecordings'), result.Items);
+            renderRecordings(context.querySelector('#latestRecordings'), result.Items, {
+                shape: (enableScrollX() ? 'overflowBackdrop' : 'backdrop')
+            });
 
             Dashboard.hideLoadingMsg();
         });
@@ -162,29 +183,11 @@
         });
     }
 
-    function renderTimers(context, timers, options) {
-
-        LiveTvHelpers.getTimersHtml(timers, options).then(function (html) {
-
-            var elem = context;
-
-            if (html) {
-                elem.classList.remove('hide');
-            } else {
-                elem.classList.add('hide');
-            }
-
-            elem.querySelector('.recordingItems').innerHTML = html;
-
-            ImageLoader.lazyChildren(elem);
-        });
-    }
-
     function onMoreClick(e) {
 
         var type = this.getAttribute('data-type');
 
-        switch(type) {
+        switch (type) {
             case 'latest':
                 Dashboard.navigate('livetvitems.html?type=Recordings');
                 break;
@@ -217,6 +220,7 @@
         var moviesPromise;
         var seriesPromise;
         var latestPromise;
+        var lastFullRender = 0;
 
         categorysyncbuttons.init(tabContent);
 
@@ -229,10 +233,24 @@
             self.renderTab();
         });
 
+        function enableFullRender() {
+            return (new Date().getTime() - lastFullRender) > 300000;
+        }
+
         self.preRender = function () {
-            activeRecordingsPromise = ApiClient.getLiveTvTimers({
-                IsActive: true
+
+            activeRecordingsPromise = ApiClient.getLiveTvRecordings({
+
+                UserId: Dashboard.getCurrentUserId(),
+                IsInProgress: true,
+                Fields: 'CanDelete,PrimaryImageAspectRatio,BasicSyncInfo',
+                EnableTotalRecordCount: false,
+                EnableImageTypes: "Primary,Thumb,Backdrop"
             });
+
+            if (!enableFullRender()) {
+                return;
+            }
 
             latestPromise = ApiClient.getLiveTvRecordings({
 
@@ -285,23 +303,29 @@
         };
 
         self.renderTab = function () {
-            Dashboard.showLoadingMsg();
 
             renderActiveRecordings(tabContent, activeRecordingsPromise);
-            renderLatestRecordings(tabContent, latestPromise);
-            renderMovieRecordings(tabContent, moviesPromise);
-            renderEpisodeRecordings(tabContent, seriesPromise);
-            renderSportsRecordings(tabContent, sportsPromise);
-            renderKidsRecordings(tabContent, kidsPromise);
 
-            ApiClient.getLiveTvRecordingGroups({
+            if (enableFullRender()) {
+                Dashboard.showLoadingMsg();
 
-                userId: Dashboard.getCurrentUserId()
+                renderLatestRecordings(tabContent, latestPromise);
+                renderMovieRecordings(tabContent, moviesPromise);
+                renderEpisodeRecordings(tabContent, seriesPromise);
+                renderSportsRecordings(tabContent, sportsPromise);
+                renderKidsRecordings(tabContent, kidsPromise);
 
-            }).then(function (result) {
+                ApiClient.getLiveTvRecordingGroups({
 
-                renderRecordingGroups(tabContent, result.Items);
-            });
+                    userId: Dashboard.getCurrentUserId()
+
+                }).then(function (result) {
+
+                    renderRecordingGroups(tabContent, result.Items);
+                });
+
+                lastFullRender = new Date().getTime();
+            }
         };
     };
 

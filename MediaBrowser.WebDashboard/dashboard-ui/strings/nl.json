@@ -1,5 +1,5 @@
 {
-    "SynologyUpdateInstructions": "Please login to DSM and go to Package Center to update.",
+    "HeaderContinueWatching": "Continue Watching",
     "LabelExit": "Afsluiten",
     "LabelApiDocumentation": "Api documentatie",
     "LabelBrowseLibrary": "Bekijk bibliotheek",
@@ -619,7 +619,6 @@
     "NotificationOptionTaskFailed": "Mislukken van de geplande taak",
     "NotificationOptionInstallationFailed": "Mislukken van de installatie",
     "NotificationOptionNewLibraryContent": "Nieuwe content toegevoegd",
-    "NotificationOptionNewLibraryContentMultiple": "Nieuwe content toegevoegd (meerdere)",
     "NotificationOptionCameraImageUploaded": "Camera afbeelding ge\u00fcpload",
     "NotificationOptionUserLockedOut": "Gebruikersaccount vergrendeld",
     "HeaderSendNotificationHelp": "Notificaties worden in uw Emby inbox afgeleverd. Additionele opties kunnen vanuit de Services tab ge\u00efnstalleerd worden.",
@@ -1802,7 +1801,7 @@
     "MediaInfoLongitude": "Lengte graad",
     "MediaInfoShutterSpeed": "Sluitertijd",
     "MediaInfoSoftware": "Software",
-    "HeaderIfYouLikeCheckTheseOut": "Als u {0} leuk vindt, probeer deze dan ook eens...",
+    "HeaderMoreLikeThis": "More Like This",
     "HeaderMovies": "Films",
     "HeaderAlbums": "Albums",
     "HeaderGames": "Games",
@@ -2143,5 +2142,6 @@
     "LabelOptionalNetworkPathHelp": "If this folder is shared on your network, supplying the network share path can allow Emby apps on other devices to access media files directly.",
     "ButtonPlayExternalPlayer": "Speel in externe speler",
     "WillRecord": "Will record",
-    "NotScheduledToRecord": "Not scheduled to record"
+    "NotScheduledToRecord": "Not scheduled to record",
+    "SynologyUpdateInstructions": "Please login to DSM and go to Package Center to update."
 }

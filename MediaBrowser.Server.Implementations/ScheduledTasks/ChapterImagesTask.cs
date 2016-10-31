@@ -1,5 +1,4 @@
 ﻿using MediaBrowser.Common.Configuration;
-using MediaBrowser.Common.ScheduledTasks;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.MediaEncoding;
@@ -11,8 +10,11 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using CommonIO;
+using MediaBrowser.Common.IO;
+using MediaBrowser.Controller.IO;
+using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Entities;
+using MediaBrowser.Model.Tasks;
 
 namespace MediaBrowser.Server.Implementations.ScheduledTasks
 {
@@ -62,20 +64,22 @@ namespace MediaBrowser.Server.Implementations.ScheduledTasks
         /// <summary>
         /// Creates the triggers that define when the task will run
         /// </summary>
-        /// <returns>IEnumerable{BaseTaskTrigger}.</returns>
-        public IEnumerable<ITaskTrigger> GetDefaultTriggers()
+        public IEnumerable<TaskTriggerInfo> GetDefaultTriggers()
         {
-            return new ITaskTrigger[]
+            return new[] { 
+            
+                new TaskTriggerInfo
                 {
-                    new DailyTrigger
-                    {
-                        TimeOfDay = TimeSpan.FromHours(1),
-                        TaskOptions = new TaskExecutionOptions
-                        {
-                            MaxRuntimeMs = Convert.ToInt32(TimeSpan.FromHours(4).TotalMilliseconds)
-                        }
-                    }
-                };
+                    Type = TaskTriggerInfo.TriggerDaily,
+                    TimeOfDayTicks = TimeSpan.FromHours(1).Ticks,
+                    MaxRuntimeMs = Convert.ToInt32(TimeSpan.FromHours(4).TotalMilliseconds)
+                }
+            };
+        }
+
+        public string Key
+        {
+            get { return "RefreshChapterImages"; }
         }
 
         /// <summary>

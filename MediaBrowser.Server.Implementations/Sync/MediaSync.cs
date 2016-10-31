@@ -17,8 +17,9 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using CommonIO;
-using Interfaces.IO;
+using MediaBrowser.Model.IO;
+using MediaBrowser.Common.IO;
+using MediaBrowser.Server.Implementations.IO;
 
 namespace MediaBrowser.Server.Implementations.Sync
 {
@@ -76,8 +77,8 @@ namespace MediaBrowser.Server.Implementations.Sync
             CancellationToken cancellationToken)
         {
             var localItems = await dataProvider.GetLocalItems(target, serverId).ConfigureAwait(false);
-            var remoteFiles = await provider.GetFiles(new FileQuery(), target, cancellationToken).ConfigureAwait(false);
-            var remoteIds = remoteFiles.Items.Select(i => i.Id).ToList();
+            var remoteFiles = await provider.GetFiles(target, cancellationToken).ConfigureAwait(false);
+            var remoteIds = remoteFiles.Items.Select(i => i.FullName).ToList();
 
             var jobItemIds = new List<string>();
 
@@ -346,7 +347,7 @@ namespace MediaBrowser.Server.Implementations.Sync
                 return await supportsDirectCopy.SendFile(inputPath, pathParts, target, progress, cancellationToken).ConfigureAwait(false);
             }
 
-            using (var fileStream = _fileSystem.GetFileStream(inputPath, FileMode.Open, FileAccess.Read, FileShare.Read, true))
+            using (var fileStream = _fileSystem.GetFileStream(inputPath, FileOpenMode.Open, FileAccessMode.Read, FileShareMode.Read, true))
             {
                 Stream stream = fileStream;
 
