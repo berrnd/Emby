@@ -1,5 +1,5 @@
 ﻿//myproduction-change-start
-using MediaBrowser.Common.ScheduledTasks;
+using MediaBrowser.Model.Tasks;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Model.Entities;
@@ -39,7 +39,12 @@ namespace MediaBrowser.Server.Implementations.Channels
             get { return "Library"; }
         }
 
-        public async Task Execute(System.Threading.CancellationToken cancellationToken, IProgress<double> progress)
+		public string Key
+		{
+			get { return "LibraryStatistics"; }
+		}
+
+		public async Task Execute(System.Threading.CancellationToken cancellationToken, IProgress<double> progress)
         {
             if (_libraryManager.Statistics == null || _libraryManager.Statistics.NeedsRecalculation)
             {
@@ -105,12 +110,12 @@ namespace MediaBrowser.Server.Implementations.Channels
             }
         }
 
-        public IEnumerable<ITaskTrigger> GetDefaultTriggers()
+        public IEnumerable<TaskTriggerInfo> GetDefaultTriggers()
         {
-            return new ITaskTrigger[]
+            return new TaskTriggerInfo[]
             {
-                new IntervalTrigger { Interval = TimeSpan.FromHours(1) },
-                new StartupTrigger { DelayMs = 300000 }
+                new TaskTriggerInfo { Type = TaskTriggerInfo.TriggerInterval, IntervalTicks = TimeSpan.FromHours(1).Ticks },
+                new TaskTriggerInfo { Type = TaskTriggerInfo.TriggerStartup }
             };
         }
 
@@ -123,6 +128,11 @@ namespace MediaBrowser.Server.Implementations.Channels
         {
             get { return true; }
         }
-    }
+
+		public bool IsLogged
+		{
+			get { return true; }
+		}
+	}
 }
 //myproduction-change-end
