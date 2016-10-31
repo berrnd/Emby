@@ -1,32 +1,55 @@
 ﻿define(['libraryBrowser', 'emby-tabs', 'emby-button'], function (libraryBrowser) {
-    'use strict';
 
     var defaultFirstSection = 'smalllibrarytiles';
 
     function getDefaultSection(index) {
 
+		//myproduction-change-start
+		//Changed default sections
+        if (AppInfo.isNativeApp) {
+
+            switch (index) {
+
+                case 0:
+                    return 'librarybuttons';
+                case 1:
+                    return 'latestmedia';
+                case 2:
+                    return 'none';
+                case 3:
+                    return 'none';
+                case 4:
+                    return 'none';
+                case 5:
+                    return 'none';
+                default:
+                    return '';
+            }
+        }
         switch (index) {
 
             case 0:
-                return defaultFirstSection;
+                return 'librarybuttons';
             case 1:
-                return 'resume';
-            case 2:
-                return 'nextup';
-            case 3:
                 return 'latestmedia';
-            case 4:
-                return 'latesttvrecordings';
+            case 2:
+                return 'none';
+            case 3:
+                return 'none';
             default:
                 return '';
         }
+		//myproduction-change-end
     }
 
     function loadSection(page, user, displayPreferences, index) {
 
         var userId = user.Id;
-
-        var section = displayPreferences.CustomPrefs['home' + index] || getDefaultSection(index);
+		
+		//myproduction-change-start
+		//Only use settings provided by getDefaultSection
+        var section = getDefaultSection(index);
+		//myproduction-change-end
 
         if (section == 'folders') {
             section = defaultFirstSection;
@@ -38,6 +61,12 @@
 
         if (section == 'latestmedia') {
             return Sections.loadRecentlyAdded(elem, user);
+        }
+        else if (section == 'latestmovies') {
+            return Sections.loadLatestMovies(elem, user);
+        }
+        else if (section == 'latestepisodes') {
+            return Sections.loadLatestEpisodes(elem, user);
         }
         else if (section == 'librarytiles') {
             return Sections.loadLibraryTiles(elem, user, 'backdrop', index, false, showLibraryTileNames);
@@ -80,7 +109,7 @@
     function loadSections(page, user, displayPreferences) {
 
         var i, length;
-        var sectionCount = 5;
+        var sectionCount = 6;
 
         var elem = page.querySelector('.sections');
 
@@ -193,15 +222,6 @@
             Dashboard.showLoadingMsg();
 
             getDisplayPreferences('home', userId).then(function (result) {
-				
-				//myproduction-change-start
-				//Overwrite some values to ensure some default things
-				result.CustomPrefs.homePageTour = 14;
-				result.CustomPrefs.home0 = "librarybuttons";
-				result.CustomPrefs.home1 = "latestmovies";
-				result.CustomPrefs.home2 = "latestepisodes";
-				result.CustomPrefs.home3 = "none";
-				//myproduction-change-end
 
                 Dashboard.getCurrentUser().then(function (user) {
 

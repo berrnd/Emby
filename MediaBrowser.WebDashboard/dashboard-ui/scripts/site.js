@@ -1088,16 +1088,19 @@ var AppInfo = {};
         var date = new Date();
         var month = date.getMonth();
         var day = date.getDate();
-
-        if (month == 9 && day >= 30) {
-            require(['themes/halloween/theme']);
-            return;
-        }
-
-        if (month == 11 && day >= 21 && day <= 26) {
-            require(['themes/holiday/theme']);
-            return;
-        }
+		
+		//myproduction-change-start
+		//Disabled season specific themes
+        //if (month == 9 && day >= 30) {
+        //    require(['themes/halloween/theme']);
+        //    return;
+        //}
+		//
+        //if (month == 11 && day >= 21 && day <= 26) {
+        //    require(['themes/holiday/theme']);
+        //    return;
+        //}
+		//myproduction-change-end
     }
 
     function returnFirstDependency(obj) {

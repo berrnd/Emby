@@ -113,7 +113,7 @@
                       html += '<h1 class="listHeader">Medien</h1>';
                   //}
             //myproduction-change-end
-            html += '<div style="display:flex;flex-wrap:wrap;">';
+            html += '<div style="display:flex;flex-wrap:wrap;padding-left: 2vw;">';
             html += getLibraryButtonsHtml(items);
             html += '</div>';
 
