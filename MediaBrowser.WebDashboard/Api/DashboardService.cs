@@ -79,19 +79,19 @@ namespace MediaBrowser.WebDashboard.Api
     /// <summary>
     /// Class DashboardService
     /// </summary>
-    public class DashboardService : IService, IHasResultFactory
+    public class DashboardService : IService, IRequiresRequest
     {
         /// <summary>
         /// Gets or sets the logger.
         /// </summary>
         /// <value>The logger.</value>
-        public ILogger Logger { get; set; }
+        private readonly ILogger _logger;
 
         /// <summary>
         /// Gets or sets the HTTP result factory.
         /// </summary>
         /// <value>The HTTP result factory.</value>
-        public IHttpResultFactory ResultFactory { get; set; }
+        private readonly IHttpResultFactory _resultFactory;
 
         /// <summary>
         /// Gets or sets the request context.
@@ -113,6 +113,7 @@ namespace MediaBrowser.WebDashboard.Api
         private readonly ILocalizationManager _localization;
         private readonly IJsonSerializer _jsonSerializer;
         private readonly IAssemblyInfo _assemblyInfo;
+        private readonly IMemoryStreamFactory _memoryStreamFactory;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="DashboardService" /> class.
@@ -120,7 +121,7 @@ namespace MediaBrowser.WebDashboard.Api
         /// <param name="appHost">The app host.</param>
         /// <param name="serverConfigurationManager">The server configuration manager.</param>
         /// <param name="fileSystem">The file system.</param>
-        public DashboardService(IServerApplicationHost appHost, IServerConfigurationManager serverConfigurationManager, IFileSystem fileSystem, ILocalizationManager localization, IJsonSerializer jsonSerializer, IAssemblyInfo assemblyInfo)
+        public DashboardService(IServerApplicationHost appHost, IServerConfigurationManager serverConfigurationManager, IFileSystem fileSystem, ILocalizationManager localization, IJsonSerializer jsonSerializer, IAssemblyInfo assemblyInfo, ILogger logger, IHttpResultFactory resultFactory, IMemoryStreamFactory memoryStreamFactory)
         {
             _appHost = appHost;
             _serverConfigurationManager = serverConfigurationManager;
@@ -128,6 +129,9 @@ namespace MediaBrowser.WebDashboard.Api
             _localization = localization;
             _jsonSerializer = jsonSerializer;
             _assemblyInfo = assemblyInfo;
+            _logger = logger;
+            _resultFactory = resultFactory;
+            _memoryStreamFactory = memoryStreamFactory;
         }
 
         /// <summary>
@@ -159,7 +163,7 @@ namespace MediaBrowser.WebDashboard.Api
 
             if (plugin != null && stream != null)
             {
-                return ResultFactory.GetStaticResult(Request, plugin.Version.ToString().GetMD5(), null, null, MimeTypes.GetMimeType("page.html"), () => GetPackageCreator().ModifyHtml("dummy.html", stream, null, _appHost.ApplicationVersion.ToString(), null, false));
+                return _resultFactory.GetStaticResult(Request, plugin.Version.ToString().GetMD5(), null, null, MimeTypes.GetMimeType("page.html"), () => GetPackageCreator().ModifyHtml("dummy.html", stream, null, _appHost.ApplicationVersion.ToString(), null));
             }
 
             throw new ResourceNotFoundException();
@@ -203,7 +207,7 @@ namespace MediaBrowser.WebDashboard.Api
                 }
                 catch (Exception ex)
                 {
-                    Logger.ErrorException("Error getting plugin information from {0}", ex, p.GetType().Name);
+                    _logger.ErrorException("Error getting plugin information from {0}", ex, p.GetType().Name);
                     return null;
                 }
             })
@@ -212,7 +216,7 @@ namespace MediaBrowser.WebDashboard.Api
 
             configPages.AddRange(_appHost.Plugins.SelectMany(GetConfigPages));
 
-            return ResultFactory.GetOptimizedResult(Request, configPages);
+            return _resultFactory.GetOptimizedResult(Request, configPages);
         }
 
         private IEnumerable<Tuple<PluginPageInfo, IPlugin>> GetPluginPages()
@@ -280,7 +284,7 @@ namespace MediaBrowser.WebDashboard.Api
                 !contentType.StartsWith("font/", StringComparison.OrdinalIgnoreCase))
             {
                 var stream = await GetResourceStream(path, localizationCulture).ConfigureAwait(false);
-                return ResultFactory.GetResult(stream, contentType);
+                return _resultFactory.GetResult(stream, contentType);
             }
 
             TimeSpan? cacheDuration = null;
@@ -292,9 +296,9 @@ namespace MediaBrowser.WebDashboard.Api
                 cacheDuration = TimeSpan.FromDays(365);
             }
 
-            var cacheKey = (_appHost.ApplicationVersion.ToString() + (localizationCulture ?? string.Empty) + path).GetMD5();
+            var cacheKey = (_appHost.ApplicationVersion + (localizationCulture ?? string.Empty) + path).GetMD5();
 
-            return await ResultFactory.GetStaticResult(Request, cacheKey, null, cacheDuration, contentType, () => GetResourceStream(path, localizationCulture)).ConfigureAwait(false);
+            return await _resultFactory.GetStaticResult(Request, cacheKey, null, cacheDuration, contentType, () => GetResourceStream(path, localizationCulture)).ConfigureAwait(false);
         }
 
         private string GetLocalizationCulture()
@@ -310,15 +314,13 @@ namespace MediaBrowser.WebDashboard.Api
         /// <returns>Task{Stream}.</returns>
         private Task<Stream> GetResourceStream(string path, string localizationCulture)
         {
-            var minify = _serverConfigurationManager.Configuration.EnableDashboardResourceMinification;
-
             return GetPackageCreator()
-                .GetResource(path, null, localizationCulture, _appHost.ApplicationVersion.ToString(), minify);
+                .GetResource(path, null, localizationCulture, _appHost.ApplicationVersion.ToString());
         }
 
         private PackageCreator GetPackageCreator()
         {
-            return new PackageCreator(_fileSystem, _localization, Logger, _serverConfigurationManager, _jsonSerializer);
+            return new PackageCreator(_fileSystem, _logger, _serverConfigurationManager, _memoryStreamFactory);
         }
 
         private List<string> GetDeployIgnoreExtensions()
@@ -505,7 +507,7 @@ namespace MediaBrowser.WebDashboard.Api
 
         private async Task DumpFile(string resourceVirtualPath, string destinationFilePath, string mode, string culture, string appVersion)
         {
-            using (var stream = await GetPackageCreator().GetResource(resourceVirtualPath, mode, culture, appVersion, false).ConfigureAwait(false))
+            using (var stream = await GetPackageCreator().GetResource(resourceVirtualPath, mode, culture, appVersion).ConfigureAwait(false))
             {
                 using (var fs = _fileSystem.GetFileStream(destinationFilePath, FileOpenMode.Create, FileAccessMode.Write, FileShareMode.Read))
                 {

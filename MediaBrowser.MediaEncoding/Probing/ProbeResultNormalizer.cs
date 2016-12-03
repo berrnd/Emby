@@ -23,9 +23,9 @@ namespace MediaBrowser.MediaEncoding.Probing
         private readonly CultureInfo _usCulture = new CultureInfo("en-US");
         private readonly ILogger _logger;
         private readonly IFileSystem _fileSystem;
-        private readonly IMemoryStreamProvider _memoryStreamProvider;
+        private readonly IMemoryStreamFactory _memoryStreamProvider;
 
-        public ProbeResultNormalizer(ILogger logger, IFileSystem fileSystem, IMemoryStreamProvider memoryStreamProvider)
+        public ProbeResultNormalizer(ILogger logger, IFileSystem fileSystem, IMemoryStreamFactory memoryStreamProvider)
         {
             _logger = logger;
             _fileSystem = fileSystem;
@@ -200,9 +200,10 @@ namespace MediaBrowser.MediaEncoding.Probing
                     using (var reader = XmlReader.Create(streamReader))
                     {
                         reader.MoveToContent();
+                        reader.Read();
 
                         // Loop through each element
-                        while (reader.Read())
+                        while (!reader.EOF)
                         {
                             if (reader.NodeType == XmlNodeType.Element)
                             {
@@ -219,6 +220,10 @@ namespace MediaBrowser.MediaEncoding.Probing
                                         break;
                                 }
                             }
+                            else
+                            {
+                                reader.Read();
+                            }
                         }
                     }
                 }
@@ -227,13 +232,14 @@ namespace MediaBrowser.MediaEncoding.Probing
 
         private void ReadFromDictNode(XmlReader reader, MediaInfo info)
         {
-            reader.MoveToContent();
-
             string currentKey = null;
             List<NameValuePair> pairs = new List<NameValuePair>();
 
+            reader.MoveToContent();
+            reader.Read();
+
             // Loop through each element
-            while (reader.Read())
+            while (!reader.EOF)
             {
                 if (reader.NodeType == XmlNodeType.Element)
                 {
@@ -272,17 +278,23 @@ namespace MediaBrowser.MediaEncoding.Probing
                             break;
                     }
                 }
+                else
+                {
+                    reader.Read();
+                }
             }
         }
 
         private List<NameValuePair> ReadValueArray(XmlReader reader)
         {
-            reader.MoveToContent();
 
             List<NameValuePair> pairs = new List<NameValuePair>();
 
+            reader.MoveToContent();
+            reader.Read();
+
             // Loop through each element
-            while (reader.Read())
+            while (!reader.EOF)
             {
                 if (reader.NodeType == XmlNodeType.Element)
                 {
@@ -302,6 +314,10 @@ namespace MediaBrowser.MediaEncoding.Probing
                             reader.Skip();
                             break;
                     }
+                }
+                else
+                {
+                    reader.Read();
                 }
             }
 
@@ -360,13 +376,14 @@ namespace MediaBrowser.MediaEncoding.Probing
 
         private NameValuePair GetNameValuePair(XmlReader reader)
         {
-            reader.MoveToContent();
-
             string name = null;
             string value = null;
 
+            reader.MoveToContent();
+            reader.Read();
+
             // Loop through each element
-            while (reader.Read())
+            while (!reader.EOF)
             {
                 if (reader.NodeType == XmlNodeType.Element)
                 {
@@ -382,6 +399,10 @@ namespace MediaBrowser.MediaEncoding.Probing
                             reader.Skip();
                             break;
                     }
+                }
+                else
+                {
+                    reader.Read();
                 }
             }
 
@@ -781,24 +802,24 @@ namespace MediaBrowser.MediaEncoding.Probing
                 }
             }
 
-            var conductor = FFProbeHelpers.GetDictionaryValue(tags, "conductor");
-            if (!string.IsNullOrWhiteSpace(conductor))
-            {
-                foreach (var person in Split(conductor, false))
-                {
-                    audio.People.Add(new BaseItemPerson { Name = person, Type = PersonType.Conductor });
-                }
-            }
+            //var conductor = FFProbeHelpers.GetDictionaryValue(tags, "conductor");
+            //if (!string.IsNullOrWhiteSpace(conductor))
+            //{
+            //    foreach (var person in Split(conductor, false))
+            //    {
+            //        audio.People.Add(new BaseItemPerson { Name = person, Type = PersonType.Conductor });
+            //    }
+            //}
 
-            var lyricist = FFProbeHelpers.GetDictionaryValue(tags, "lyricist");
+            //var lyricist = FFProbeHelpers.GetDictionaryValue(tags, "lyricist");
+            //if (!string.IsNullOrWhiteSpace(lyricist))
+            //{
+            //    foreach (var person in Split(lyricist, false))
+            //    {
+            //        audio.People.Add(new BaseItemPerson { Name = person, Type = PersonType.Lyricist });
+            //    }
+            //}
 
-            if (!string.IsNullOrWhiteSpace(lyricist))
-            {
-                foreach (var person in Split(lyricist, false))
-                {
-                    audio.People.Add(new BaseItemPerson { Name = person, Type = PersonType.Lyricist });
-                }
-            }
             // Check for writer some music is tagged that way as alternative to composer/lyricist
             var writer = FFProbeHelpers.GetDictionaryValue(tags, "writer");
 
@@ -975,7 +996,7 @@ namespace MediaBrowser.MediaEncoding.Probing
             {
                 _splitWhiteList = new List<string>
                         {
-                            "AC/DV"
+                            "AC/DC"
                         };
             }
 

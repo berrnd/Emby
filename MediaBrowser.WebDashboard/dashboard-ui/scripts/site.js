@@ -314,7 +314,7 @@ var Dashboard = {
 
     showUserFlyout: function () {
 
-        Dashboard.navigate('mypreferencesmenu.html?userId=' + ApiClient.getCurrentUserId());
+        Dashboard.navigate('mypreferencesmenu.html');
     },
 
     getPluginSecurityInfo: function () {
@@ -724,7 +724,7 @@ var Dashboard = {
                     profile.SubtitleProfiles.push({
                         Format: 'ass',
                         Method: 'Embed'
-                    }); 
+                    });
                     profile.SubtitleProfiles.push({
                         Format: 'ssa',
                         Method: 'Embed'
@@ -821,7 +821,7 @@ var Dashboard = {
                 if (enableVlcAudio) {
 
                     profile.DirectPlayProfiles.push({
-                        Container: "aac,mp3,mpa,wav,wma,mp2,ogg,oga,webma,ape,m4a,opus,flac",
+                        Container: "aac,mp3,mpa,wav,wma,mp2,ogg,oga,webma,ape,opus,flac",
                         Type: 'Audio'
                     });
 
@@ -1225,6 +1225,11 @@ var AppInfo = {};
 
         define("libjass", [bowerPath + "/libjass/libjass.min", "css!" + bowerPath + "/libjass/libjass"], returnFirstDependency);
 
+        if (window.IntersectionObserver) {
+            define("lazyLoader", [embyWebComponentsBowerPath + "/lazyloader/lazyloader-intersectionobserver"], returnFirstDependency);
+        } else {
+            define("lazyLoader", [embyWebComponentsBowerPath + "/lazyloader/lazyloader-scroll"], returnFirstDependency);
+        }
         define("imageLoader", [embyWebComponentsBowerPath + "/images/imagehelper"], returnFirstDependency);
         define("syncJobList", ["components/syncjoblist/syncjoblist"], returnFirstDependency);
         define("appfooter", ["components/appfooter/appfooter"], returnFirstDependency);
@@ -1232,6 +1237,8 @@ var AppInfo = {};
         define("directorybrowser", ["components/directorybrowser/directorybrowser"], returnFirstDependency);
         define("metadataEditor", [embyWebComponentsBowerPath + "/metadataeditor/metadataeditor"], returnFirstDependency);
         define("personEditor", [embyWebComponentsBowerPath + "/metadataeditor/personeditor"], returnFirstDependency);
+
+        define("libraryMenu", ["scripts/librarymenu"], returnFirstDependency);
 
         define("emby-collapse", [embyWebComponentsBowerPath + "/emby-collapse/emby-collapse"], returnFirstDependency);
         define("emby-button", [embyWebComponentsBowerPath + "/emby-button/emby-button"], returnFirstDependency);
@@ -1366,7 +1373,6 @@ var AppInfo = {};
         define('arraypolyfills', [embyWebComponentsBowerPath + '/polyfills/array']);
         define('objectassign', [embyWebComponentsBowerPath + '/polyfills/objectassign']);
 
-        define('native-promise-only', [bowerPath + '/native-promise-only/lib/npo.src']);
         define("clearButtonStyle", ['css!' + embyWebComponentsBowerPath + '/clearbutton']);
         define("userdataButtons", [embyWebComponentsBowerPath + "/userdatabuttons/userdatabuttons"], returnFirstDependency);
         define("listView", [embyWebComponentsBowerPath + "/listview/listview"], returnFirstDependency);
@@ -1545,7 +1551,7 @@ var AppInfo = {};
             };
 
             embyRouter.showSettings = function () {
-                Dashboard.navigate('mypreferencesmenu.html?userId=' + ApiClient.getCurrentUserId());
+                Dashboard.navigate('mypreferencesmenu.html');
             };
 
             embyRouter.showGuide = function () {
@@ -1630,7 +1636,11 @@ var AppInfo = {};
         var embyWebComponentsBowerPath = bowerPath + '/emby-webcomponents';
 
         if (Dashboard.isRunningInCordova()) {
-            define("actionsheet", ["cordova/actionsheet"], returnFirstDependency);
+            if (window.MainActivity && window.MainActivity.getAndroidBuildVersion() >= 24) {
+                define("actionsheet", ["webActionSheet"], returnFirstDependency);
+            } else {
+                define("actionsheet", ["cordova/actionsheet"], returnFirstDependency);
+            }
         } else {
             define("actionsheet", ["webActionSheet"], returnFirstDependency);
         }
@@ -1651,7 +1661,7 @@ var AppInfo = {};
             define("imageFetcher", [embyWebComponentsBowerPath + "/images/basicimagefetcher"], returnFirstDependency);
         }
 
-        var preferNativeAlerts = (browser.mobile && !browser.animate) || browser.tv || browser.xboxOne || browser.ps4;
+        var preferNativeAlerts = browser.tv || browser.xboxOne || browser.ps4;
         // use native alerts if preferred and supported (not supported in opera tv)
         if (preferNativeAlerts && window.alert) {
             define("alert", [embyWebComponentsBowerPath + "/alert/nativealert"], returnFirstDependency);
@@ -1697,14 +1707,9 @@ var AppInfo = {};
 
         if (Dashboard.isRunningInCordova() && browserInfo.android) {
 
-            if (MainActivity.getChromeVersion() >= 48) {
-                //define("audiorenderer", ["scripts/htmlmediarenderer"]);
-                window.VlcAudio = true;
-                define("audiorenderer", ["cordova/android/vlcplayer"]);
-            } else {
-                window.VlcAudio = true;
-                define("audiorenderer", ["cordova/android/vlcplayer"]);
-            }
+            //define("audiorenderer", ["scripts/htmlmediarenderer"]);
+            window.VlcAudio = true;
+            define("audiorenderer", ["cordova/android/vlcplayer"]);
             define("videorenderer", ["cordova/android/vlcplayer"]);
         }
         else if (Dashboard.isRunningInCordova() && browserInfo.safari) {
@@ -2652,7 +2657,6 @@ var AppInfo = {};
 
         var deps = [];
 
-        deps.push('imageLoader');
         deps.push('embyRouter');
 
         if (!(AppInfo.isNativeApp && browserInfo.android)) {
@@ -2676,15 +2680,13 @@ var AppInfo = {};
             }
         }
 
-        deps.push('scripts/librarymenu');
+        deps.push('libraryMenu');
 
         console.log('onAppReady - loading dependencies');
 
-        require(deps, function (imageLoader, pageObjects) {
+        require(deps, function (pageObjects) {
 
             console.log('Loaded dependencies in onAppReady');
-
-            window.ImageLoader = imageLoader;
 
             window.Emby = {};
             window.Emby.Page = pageObjects;
@@ -2791,29 +2793,24 @@ var AppInfo = {};
 
     initRequire();
 
-    function onWebComponentsReady() {
+    function onWebComponentsReady(browser) {
 
         var initialDependencies = [];
 
-        initialDependencies.push('browser');
-
-        if (!window.Promise) {
-            initialDependencies.push('native-promise-only');
+        if (!window.Promise || browser.web0s) {
+            initialDependencies.push('bower_components/emby-webcomponents/native-promise-only/lib/npo.src');
         }
 
-        require(initialDependencies, function (browser) {
+        initRequireWithBrowser(browser);
 
-            initRequireWithBrowser(browser);
+        window.browserInfo = browser;
+        setAppInfo();
+        setDocumentClasses(browser);
 
-            window.browserInfo = browser;
-            setAppInfo();
-            setDocumentClasses(browser);
-
-            init();
-        });
+        require(initialDependencies, init);
     }
 
-    onWebComponentsReady();
+    require(['browser'], onWebComponentsReady);
 })();
 
 function pageClassOn(eventName, className, fn) {

@@ -30,7 +30,7 @@ namespace MediaBrowser.Providers.TV
         private readonly IFileSystem _fileSystem;
 
         private readonly CultureInfo _usCulture = new CultureInfo("en-US");
-        private static readonly SemaphoreSlim _resourceLock = new SemaphoreSlim(1, 1);
+        private static readonly SemaphoreSlim ResourceLock = new SemaphoreSlim(1, 1);
         public static bool IsRunning = false;
         private readonly IXmlReaderSettingsFactory _xmlSettings;
 
@@ -46,7 +46,7 @@ namespace MediaBrowser.Providers.TV
 
         public async Task Run(List<IGrouping<string, Series>> series, bool addNewItems, CancellationToken cancellationToken)
         {
-            await _resourceLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+            await ResourceLock.WaitAsync(cancellationToken).ConfigureAwait(false);
             IsRunning = true;
 
             foreach (var seriesGroup in series)
@@ -59,9 +59,10 @@ namespace MediaBrowser.Providers.TV
                 {
                     break;
                 }
-                catch (IOException)
+                catch (IOException ex)
                 {
                     //_logger.Warn("Series files missing for series id {0}", seriesGroup.Key);
+                    _logger.ErrorException("Error in missing episode provider for series id {0}", ex, seriesGroup.Key);
                 }
                 catch (Exception ex)
                 {
@@ -70,12 +71,15 @@ namespace MediaBrowser.Providers.TV
             }
 
             IsRunning = false;
-            _resourceLock.Release();
+            ResourceLock.Release();
         }
 
         private async Task Run(IGrouping<string, Series> group, bool addNewItems, CancellationToken cancellationToken)
         {
-            var tvdbId = group.Key;
+            var seriesList = group.ToList();
+            var tvdbId = seriesList
+                .Select(i => i.GetProviderId(MetadataProviders.Tvdb))
+                .FirstOrDefault(i => !string.IsNullOrWhiteSpace(i));
 
             // Todo: Support series by imdb id
             var seriesProviderIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -114,30 +118,33 @@ namespace MediaBrowser.Providers.TV
                 .Where(i => i.Item1 != -1 && i.Item2 != -1)
                 .ToList();
 
-            var hasBadData = HasInvalidContent(group);
+            var hasBadData = HasInvalidContent(seriesList);
 
-            var anySeasonsRemoved = await RemoveObsoleteOrMissingSeasons(group, episodeLookup)
+            // Be conservative here to avoid creating missing episodes for ones they already have
+            var addMissingEpisodes = !hasBadData && seriesList.All(i => _libraryManager.GetLibraryOptions(i).ImportMissingEpisodes);
+
+            var anySeasonsRemoved = await RemoveObsoleteOrMissingSeasons(seriesList, episodeLookup)
                 .ConfigureAwait(false);
 
-            var anyEpisodesRemoved = await RemoveObsoleteOrMissingEpisodes(group, episodeLookup)
+            var anyEpisodesRemoved = await RemoveObsoleteOrMissingEpisodes(seriesList, episodeLookup, addMissingEpisodes)
                 .ConfigureAwait(false);
 
             var hasNewEpisodes = false;
 
-            if (addNewItems && !group.Any(i => !i.IsInternetMetadataEnabled()))
+            if (addNewItems && seriesList.All(i => i.IsInternetMetadataEnabled()))
             {
                 var seriesConfig = _config.Configuration.MetadataOptions.FirstOrDefault(i => string.Equals(i.ItemType, typeof(Series).Name, StringComparison.OrdinalIgnoreCase));
 
                 if (seriesConfig == null || !seriesConfig.DisabledMetadataFetchers.Contains(TvdbSeriesProvider.Current.Name, StringComparer.OrdinalIgnoreCase))
                 {
-                    hasNewEpisodes = await AddMissingEpisodes(group.ToList(), hasBadData, seriesDataPath, episodeLookup, cancellationToken)
+                    hasNewEpisodes = await AddMissingEpisodes(seriesList, addMissingEpisodes, seriesDataPath, episodeLookup, cancellationToken)
                         .ConfigureAwait(false);
                 }
             }
 
             if (hasNewEpisodes || anySeasonsRemoved || anyEpisodesRemoved)
             {
-                foreach (var series in group)
+                foreach (var series in seriesList)
                 {
                     var directoryService = new DirectoryService(_logger, _fileSystem);
 
@@ -176,13 +183,9 @@ namespace MediaBrowser.Providers.TV
         /// Adds the missing episodes.
         /// </summary>
         /// <param name="series">The series.</param>
-        /// <param name="seriesHasBadData">if set to <c>true</c> [series has bad data].</param>
-        /// <param name="seriesDataPath">The series data path.</param>
-        /// <param name="episodeLookup">The episode lookup.</param>
-        /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>Task.</returns>
         private async Task<bool> AddMissingEpisodes(List<Series> series,
-            bool seriesHasBadData,
+            bool addMissingEpisodes,
             string seriesDataPath,
             IEnumerable<Tuple<int, int>> episodeLookup,
             CancellationToken cancellationToken)
@@ -236,8 +239,7 @@ namespace MediaBrowser.Providers.TV
 
                 if (airDate.Value < now)
                 {
-                    // Be conservative here to avoid creating missing episodes for ones they already have
-                    if (!seriesHasBadData)
+                    if (addMissingEpisodes)
                     {
                         // tvdb has a lot of nearly blank episodes
                         _logger.Info("Creating virtual missing episode {0} {1}x{2}", targetSeries.Name, tuple.Item1, tuple.Item2);
@@ -274,7 +276,8 @@ namespace MediaBrowser.Providers.TV
         /// Removes the virtual entry after a corresponding physical version has been added
         /// </summary>
         private async Task<bool> RemoveObsoleteOrMissingEpisodes(IEnumerable<Series> series,
-            IEnumerable<Tuple<int, int>> episodeLookup)
+            IEnumerable<Tuple<int, int>> episodeLookup,
+            bool allowMissingEpisodes)
         {
             var existingEpisodes = (from s in series
                                     let seasonOffset = TvdbSeriesProvider.GetSeriesOffset(s.ProviderIds) ?? ((s.AnimeSeriesIndex ?? 1) - 1)
@@ -308,6 +311,11 @@ namespace MediaBrowser.Providers.TV
 
                         // If the episode no longer exists in the remote lookup, delete it
                         if (!episodeLookup.Any(e => e.Item1 == seasonNumber && e.Item2 == episodeNumber))
+                        {
+                            return true;
+                        }
+
+                        if (!allowMissingEpisodes && i.Episode.IsMissingEpisode)
                         {
                             return true;
                         }
@@ -368,7 +376,7 @@ namespace MediaBrowser.Providers.TV
                         var seasonNumber = i.Season.IndexNumber.Value + i.SeasonOffset;
 
                         // If there's a physical season with the same number, delete it
-                        if (physicalSeasons.Any(p => p.Season.IndexNumber.HasValue && (p.Season.IndexNumber.Value + p.SeasonOffset) == seasonNumber))
+                        if (physicalSeasons.Any(p => p.Season.IndexNumber.HasValue && (p.Season.IndexNumber.Value + p.SeasonOffset) == seasonNumber && string.Equals(p.Season.Series.PresentationUniqueKey, i.Season.Series.PresentationUniqueKey, StringComparison.Ordinal)))
                         {
                             return true;
                         }
@@ -513,9 +521,10 @@ namespace MediaBrowser.Providers.TV
                     using (var reader = XmlReader.Create(streamReader, settings))
                     {
                         reader.MoveToContent();
+                        reader.Read();
 
                         // Loop through each element
-                        while (reader.Read())
+                        while (!reader.EOF)
                         {
                             if (reader.NodeType == XmlNodeType.Element)
                             {
@@ -546,11 +555,16 @@ namespace MediaBrowser.Providers.TV
 
                                             break;
                                         }
-
                                     default:
-                                        reader.Skip();
-                                        break;
+                                        {
+                                            reader.Skip();
+                                            break;
+                                        }
                                 }
+                            }
+                            else
+                            {
+                                reader.Read();
                             }
                         }
                     }

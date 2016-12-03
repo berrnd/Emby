@@ -40,7 +40,7 @@
                 backdropImage.style.backgroundImage = "url('" + url + "')";
                 backdropImage.setAttribute('data-url', url);
 
-                backdropImage.style.animation = 'backdrop-fadein ' + 800 + 'ms ease-in normal both';
+                backdropImage.classList.add('backdropImageFadeIn');
                 parent.appendChild(backdropImage);
 
                 if (!enableAnimation(backdropImage)) {
@@ -52,7 +52,7 @@
                 }
 
                 var onAnimationComplete = function () {
-                    dom.removeEventListener(backdropImage, 'animationend', onAnimationComplete, {
+                    dom.removeEventListener(backdropImage, dom.whichAnimationEvent(), onAnimationComplete, {
                         once: true
                     });
                     if (backdropImage === currentAnimatingElement) {
@@ -63,7 +63,7 @@
                     }
                 };
 
-                dom.addEventListener(backdropImage, 'animationend', onAnimationComplete, {
+                dom.addEventListener(backdropImage, dom.whichAnimationEvent(), onAnimationComplete, {
                     once: true
                 });
 
@@ -75,7 +75,7 @@
         function cancelAnimation() {
             var elem = currentAnimatingElement;
             if (elem) {
-                elem.style.animation = '';
+                elem.classList.remove('backdropImageFadeIn');
                 currentAnimatingElement = null;
             }
         }
@@ -252,21 +252,20 @@
     var rotationInterval;
     var currentRotatingImages = [];
     var currentRotationIndex = -1;
-    function setBackdrops(items, imageSetId) {
+    function setBackdrops(items, enableImageRotation) {
 
         var images = getImageUrls(items);
 
-        imageSetId = imageSetId || new Date().getTime();
         if (images.length) {
 
-            startRotation(images, imageSetId);
+            startRotation(images, enableImageRotation);
 
         } else {
             clearBackdrop();
         }
     }
 
-    function startRotation(images) {
+    function startRotation(images, enableImageRotation) {
 
         if (arraysEqual(images, currentRotatingImages)) {
             return;
@@ -277,7 +276,7 @@
         currentRotatingImages = images;
         currentRotationIndex = -1;
 
-        if (images.length > 1 && enableRotation()) {
+        if (images.length > 1 && enableImageRotation !== false && enableRotation()) {
             rotationInterval = setInterval(onRotationInterval, 20000);
         }
         onRotationInterval();

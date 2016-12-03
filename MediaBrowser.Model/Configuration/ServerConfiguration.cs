@@ -8,6 +8,9 @@ namespace MediaBrowser.Model.Configuration
     /// </summary>
     public class ServerConfiguration : BaseApplicationConfiguration
     {
+        public const int DefaultHttpPort = 8096;
+        public const int DefaultHttpsPort = 8920;
+
         /// <summary>
         /// Gets or sets a value indicating whether [enable u pn p].
         /// </summary>
@@ -151,7 +154,6 @@ namespace MediaBrowser.Model.Configuration
         /// </summary>
         /// <value><c>true</c> if [enable dashboard response caching]; otherwise, <c>false</c>.</value>
         public bool EnableDashboardResponseCaching { get; set; }
-        public bool EnableDashboardResourceMinification { get; set; }
 
         /// <summary>
         /// Allows the dashboard to be served from a custom path.
@@ -170,6 +172,7 @@ namespace MediaBrowser.Model.Configuration
         public bool EnableAutomaticRestart { get; set; }
         public bool SkipDeserializationForBasicTypes { get; set; }
         public bool SkipDeserializationForPrograms { get; set; }
+        public bool SkipDeserializationForAudio { get; set; }
 
         public PathSubstitution[] PathSubstitutions { get; set; }
 
@@ -188,9 +191,6 @@ namespace MediaBrowser.Model.Configuration
 
         public int SharingExpirationDays { get; set; }
 
-        public string[] Migrations { get; set; }
-
-        public int MigrationVersion { get; set; }
         public int SchemaVersion { get; set; }
         public int SqliteCacheSize { get; set; }
 
@@ -214,7 +214,6 @@ namespace MediaBrowser.Model.Configuration
         public ServerConfiguration()
         {
             LocalNetworkAddresses = new string[] { };
-            Migrations = new string[] { };
             CodecsUsed = new string[] { };
             SqliteCacheSize = 0;
             ImageExtractionTimeoutMs = 0;
@@ -224,13 +223,12 @@ namespace MediaBrowser.Model.Configuration
             EnableExternalContentInSuggestions = true;
 
             ImageSavingConvention = ImageSavingConvention.Compatible;
-            PublicPort = 8096;
-            PublicHttpsPort = 8920;
-            HttpServerPortNumber = 8096;
-            HttpsPortNumber = 8920;
+            PublicPort = DefaultHttpPort;
+            PublicHttpsPort = DefaultHttpsPort;
+            HttpServerPortNumber = DefaultHttpPort;
+            HttpsPortNumber = DefaultHttpsPort;
             EnableHttps = false;
             EnableDashboardResponseCaching = true;
-            EnableDashboardResourceMinification = true;
             EnableAnonymousUsageReporting = true;
 
             EnableAutomaticRestart = true;

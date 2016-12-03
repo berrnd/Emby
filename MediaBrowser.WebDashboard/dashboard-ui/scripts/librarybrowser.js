@@ -1,6 +1,6 @@
 ﻿//myproduction-change-start
 //Added jQuery
-define(['viewManager', 'appSettings', 'appStorage', 'apphost', 'datetime', 'itemHelper', 'mediaInfo', 'scroller', 'indicators', 'dom', 'browser', 'imageLoader', 'scrollStyles', 'jQuery'], function (viewManager, appSettings, appStorage, appHost, datetime, itemHelper, mediaInfo, scroller, indicators, dom, browser, imageLoader, scrollStyles, jQuery) {
+define(['appSettings', 'dom', 'browser', 'scrollStyles', 'jQuery'], function (appSettings, dom, browser, scrollStyles, jQuery) {
 //myproduction-change-end
     'use strict';
 
@@ -36,7 +36,7 @@ define(['viewManager', 'appSettings', 'appStorage', 'apphost', 'datetime', 'item
 
             loadSavedQueryValues: function (key, query) {
 
-                var values = appStorage.getItem(key + '_' + Dashboard.getCurrentUserId());
+                var values = appSettings.get(key + '_' + Dashboard.getCurrentUserId());
 
                 if (values) {
 
@@ -60,7 +60,7 @@ define(['viewManager', 'appSettings', 'appStorage', 'apphost', 'datetime', 'item
                 }
 
                 try {
-                    appStorage.setItem(key + '_' + Dashboard.getCurrentUserId(), JSON.stringify(values));
+                    appSettings.set(key + '_' + Dashboard.getCurrentUserId(), JSON.stringify(values));
                 } catch (e) {
 
                 }
@@ -69,7 +69,7 @@ define(['viewManager', 'appSettings', 'appStorage', 'apphost', 'datetime', 'item
             saveViewSetting: function (key, value) {
 
                 try {
-                    appStorage.setItem(key + '_' + Dashboard.getCurrentUserId() + '_view', value);
+                    appSettings.set(key + '_' + Dashboard.getCurrentUserId() + '_view', value);
                 } catch (e) {
 
                 }
@@ -77,7 +77,7 @@ define(['viewManager', 'appSettings', 'appStorage', 'apphost', 'datetime', 'item
 
             getSavedView: function (key) {
 
-                var val = appStorage.getItem(key + '_' + Dashboard.getCurrentUserId() + '_view');
+                var val = appSettings.get(key + '_' + Dashboard.getCurrentUserId() + '_view');
 
                 return val;
             },
@@ -143,7 +143,7 @@ define(['viewManager', 'appSettings', 'appStorage', 'apphost', 'datetime', 'item
                 };
 
                 require(['hammer-main'], function (hammertime) {
-                    
+
                     hammertime.on('swipeleft', onSwipeLeft);
                     hammertime.on('swiperight', onSwipeRight);
 
@@ -205,7 +205,9 @@ define(['viewManager', 'appSettings', 'appStorage', 'apphost', 'datetime', 'item
 
                 if (window.location.href.toLowerCase().indexOf(url.toLowerCase()) != -1) {
 
-                    afterNavigate.call(viewManager.currentView());
+                    require(['viewManager'], function (viewManager) {
+                        afterNavigate.call(viewManager.currentView());
+                    });
                 } else {
 
                     pageClassOn('pageinit', 'page', afterNavigate);
@@ -240,24 +242,6 @@ define(['viewManager', 'appSettings', 'appStorage', 'apphost', 'datetime', 'item
 
             getHref: function (item, context, topParentId) {
 
-                var href = LibraryBrowser.getHrefInternal(item, context);
-
-                if (context == 'tv') {
-                    if (!topParentId) {
-                        topParentId = LibraryMenu.getTopParentId();
-                    }
-
-                    if (topParentId) {
-                        href += href.indexOf('?') == -1 ? "?topParentId=" : "&topParentId=";
-                        href += topParentId;
-                    }
-                }
-
-                return href;
-            },
-
-            getHrefInternal: function (item, context) {
-
                 if (!item) {
                     throw new Error('item cannot be null');
                 }
@@ -266,6 +250,7 @@ define(['viewManager', 'appSettings', 'appStorage', 'apphost', 'datetime', 'item
                     return item.url;
                 }
 
+                var url;
                 // Handle search hints
                 var id = item.Id || item.ItemId;
 
@@ -349,16 +334,56 @@ define(['viewManager', 'appSettings', 'appStorage', 'apphost', 'datetime', 'item
                     return "itemdetails.html?id=" + id;
                 }
                 if (item.Type == "Genre") {
-                    return "itemdetails.html?id=" + id;
+                    var type;
+                    switch (context) {
+                        case 'tvshows':
+                            type = 'Series';
+                            break;
+                        case 'games':
+                            type = 'Game';
+                            break;
+                        default:
+                            type = 'Movie';
+                            break;
+                    }
+
+                    url = "secondaryitems.html?type=" + type + "&genreId=" + id;
+                    if (topParentId) {
+                        url += "&parentId=" + topParentId;
+                    }
+                    return url;
                 }
                 if (item.Type == "MusicGenre") {
                     return "itemdetails.html?id=" + id;
                 }
                 if (item.Type == "GameGenre") {
-                    return "itemdetails.html?id=" + id;
+
+                    url = "secondaryitems.html?type=Game&genreId=" + id;
+                    if (topParentId) {
+                        url += "&parentId=" + topParentId;
+                    }
+                    return url;
                 }
                 if (item.Type == "Studio") {
-                    return "itemdetails.html?id=" + id;
+
+                    var type;
+                    switch (context) {
+                        case 'tvshows':
+                            type = 'Series';
+                            break;
+                        case 'games':
+                            type = 'Game';
+                            break;
+                        default:
+                            type = 'Movie';
+                            break;
+                    }
+
+                    url = "secondaryitems.html?type=" + type + "&studioId=" + id;
+                    if (topParentId) {
+                        url += "&parentId=" + topParentId;
+                    }
+                    return url;
                 }
                 if (item.Type == "Person") {
                     return "itemdetails.html?id=" + id;
@@ -427,17 +452,17 @@ define(['viewManager', 'appSettings', 'appStorage', 'apphost', 'datetime', 'item
 
             renderName: function (item, nameElem, linkToElement, context) {
 
-                var name = itemHelper.getDisplayName(item, {
-                    includeParentInfo: false
+                require(['itemHelper'], function (itemHelper) {
+                    var name = itemHelper.getDisplayName(item, {
+                        includeParentInfo: false
+                    });
+
+                    if (linkToElement) {
+                        nameElem.innerHTML = '<a class="detailPageParentLink" href="' + LibraryBrowser.getHref(item, context) + '">' + name + '</a>';
+                    } else {
+                        nameElem.innerHTML = name;
+                    }
                 });
-
-                LibraryMenu.setTitle(name);
-
-                if (linkToElement) {
-                    nameElem.innerHTML = '<a class="detailPageParentLink" href="' + LibraryBrowser.getHref(item, context) + '">' + name + '</a>';
-                } else {
-                    nameElem.innerHTML = name;
-                }
             },
 
             renderParentName: function (item, parentNameElem, context) {
@@ -471,7 +496,7 @@ define(['viewManager', 'appSettings', 'appStorage', 'apphost', 'datetime', 'item
 
                 } else if (item.Album) {
                     html.push(item.Album);
-                } else if (item.Type == 'Program' && item.EpisodeTitle) {
+                } else if (item.Type == 'Program' && item.IsSeries) {
                     html.push(item.Name);
                 }
 
@@ -539,7 +564,7 @@ define(['viewManager', 'appSettings', 'appStorage', 'apphost', 'datetime', 'item
 
                 if (limit && options.updatePageSizeSetting !== false) {
                     try {
-                        appStorage.setItem(options.pageSizeKey || pageSizeKey, limit);
+                        appSettings.set(options.pageSizeKey || pageSizeKey, limit);
                     } catch (e) {
 
                     }
@@ -709,7 +734,7 @@ define(['viewManager', 'appSettings', 'appStorage', 'apphost', 'datetime', 'item
                 });
             },
 
-            renderDetailImage: function (elem, item, editable, preferThumb) {
+            renderDetailImage: function (elem, item, editable, preferThumb, imageLoader, indicators) {
 
                 var imageTags = item.ImageTags || {};
 
@@ -779,30 +804,6 @@ define(['viewManager', 'appSettings', 'appStorage', 'apphost', 'datetime', 'item
                     });
                     shape = 'square';
                 }
-                else if (item.MediaType == "Audio" || item.Type == "MusicAlbum" || item.Type == "MusicGenre") {
-                    url = "css/images/items/detail/audio.png";
-                    shape = 'square';
-                }
-                else if (item.MediaType == "Game" || item.Type == "GameGenre") {
-                    url = "css/images/items/detail/game.png";
-                    shape = 'square';
-                }
-                else if (item.Type == "Person") {
-                    url = "css/images/items/detail/person.png";
-                    shape = 'square';
-                }
-                else if (item.Type == "Genre" || item.Type == "Studio") {
-                    url = "css/images/items/detail/video.png";
-                    shape = 'square';
-                }
-                else if (item.Type == "TvChannel") {
-                    url = "css/images/items/detail/tv.png";
-                    shape = 'square';
-                }
-                else {
-                    url = "css/images/items/detail/video.png";
-                    shape = 'square';
-                }
 
                 html += '<div style="position:relative;">';
 
@@ -852,16 +853,18 @@ define(['viewManager', 'appSettings', 'appStorage', 'apphost', 'datetime', 'item
                     elem.classList.remove('squareDetailImageContainer');
                 }
 
-                var img = elem.querySelector('img');
-                img.onload = function () {
-                    if (img.src.indexOf('empty.png') == -1) {
-                        img.classList.add('loaded');
-                    }
-                };
-                ImageLoader.lazyImage(img, url);
+                if (url) {
+                    var img = elem.querySelector('img');
+                    img.onload = function () {
+                        if (img.src.indexOf('empty.png') == -1) {
+                            img.classList.add('loaded');
+                        }
+                    };
+                    imageLoader.lazyImage(img, url);
+                }
             },
 
-            renderDetailPageBackdrop: function (page, item) {
+            renderDetailPageBackdrop: function (page, item, imageLoader) {
 
                 var screenWidth = screen.availWidth;
 
@@ -880,7 +883,7 @@ define(['viewManager', 'appSettings', 'appStorage', 'apphost', 'datetime', 'item
                     });
 
                     itemBackdropElement.classList.remove('noBackdrop');
-                    ImageLoader.lazyImage(itemBackdropElement, imgUrl, false);
+                    imageLoader.lazyImage(itemBackdropElement, imgUrl, false);
                     hasbackdrop = true;
                 }
                 else if (item.ParentBackdropItemId && item.ParentBackdropImageTags && item.ParentBackdropImageTags.length) {
@@ -893,7 +896,7 @@ define(['viewManager', 'appSettings', 'appStorage', 'apphost', 'datetime', 'item
                     });
 
                     itemBackdropElement.classList.remove('noBackdrop');
-                    ImageLoader.lazyImage(itemBackdropElement, imgUrl, false);
+                    imageLoader.lazyImage(itemBackdropElement, imgUrl, false);
                     hasbackdrop = true;
                 }
                 else {

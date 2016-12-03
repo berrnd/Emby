@@ -1,4 +1,4 @@
-define(['appSettings', 'userSettings', 'appStorage', 'datetime'], function (appSettings, userSettings, appStorage, datetime) {
+define(['appSettings', 'userSettings', 'datetime', 'browser'], function (appSettings, userSettings, datetime, browser) {
     'use strict';
 
     function mediaPlayer() {
@@ -97,7 +97,7 @@ define(['appSettings', 'userSettings', 'appStorage', 'datetime'], function (appS
 
             var intervalTime = ApiClient.isWebSocketOpen() ? 1200 : 5000;
             // Ease up with safari because it doesn't perform as well
-            if (browserInfo.safari) {
+            if (browser.safari) {
                 intervalTime = Math.max(intervalTime, 5000);
             }
             self.lastProgressReport = 0;
@@ -149,22 +149,19 @@ define(['appSettings', 'userSettings', 'appStorage', 'datetime'], function (appS
 
         function getProfileOptions(item) {
 
-            var disableVideoAudioCodecs = [];
-            if (!AppInfo.isNativeApp && !item.RunTimeTicks) {
-                disableVideoAudioCodecs.push('ac3');
-            }
-
             var options = {};
 
             if (!AppInfo.isNativeApp) {
-                options.enableMkvProgressive = item.RunTimeTicks != null;
+                var disableHlsVideoAudioCodecs = [];
 
-                if (item.RunTimeTicks == null) {
-                    options.enableHls = true;
+                if (!self.canPlayNativeHls() || (browser.edge && !item.RunTimeTicks)) {
+                    // hls.js does not support these
+                    disableHlsVideoAudioCodecs.push('mp3');
+                    disableHlsVideoAudioCodecs.push('ac3');
                 }
 
                 options.enableMkvProgressive = false;
-                options.disableVideoAudioCodecs = disableVideoAudioCodecs;
+                options.disableHlsVideoAudioCodecs = disableHlsVideoAudioCodecs;
             }
 
             return options;
@@ -494,10 +491,10 @@ define(['appSettings', 'userSettings', 'appStorage', 'datetime'], function (appS
             return Promise.resolve();
         };
 
-        function getOptimalMediaSource(mediaType, versions) {
+        function getOptimalMediaSource(mediaType, itemType, versions) {
 
             var promises = versions.map(function (v) {
-                return MediaController.supportsDirectPlay(v);
+                return MediaController.supportsDirectPlay(v, itemType);
             });
 
             return Promise.all(promises).then(function (responses) {
@@ -733,14 +730,14 @@ define(['appSettings', 'userSettings', 'appStorage', 'datetime'], function (appS
 
                 if (validatePlaybackInfoResult(playbackInfoResult)) {
 
-                    getOptimalMediaSource(item.MediaType, playbackInfoResult.MediaSources).then(function (mediaSource) {
+                    getOptimalMediaSource(item.MediaType, item.Type, playbackInfoResult.MediaSources).then(function (mediaSource) {
                         if (mediaSource) {
 
                             if (mediaSource.RequiresOpening) {
 
                                 MediaController.getLiveStream(item.Id, playbackInfoResult.PlaySessionId, deviceProfile, startPosition, mediaSource, null, null).then(function (openLiveStreamResult) {
 
-                                    MediaController.supportsDirectPlay(openLiveStreamResult.MediaSource).then(function (result) {
+                                    MediaController.supportsDirectPlay(openLiveStreamResult.MediaSource, item.Type).then(function (result) {
 
                                         openLiveStreamResult.MediaSource.enableDirectPlay = result;
                                         callback(openLiveStreamResult.MediaSource);
@@ -1098,13 +1095,13 @@ define(['appSettings', 'userSettings', 'appStorage', 'datetime'], function (appS
         self.saveVolume = function (val) {
 
             if (val) {
-                appStorage.setItem("volume", val);
+                appSettings.set("volume", val);
             }
 
         };
 
         self.getSavedVolume = function () {
-            return appStorage.getItem("volume") || 0.5;
+            return appSettings.get("volume") || 0.5;
         };
 
         self.shuffle = function (id) {
@@ -1493,7 +1490,7 @@ define(['appSettings', 'userSettings', 'appStorage', 'datetime'], function (appS
                 return true;
             }
 
-            if (browserInfo.mobile) {
+            if (browser.mobile) {
                 return false;
             }
 

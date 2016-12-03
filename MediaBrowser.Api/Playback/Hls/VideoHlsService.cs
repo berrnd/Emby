@@ -8,6 +8,7 @@ using MediaBrowser.Model.Serialization;
 using System;
 using MediaBrowser.Common.IO;
 using MediaBrowser.Controller.IO;
+using MediaBrowser.Controller.Net;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Dlna;
 using MediaBrowser.Model.Services;
@@ -24,10 +25,6 @@ namespace MediaBrowser.Api.Playback.Hls
     /// </summary>
     public class VideoHlsService : BaseHlsService
     {
-        public VideoHlsService(IServerConfigurationManager serverConfig, IUserManager userManager, ILibraryManager libraryManager, IIsoManager isoManager, IMediaEncoder mediaEncoder, IFileSystem fileSystem, IDlnaManager dlnaManager, ISubtitleEncoder subtitleEncoder, IDeviceManager deviceManager, IMediaSourceManager mediaSourceManager, IZipClient zipClient, IJsonSerializer jsonSerializer) : base(serverConfig, userManager, libraryManager, isoManager, mediaEncoder, fileSystem, dlnaManager, subtitleEncoder, deviceManager, mediaSourceManager, zipClient, jsonSerializer)
-        {
-        }
-
         public object Get(GetLiveHlsStream request)
         {
             return ProcessRequest(request, true);
@@ -92,7 +89,7 @@ namespace MediaBrowser.Api.Playback.Hls
                 {
                     args += " -bsf:v h264_mp4toannexb";
                 }
-                args += " -flags +global_header";
+                args += " -flags -global_header";
                 return args;
             }
 
@@ -115,7 +112,7 @@ namespace MediaBrowser.Api.Playback.Hls
                 args += GetGraphicalSubtitleParam(state, codec);
             }
 
-            args += " -flags +global_header";
+            args += " -flags -global_header";
 
             return args;
         }
@@ -128,6 +125,10 @@ namespace MediaBrowser.Api.Playback.Hls
         protected override string GetSegmentFileExtension(StreamState state)
         {
             return ".ts";
+        }
+
+        public VideoHlsService(IServerConfigurationManager serverConfig, IUserManager userManager, ILibraryManager libraryManager, IIsoManager isoManager, IMediaEncoder mediaEncoder, IFileSystem fileSystem, IDlnaManager dlnaManager, ISubtitleEncoder subtitleEncoder, IDeviceManager deviceManager, IMediaSourceManager mediaSourceManager, IZipClient zipClient, IJsonSerializer jsonSerializer, IAuthorizationContext authorizationContext) : base(serverConfig, userManager, libraryManager, isoManager, mediaEncoder, fileSystem, dlnaManager, subtitleEncoder, deviceManager, mediaSourceManager, zipClient, jsonSerializer, authorizationContext)
+        {
         }
     }
 }

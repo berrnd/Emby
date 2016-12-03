@@ -1,4 +1,4 @@
-﻿define(['appStorage', 'events', 'browser'], function (appStorage, events, browser) {
+﻿define(['appSettings', 'events', 'browser'], function (appSettings, events, browser) {
     'use strict';
 
     var currentDisplayInfo;
@@ -512,7 +512,7 @@
             if (enabled != null) {
 
                 var val = enabled ? '1' : '0';
-                appStorage.setItem('displaymirror--' + Dashboard.getCurrentUserId(), val);
+                appSettings.set('displaymirror--' + Dashboard.getCurrentUserId(), val);
 
                 if (enabled) {
                     mirrorIfEnabled();
@@ -520,7 +520,7 @@
                 return;
             }
 
-            return (appStorage.getItem('displaymirror--' + Dashboard.getCurrentUserId()) || '') != '0';
+            return (appSettings.get('displaymirror--' + Dashboard.getCurrentUserId()) || '') != '0';
         };
 
         self.play = function (options) {
@@ -983,7 +983,7 @@
             });
         };
 
-        self.supportsDirectPlay = function (mediaSource) {
+        self.supportsDirectPlay = function (mediaSource, itemType) {
 
             return new Promise(function (resolve, reject) {
                 if (mediaSource.SupportsDirectPlay) {
@@ -996,6 +996,7 @@
                         }
                         else {
                             var val = mediaSource.Path.toLowerCase().replace('https:', 'http').indexOf(ApiClient.serverAddress().toLowerCase().replace('https:', 'http').substring(0, 14)) == 0;
+                            //resolve(val || itemType !== 'TvChannel');
                             resolve(val);
                         }
                     }

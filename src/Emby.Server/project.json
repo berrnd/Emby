@@ -6,23 +6,41 @@
 
   "dependencies": {
     "Emby.Common.Implementations": "1.0.0-*",
-    "Emby.Dlna": "1.0.0-*",
+    "Emby.Server.Core": "1.0.0-*",
     "Microsoft.NETCore.App": {
       "type": "platform",
-      "version": "1.0.1"
+      "version": "1.1.0"
     },
     "Mono.Nat": "1.0.0-*",
-    "RSSDP": "1.0.0-*"
+    "Microsoft.Win32.Registry": "4.0.0",
+    "System.Runtime.Extensions": "4.1.0",
+    "System.Diagnostics.Process": "4.1.0",
+    "SQLitePCLRaw.provider.sqlite3.netstandard11": "1.1.1-pre20161109081005"
   },
 
   "frameworks": {
-    "netcoreapp1.0": {
+    "netcoreapp1.1": {
       "imports": "dnxcore50",
       "dependencies": {
         "BDInfo": {
           "target": "project"
         },
         "DvdLib": {
+          "target": "project"
+        },
+        "Emby.Dlna": {
+          "target": "project"
+        },
+        "Emby.Drawing": {
+          "target": "project"
+        },
+        "Emby.Photos": {
+          "target": "project"
+        },
+        "Emby.Server.Implementations": {
+          "target": "project"
+        },
+        "MediaBrowser.Api": {
           "target": "project"
         },
         "MediaBrowser.Common": {
@@ -34,10 +52,16 @@
         "MediaBrowser.LocalMetadata": {
           "target": "project"
         },
+        "MediaBrowser.MediaEncoding": {
+          "target": "project"
+        },
         "MediaBrowser.Model": {
           "target": "project"
         },
         "MediaBrowser.Providers": {
+          "target": "project"
+        },
+        "MediaBrowser.Server.Implementations": {
           "target": "project"
         },
         "MediaBrowser.WebDashboard": {
@@ -47,6 +71,15 @@
           "target": "project"
         },
         "OpenSubtitlesHandler": {
+          "target": "project"
+        },
+        "RSSDP": {
+          "target": "project"
+        },
+        "ServiceStack": {
+          "target": "project"
+        },
+        "SocketHttpListener.Portable": {
           "target": "project"
         }
       }

@@ -17,7 +17,7 @@ namespace MediaBrowser.Controller.Entities.TV
     /// <summary>
     /// Class Series
     /// </summary>
-    public class Series : Folder, IHasTrailers, IHasDisplayOrder, IHasLookupInfo<SeriesInfo>, IMetadataContainer, IHasOriginalTitle
+    public class Series : Folder, IHasTrailers, IHasDisplayOrder, IHasLookupInfo<SeriesInfo>, IMetadataContainer
     {
         public int? AnimeSeriesIndex { get; set; }
 
@@ -126,10 +126,6 @@ namespace MediaBrowser.Controller.Entities.TV
 
         private static string GetUniqueSeriesKey(BaseItem series)
         {
-            if (ConfigurationManager.Configuration.SchemaVersion < 97)
-            {
-                return series.Id.ToString("N");
-            }
             return series.GetPresentationUniqueKey();
         }
 
@@ -139,12 +135,29 @@ namespace MediaBrowser.Controller.Entities.TV
             {
                 AncestorWithPresentationUniqueKey = GetUniqueSeriesKey(this),
                 IncludeItemTypes = new[] { typeof(Season).Name },
-                SortBy = new[] { ItemSortBy.SortName },
                 IsVirtualItem = false,
                 Limit = 0
             });
 
             return result.TotalRecordCount;
+        }
+
+        public override int GetRecursiveChildCount(User user)
+        {
+            var query = new InternalItemsQuery(user);
+
+            query.AncestorWithPresentationUniqueKey = GetUniqueSeriesKey(this);
+            if (query.SortBy.Length == 0)
+            {
+                query.SortBy = new[] { ItemSortBy.SortName };
+            }
+            if (query.IncludeItemTypes.Length == 0)
+            {
+                query.IncludeItemTypes = new[] { typeof(Episode).Name, typeof(Season).Name };
+            }
+            query.IsVirtualItem = false;
+            query.Limit = 0;
+            return LibraryManager.GetItemsResult(query).TotalRecordCount;
         }
 
         /// <summary>
@@ -374,7 +387,10 @@ namespace MediaBrowser.Controller.Entities.TV
 
         public IEnumerable<Episode> GetSeasonEpisodes(Season parentSeason, User user)
         {
-            var seriesKey = GetUniqueSeriesKey(this);
+            // add optimization when this setting is not enabled
+            var seriesKey = ConfigurationManager.Configuration.DisplaySpecialsWithinSeasons ?
+                GetUniqueSeriesKey(this) :
+                GetUniqueSeriesKey(parentSeason);
 
             var query = new InternalItemsQuery(user)
             {

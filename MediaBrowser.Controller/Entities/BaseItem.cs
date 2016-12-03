@@ -203,6 +203,19 @@ namespace MediaBrowser.Controller.Entities
             get { return PremiereDate.HasValue && PremiereDate.Value.ToLocalTime().Date >= DateTime.Now.Date; }
         }
 
+        public int? TotalBitrate { get; set; }
+        public ExtraType? ExtraType { get; set; }
+
+        [IgnoreDataMember]
+        public bool IsThemeMedia
+        {
+            get
+            {
+                return ExtraType.HasValue && (ExtraType.Value == Model.Entities.ExtraType.ThemeSong || ExtraType.Value == Model.Entities.ExtraType.ThemeVideo);
+            }
+        }
+
+        [IgnoreDataMember]
         public string OriginalTitle { get; set; }
 
         /// <summary>
@@ -283,27 +296,10 @@ namespace MediaBrowser.Controller.Entities
         /// If this content came from an external service, the id of the content on that service
         /// </summary>
         [IgnoreDataMember]
-        public string ExternalId
-        {
-            get { return this.GetProviderId("ProviderExternalId"); }
-            set
-            {
-                this.SetProviderId("ProviderExternalId", value);
-            }
-        }
+        public string ExternalId { get; set; }
 
         [IgnoreDataMember]
         public string ExternalSeriesId { get; set; }
-
-        [IgnoreDataMember]
-        public string ExternalSeriesIdLegacy
-        {
-            get { return this.GetProviderId("ProviderExternalSeriesId"); }
-            set
-            {
-                this.SetProviderId("ProviderExternalSeriesId", value);
-            }
-        }
 
         /// <summary>
         /// Gets or sets the etag.
@@ -1035,7 +1031,7 @@ namespace MediaBrowser.Controller.Entities
                         audio = dbItem;
                     }
 
-                    audio.ExtraType = ExtraType.ThemeSong;
+                    audio.ExtraType = MediaBrowser.Model.Entities.ExtraType.ThemeSong;
 
                     return audio;
 
@@ -1065,7 +1061,7 @@ namespace MediaBrowser.Controller.Entities
                         item = dbItem;
                     }
 
-                    item.ExtraType = ExtraType.ThemeVideo;
+                    item.ExtraType = MediaBrowser.Model.Entities.ExtraType.ThemeVideo;
 
                     return item;
 
@@ -1215,7 +1211,7 @@ namespace MediaBrowser.Controller.Entities
 
                 if (!i.IsThemeMedia)
                 {
-                    i.ExtraType = ExtraType.ThemeVideo;
+                    i.ExtraType = MediaBrowser.Model.Entities.ExtraType.ThemeVideo;
                     subOptions.ForceSave = true;
                 }
 
@@ -1245,7 +1241,7 @@ namespace MediaBrowser.Controller.Entities
 
                 if (!i.IsThemeMedia)
                 {
-                    i.ExtraType = ExtraType.ThemeSong;
+                    i.ExtraType = MediaBrowser.Model.Entities.ExtraType.ThemeSong;
                     subOptions.ForceSave = true;
                 }
 
@@ -1573,6 +1569,12 @@ namespace MediaBrowser.Controller.Entities
             return IsVisibleStandaloneInternal(user, true);
         }
 
+        [IgnoreDataMember]
+        public virtual bool SupportsInheritedParentImages
+        {
+            get { return false; }
+        }
+
         protected bool IsVisibleStandaloneInternal(User user, bool checkFolders)
         {
             if (!IsVisible(user))
@@ -1879,19 +1881,7 @@ namespace MediaBrowser.Controller.Entities
 
             if (info.IsLocalFile)
             {
-                // Delete the source file
-                var currentFile = FileSystem.GetFileInfo(info.Path);
-
-                // Deletion will fail if the file is hidden so remove the attribute first
-                if (currentFile.Exists)
-                {
-                    if (currentFile.IsHidden)
-                    {
-                        FileSystem.SetHidden(currentFile.FullName, false);
-                    }
-
-                    FileSystem.DeleteFile(currentFile.FullName);
-                }
+                FileSystem.DeleteFile(info.Path);
             }
 
             return UpdateToRepository(ItemUpdateType.ImageUpdate, CancellationToken.None);
@@ -2150,13 +2140,18 @@ namespace MediaBrowser.Controller.Entities
             {
                 MetadataCountryCode = GetPreferredMetadataCountryCode(),
                 MetadataLanguage = GetPreferredMetadataLanguage(),
-                Name = Name,
+                Name = GetNameForMetadataLookup(),
                 ProviderIds = ProviderIds,
                 IndexNumber = IndexNumber,
                 ParentIndexNumber = ParentIndexNumber,
                 Year = ProductionYear,
                 PremiereDate = PremiereDate
             };
+        }
+
+        protected virtual string GetNameForMetadataLookup()
+        {
+            return Name;
         }
 
         /// <summary>
@@ -2340,17 +2335,25 @@ namespace MediaBrowser.Controller.Entities
         {
             get
             {
-                if (GetParent() is AggregateFolder || this is BasePluginFolder || this is Channel)
+                if (this is BasePluginFolder || this is Channel)
                 {
                     return true;
                 }
 
                 var view = this as UserView;
-                if (view != null && string.Equals(view.ViewType, CollectionType.LiveTv, StringComparison.OrdinalIgnoreCase))
+                if (view != null)
                 {
-                    return true;
+                    if (string.Equals(view.ViewType, CollectionType.LiveTv, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+                    if (string.Equals(view.ViewType, CollectionType.Channels, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
                 }
-                if (view != null && string.Equals(view.ViewType, CollectionType.Channels, StringComparison.OrdinalIgnoreCase))
+
+                if (GetParent() is AggregateFolder)
                 {
                     return true;
                 }

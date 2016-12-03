@@ -78,35 +78,22 @@ namespace MediaBrowser.Api.Movies
         /// </summary>
         private readonly IUserManager _userManager;
 
-        /// <summary>
-        /// The _user data repository
-        /// </summary>
-        private readonly IUserDataManager _userDataRepository;
-        /// <summary>
-        /// The _library manager
-        /// </summary>
         private readonly ILibraryManager _libraryManager;
 
-        private readonly IItemRepository _itemRepo;
         private readonly IDtoService _dtoService;
         private readonly IServerConfigurationManager _config;
+        private readonly IAuthorizationContext _authContext;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="MoviesService" /> class.
         /// </summary>
-        /// <param name="userManager">The user manager.</param>
-        /// <param name="userDataRepository">The user data repository.</param>
-        /// <param name="libraryManager">The library manager.</param>
-        /// <param name="itemRepo">The item repo.</param>
-        /// <param name="dtoService">The dto service.</param>
-        public MoviesService(IUserManager userManager, IUserDataManager userDataRepository, ILibraryManager libraryManager, IItemRepository itemRepo, IDtoService dtoService, IServerConfigurationManager config)
+        public MoviesService(IUserManager userManager, ILibraryManager libraryManager, IDtoService dtoService, IServerConfigurationManager config, IAuthorizationContext authContext)
         {
             _userManager = userManager;
-            _userDataRepository = userDataRepository;
             _libraryManager = libraryManager;
-            _itemRepo = itemRepo;
             _dtoService = dtoService;
             _config = config;
+            _authContext = authContext;
         }
 
         /// <summary>
@@ -132,7 +119,7 @@ namespace MediaBrowser.Api.Movies
         {
             var user = _userManager.GetUserById(request.UserId);
 
-            var dtoOptions = GetDtoOptions(request);
+            var dtoOptions = GetDtoOptions(_authContext, request);
 
             dtoOptions.Fields = request.GetItemFields().ToList();
 
@@ -156,7 +143,7 @@ namespace MediaBrowser.Api.Movies
                 itemTypes.Add(typeof(LiveTvProgram).Name);
             }
 
-            var dtoOptions = GetDtoOptions(request);
+            var dtoOptions = GetDtoOptions(_authContext, request);
 
             var itemsResult = _libraryManager.GetItemList(new InternalItemsQuery(user)
             {

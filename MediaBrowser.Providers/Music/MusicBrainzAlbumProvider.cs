@@ -7,6 +7,7 @@ using MediaBrowser.Model.Logging;
 using MediaBrowser.Model.Providers;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -261,12 +262,11 @@ namespace MediaBrowser.Providers.Music
 
             public static List<ReleaseResult> Parse(XmlReader reader)
             {
-                var list = new List<ReleaseResult>();
-
                 reader.MoveToContent();
+                reader.Read();
 
                 // Loop through each element
-                while (reader.Read())
+                while (!reader.EOF)
                 {
                     if (reader.NodeType == XmlNodeType.Element)
                     {
@@ -276,9 +276,8 @@ namespace MediaBrowser.Providers.Music
                                 {
                                     using (var subReader = reader.ReadSubtree())
                                     {
-                                        list.AddRange(ParseReleaseList(subReader));
+                                        return ParseReleaseList(subReader);
                                     }
-                                    break;
                                 }
                             default:
                                 {
@@ -287,9 +286,13 @@ namespace MediaBrowser.Providers.Music
                                 }
                         }
                     }
+                    else
+                    {
+                        reader.Read();
+                    }
                 }
 
-                return list;
+                return new List<ReleaseResult>();
             }
 
             private static List<ReleaseResult> ParseReleaseList(XmlReader reader)
@@ -297,9 +300,10 @@ namespace MediaBrowser.Providers.Music
                 var list = new List<ReleaseResult>();
 
                 reader.MoveToContent();
+                reader.Read();
 
                 // Loop through each element
-                while (reader.Read())
+                while (!reader.EOF)
                 {
                     if (reader.NodeType == XmlNodeType.Element)
                     {
@@ -326,6 +330,10 @@ namespace MediaBrowser.Providers.Music
                                 }
                         }
                     }
+                    else
+                    {
+                        reader.Read();
+                    }
                 }
 
                 return list;
@@ -339,7 +347,6 @@ namespace MediaBrowser.Providers.Music
                 };
 
                 reader.MoveToContent();
-
                 reader.Read();
 
                 // http://stackoverflow.com/questions/2299632/why-does-xmlreader-skip-every-other-element-if-there-is-no-whitespace-separator
@@ -374,9 +381,7 @@ namespace MediaBrowser.Providers.Music
                             case "release-group":
                                 {
                                     result.ReleaseGroupId = reader.GetAttribute("id");
-                                    using (var subtree = reader.ReadSubtree())
-                                    {
-                                    }
+                                    reader.Skip();
                                     break;
                                 }
                             default:
@@ -419,9 +424,10 @@ namespace MediaBrowser.Providers.Music
                     using (var reader = XmlReader.Create(oReader, settings))
                     {
                         reader.MoveToContent();
+                        reader.Read();
 
                         // Loop through each element
-                        while (reader.Read())
+                        while (!reader.EOF)
                         {
                             if (reader.NodeType == XmlNodeType.Element)
                             {
@@ -441,6 +447,10 @@ namespace MediaBrowser.Providers.Music
                                         }
                                 }
                             }
+                            else
+                            {
+                                reader.Read();
+                            }
                         }
                         return null;
                     }
@@ -451,9 +461,10 @@ namespace MediaBrowser.Providers.Music
         private string GetFirstReleaseGroupId(XmlReader reader)
         {
             reader.MoveToContent();
+            reader.Read();
 
             // Loop through each element
-            while (reader.Read())
+            while (!reader.EOF)
             {
                 if (reader.NodeType == XmlNodeType.Element)
                 {
@@ -469,6 +480,10 @@ namespace MediaBrowser.Providers.Music
                                 break;
                             }
                     }
+                }
+                else
+                {
+                    reader.Read();
                 }
             }
 
@@ -517,7 +532,9 @@ namespace MediaBrowser.Providers.Music
 
                 using (var stream = await _httpClient.Get(options).ConfigureAwait(false))
                 {
-                    list = _json.DeserializeFromStream<List<MbzUrl>>(stream);
+                    var results = _json.DeserializeFromStream<List<MbzUrl>>(stream);
+
+                    list = results;
                 }
                 _lastMbzUrlQueryTicks = DateTime.UtcNow.Ticks;
             }
@@ -550,11 +567,13 @@ namespace MediaBrowser.Providers.Music
         internal async Task<Stream> GetMusicBrainzResponse(string url, bool isSearch, CancellationToken cancellationToken)
         {
             var urlInfo = await GetMbzUrl().ConfigureAwait(false);
+            var throttleMs = urlInfo.throttleMs;
 
-            if (urlInfo.throttleMs > 0)
+            if (throttleMs > 0)
             {
                 // MusicBrainz is extremely adamant about limiting to one request per second
-                await Task.Delay(urlInfo.throttleMs, cancellationToken).ConfigureAwait(false);
+                _logger.Debug("Throttling MusicBrainz by {0}ms", throttleMs.ToString(CultureInfo.InvariantCulture));
+                await Task.Delay(throttleMs, cancellationToken).ConfigureAwait(false);
             }
 
             url = urlInfo.url.TrimEnd('/') + url;
@@ -564,7 +583,8 @@ namespace MediaBrowser.Providers.Music
                 Url = url,
                 CancellationToken = cancellationToken,
                 UserAgent = _appHost.Name + "/" + _appHost.ApplicationVersion,
-                ResourcePool = _musicBrainzResourcePool
+                ResourcePool = _musicBrainzResourcePool,
+                BufferContent = throttleMs > 0
             };
 
             return await _httpClient.Get(options).ConfigureAwait(false);

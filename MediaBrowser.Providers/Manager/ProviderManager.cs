@@ -66,7 +66,7 @@ namespace MediaBrowser.Providers.Manager
         private IExternalId[] _externalIds;
 
         private readonly Func<ILibraryManager> _libraryManagerFactory;
-        private readonly IMemoryStreamProvider _memoryStreamProvider;
+        private readonly IMemoryStreamFactory _memoryStreamProvider;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ProviderManager" /> class.
@@ -76,7 +76,7 @@ namespace MediaBrowser.Providers.Manager
         /// <param name="libraryMonitor">The directory watchers.</param>
         /// <param name="logManager">The log manager.</param>
         /// <param name="fileSystem">The file system.</param>
-        public ProviderManager(IHttpClient httpClient, IServerConfigurationManager configurationManager, ILibraryMonitor libraryMonitor, ILogManager logManager, IFileSystem fileSystem, IServerApplicationPaths appPaths, Func<ILibraryManager> libraryManagerFactory, IJsonSerializer json, IMemoryStreamProvider memoryStreamProvider)
+        public ProviderManager(IHttpClient httpClient, IServerConfigurationManager configurationManager, ILibraryMonitor libraryMonitor, ILogManager logManager, IFileSystem fileSystem, IServerApplicationPaths appPaths, Func<ILibraryManager> libraryManagerFactory, IJsonSerializer json, IMemoryStreamFactory memoryStreamProvider)
         {
             _logger = logManager.GetLogger("ProviderManager");
             _httpClient = httpClient;
@@ -129,7 +129,8 @@ namespace MediaBrowser.Providers.Manager
             {
                 CancellationToken = cancellationToken,
                 ResourcePool = resourcePool,
-                Url = url
+                Url = url,
+                BufferContent = false
 
             }).ConfigureAwait(false);
 
@@ -271,17 +272,17 @@ namespace MediaBrowser.Providers.Manager
         {
             var options = GetMetadataOptions(item);
 
-            return GetMetadataProvidersInternal<T>(item, options, false, true);
+            return GetMetadataProvidersInternal<T>(item, options, false, false, true);
         }
 
-        private IEnumerable<IMetadataProvider<T>> GetMetadataProvidersInternal<T>(IHasMetadata item, MetadataOptions options, bool includeDisabled, bool checkIsOwnedItem)
+        private IEnumerable<IMetadataProvider<T>> GetMetadataProvidersInternal<T>(IHasMetadata item, MetadataOptions options, bool includeDisabled, bool forceEnableInternetMetadata, bool checkIsOwnedItem)
             where T : IHasMetadata
         {
             // Avoid implicitly captured closure
             var currentOptions = options;
 
             return _metadataProviders.OfType<IMetadataProvider<T>>()
-                .Where(i => CanRefresh(i, item, currentOptions, includeDisabled, checkIsOwnedItem))
+                .Where(i => CanRefresh(i, item, currentOptions, includeDisabled, forceEnableInternetMetadata, checkIsOwnedItem))
                 .OrderBy(i => GetConfiguredOrder(i, options))
                 .ThenBy(GetDefaultOrder);
         }
@@ -293,7 +294,7 @@ namespace MediaBrowser.Providers.Manager
 			return GetImageProviders(item, options, new ImageRefreshOptions(new DirectoryService(_logger, _fileSystem)), includeDisabled).OfType<IRemoteImageProvider>();
         }
 
-        private bool CanRefresh(IMetadataProvider provider, IHasMetadata item, MetadataOptions options, bool includeDisabled, bool checkIsOwnedItem)
+        private bool CanRefresh(IMetadataProvider provider, IHasMetadata item, MetadataOptions options, bool includeDisabled, bool forceEnableInternetMetadata, bool checkIsOwnedItem)
         {
             if (!includeDisabled)
             {
@@ -305,7 +306,7 @@ namespace MediaBrowser.Providers.Manager
 
                 if (provider is IRemoteMetadataProvider)
                 {
-                    if (!item.IsInternetMetadataEnabled())
+                    if (!forceEnableInternetMetadata && !item.IsInternetMetadataEnabled())
                     {
                         return false;
                     }
@@ -356,7 +357,7 @@ namespace MediaBrowser.Providers.Manager
 
                     if (provider is IRemoteImageProvider)
                     {
-                        if (!item.IsInternetMetadataEnabled())
+                        if (!refreshOptions.ForceEnableInternetMetadata && !item.IsInternetMetadataEnabled())
                         {
                             return false;
                         }
@@ -500,7 +501,7 @@ namespace MediaBrowser.Providers.Manager
         private void AddMetadataPlugins<T>(List<MetadataPlugin> list, T item, MetadataOptions options)
             where T : IHasMetadata
         {
-            var providers = GetMetadataProvidersInternal<T>(item, options, true, false).ToList();
+            var providers = GetMetadataProvidersInternal<T>(item, options, true, false, false).ToList();
 
             // Locals
             list.AddRange(providers.Where(i => (i is ILocalMetadataProvider)).Select(i => new MetadataPlugin
@@ -714,7 +715,7 @@ namespace MediaBrowser.Providers.Manager
 
             var options = GetMetadataOptions(dummy);
 
-            var providers = GetMetadataProvidersInternal<TItemType>(dummy, options, searchInfo.IncludeDisabledProviders, false)
+            var providers = GetMetadataProvidersInternal<TItemType>(dummy, options, searchInfo.IncludeDisabledProviders, false, false)
                 .OfType<IRemoteSearchProvider<TLookupType>>();
 
             if (!string.IsNullOrEmpty(searchInfo.SearchProviderName))

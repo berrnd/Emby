@@ -419,7 +419,9 @@
                     setTracks(elem, tracks);
 
                     requireHlsPlayer(function () {
-                        var hls = new Hls();
+                        var hls = new Hls({
+                            manifestLoadingTimeOut: 20000
+                        });
                         hls.loadSource(val);
                         hls.attachMedia(elem);
                         hls.on(Hls.Events.MANIFEST_PARSED, function () {
@@ -558,11 +560,6 @@
         };
 
         function enableNativeTrackSupport(track) {
-
-            if (browser.safari && browser.mobile) {
-                // Leave it to apple to have different behavior between safari on ios vs osx
-                return false;
-            }
 
             if (browser.firefox) {
                 if ((currentSrc || '').toLowerCase().indexOf('.m3u8') != -1) {

@@ -276,6 +276,10 @@ namespace MediaBrowser.Model.IO
         /// <returns>System.String.</returns>
         string ReadAllText(string path, Encoding encoding);
 
+        string[] ReadAllLines(string path);
+
+        void WriteAllLines(string path, IEnumerable<string> lines);
+
         /// <summary>
         /// Gets the directory paths.
         /// </summary>
@@ -301,10 +305,16 @@ namespace MediaBrowser.Model.IO
         IEnumerable<string> GetFileSystemEntryPaths(string path, bool recursive = false);
 
         void SetHidden(string path, bool isHidden);
+        void SetReadOnly(string path, bool isHidden);
 
         char DirectorySeparatorChar { get; }
+        char PathSeparator { get; }
 
         string GetFullPath(string path);
+
+        List<FileSystemMetadata> GetDrives();
+
+        void SetExecutable(string path);
     }
 
     public enum FileOpenMode
@@ -359,7 +369,6 @@ namespace MediaBrowser.Model.IO
         Append = 6
     }
 
-    [Flags]
     public enum FileAccessMode
     {
         //
@@ -378,7 +387,6 @@ namespace MediaBrowser.Model.IO
         ReadWrite = 3
     }
 
-    [Flags]
     public enum FileShareMode
     {
         //
@@ -407,16 +415,7 @@ namespace MediaBrowser.Model.IO
         //     or another process) will fail until the file is closed. However, even if this
         //     flag is specified, additional permissions might still be needed to access the
         //     file.
-        ReadWrite = 3,
-        //
-        // Summary:
-        //     Allows subsequent deleting of a file.
-        Delete = 4,
-        //
-        // Summary:
-        //     Makes the file handle inheritable by child processes. This is not directly supported
-        //     by Win32.
-        Inheritable = 16
+        ReadWrite = 3
     }
 
 }

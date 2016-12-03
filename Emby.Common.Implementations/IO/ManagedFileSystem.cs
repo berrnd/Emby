@@ -18,12 +18,13 @@ namespace Emby.Common.Implementations.IO
         private readonly bool _supportsAsyncFileStreams;
         private char[] _invalidFileNameChars;
         private readonly List<IShortcutHandler> _shortcutHandlers = new List<IShortcutHandler>();
-        protected bool EnableFileSystemRequestConcat = true;
+        private bool EnableFileSystemRequestConcat = true;
 
-        public ManagedFileSystem(ILogger logger, bool supportsAsyncFileStreams, bool enableManagedInvalidFileNameChars)
+        public ManagedFileSystem(ILogger logger, bool supportsAsyncFileStreams, bool enableManagedInvalidFileNameChars, bool enableFileSystemRequestConcat)
         {
             Logger = logger;
             _supportsAsyncFileStreams = supportsAsyncFileStreams;
+            EnableFileSystemRequestConcat = enableFileSystemRequestConcat;
             SetInvalidFileNameChars(enableManagedInvalidFileNameChars);
         }
 
@@ -53,6 +54,14 @@ namespace Emby.Common.Implementations.IO
             get
             {
                 return Path.DirectorySeparatorChar;
+            }
+        }
+
+        public char PathSeparator
+        {
+            get
+            {
+                return Path.PathSeparator;
             }
         }
 
@@ -388,16 +397,34 @@ namespace Emby.Common.Implementations.IO
 
         private FileAccess GetFileAccess(FileAccessMode mode)
         {
-            var val = (int)mode;
-
-            return (FileAccess)val;
+            switch (mode)
+            {
+                case FileAccessMode.ReadWrite:
+                    return FileAccess.ReadWrite;
+                case FileAccessMode.Write:
+                    return FileAccess.Write;
+                case FileAccessMode.Read:
+                    return FileAccess.Read;
+                default:
+                    throw new Exception("Unrecognized FileAccessMode");
+            }
         }
 
         private FileShare GetFileShare(FileShareMode mode)
         {
-            var val = (int)mode;
-
-            return (FileShare)val;
+            switch (mode)
+            {
+                case FileShareMode.ReadWrite:
+                    return FileShare.ReadWrite;
+                case FileShareMode.Write:
+                    return FileShare.Write;
+                case FileShareMode.Read:
+                    return FileShare.Read;
+                case FileShareMode.None:
+                    return FileShare.None;
+                default:
+                    throw new Exception("Unrecognized FileShareMode");
+            }
         }
 
         public void SetHidden(string path, bool isHidden)
@@ -408,13 +435,32 @@ namespace Emby.Common.Implementations.IO
             {
                 if (isHidden)
                 {
+                    File.SetAttributes(path, File.GetAttributes(path) | FileAttributes.Hidden);
+                }
+                else
+                {
                     FileAttributes attributes = File.GetAttributes(path);
                     attributes = RemoveAttribute(attributes, FileAttributes.Hidden);
                     File.SetAttributes(path, attributes);
                 }
+            }
+        }
+
+        public void SetReadOnly(string path, bool isReadOnly)
+        {
+            var info = GetFileInfo(path);
+
+            if (info.Exists && info.IsReadOnly != isReadOnly)
+            {
+                if (isReadOnly)
+                {
+                    File.SetAttributes(path, File.GetAttributes(path) | FileAttributes.ReadOnly);
+                }
                 else
                 {
-                    File.SetAttributes(path, File.GetAttributes(path) | FileAttributes.Hidden);
+                    FileAttributes attributes = File.GetAttributes(path);
+                    attributes = RemoveAttribute(attributes, FileAttributes.ReadOnly);
+                    File.SetAttributes(path, attributes);
                 }
             }
         }
@@ -564,6 +610,20 @@ namespace Emby.Common.Implementations.IO
 
         public void DeleteFile(string path)
         {
+            var fileInfo = GetFileInfo(path);
+
+            if (fileInfo.Exists)
+            {
+                if (fileInfo.IsHidden)
+                {
+                    SetHidden(path, false);
+                }
+                if (fileInfo.IsReadOnly)
+                {
+                    SetReadOnly(path, false);
+                }
+            }
+
             File.Delete(path);
         }
 
@@ -575,6 +635,23 @@ namespace Emby.Common.Implementations.IO
         public void CreateDirectory(string path)
         {
             Directory.CreateDirectory(path);
+        }
+
+        public List<FileSystemMetadata> GetDrives()
+        {
+            // Only include drives in the ready state or this method could end up being very slow, waiting for drives to timeout
+            return DriveInfo.GetDrives().Where(d => d.IsReady).Select(d => new FileSystemMetadata
+            {
+                Name = GetName(d),
+                FullName = d.RootDirectory.FullName,
+                IsDirectory = true
+
+            }).ToList();
+        }
+
+        private string GetName(DriveInfo drive)
+        {
+            return drive.Name;
         }
 
         public IEnumerable<FileSystemMetadata> GetDirectories(string path, bool recursive = false)
@@ -622,6 +699,16 @@ namespace Emby.Common.Implementations.IO
                 }
 
             }).Where(i => i != null);
+        }
+
+        public string[] ReadAllLines(string path)
+        {
+            return File.ReadAllLines(path);
+        }
+
+        public void WriteAllLines(string path, IEnumerable<string> lines)
+        {
+            File.WriteAllLines(path, lines);
         }
 
         public Stream OpenRead(string path)
@@ -700,6 +787,11 @@ namespace Emby.Common.Implementations.IO
         {
             var searchOption = recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
             return Directory.EnumerateFileSystemEntries(path, "*", searchOption);
+        }
+
+        public virtual void SetExecutable(string path)
+        {
+            
         }
     }
 }

@@ -25,7 +25,7 @@
                         StartIndex: 0,
                         Limit: pageSize
                     },
-                    view: libraryBrowser.getSavedView(key) || 'Poster'
+                    view: libraryBrowser.getSavedView(key) || (appHost.preferVisualCards ? 'PosterCard' : 'Poster')
                 };
 
                 pageData.query.ParentId = params.topParentId;
@@ -293,10 +293,6 @@
                         {
                             name: Globalize.translate('OptionRuntime'),
                             id: 'Runtime,SortName'
-                        },
-                        {
-                            name: Globalize.translate('OptionVideoBitrate'),
-                            id: 'VideoBitRate,SortName'
                         }],
                     callback: function () {
                         getQuery(tabContent).StartIndex = 0;

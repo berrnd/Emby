@@ -163,13 +163,9 @@ namespace MediaBrowser.LocalMetadata.Parsers
                     {
                         var val = reader.ReadElementContentAsString();
 
-                        var hasOriginalTitle = item as IHasOriginalTitle;
-                        if (hasOriginalTitle != null)
+                        if (!string.IsNullOrEmpty(val))
                         {
-                            if (!string.IsNullOrEmpty(hasOriginalTitle.OriginalTitle))
-                            {
-                                hasOriginalTitle.OriginalTitle = val;
-                            }
+                            item.OriginalTitle = val;
                         }
                         break;
                     }
@@ -910,8 +906,10 @@ namespace MediaBrowser.LocalMetadata.Parsers
         private void FetchFromTaglinesNode(XmlReader reader, T item)
         {
             reader.MoveToContent();
+            reader.Read();
 
-            while (reader.Read())
+            // Loop through each element
+            while (!reader.EOF)
             {
                 if (reader.NodeType == XmlNodeType.Element)
                 {
@@ -927,11 +925,14 @@ namespace MediaBrowser.LocalMetadata.Parsers
                                 }
                                 break;
                             }
-
                         default:
                             reader.Skip();
                             break;
                     }
+                }
+                else
+                {
+                    reader.Read();
                 }
             }
         }
@@ -1328,11 +1329,13 @@ namespace MediaBrowser.LocalMetadata.Parsers
 
         protected Share GetShare(XmlReader reader)
         {
-            reader.MoveToContent();
-
             var item = new Share();
 
-            while (reader.Read())
+            reader.MoveToContent();
+            reader.Read();
+
+            // Loop through each element
+            while (!reader.EOF)
             {
                 if (reader.NodeType == XmlNodeType.Element)
                 {
@@ -1349,11 +1352,16 @@ namespace MediaBrowser.LocalMetadata.Parsers
                                 item.CanEdit = string.Equals(reader.ReadElementContentAsString(), "true", StringComparison.OrdinalIgnoreCase);
                                 break;
                             }
-
                         default:
-                            reader.Skip();
-                            break;
+                            {
+                                reader.Skip();
+                                break;
+                            }
                     }
+                }
+                else
+                {
+                    reader.Read();
                 }
             }
 

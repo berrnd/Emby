@@ -123,9 +123,7 @@ namespace MediaBrowser.Controller.Entities
         public int? MinParentalRating { get; set; }
         public int? MaxParentalRating { get; set; }
 
-        public bool? IsCurrentSchema { get; set; }
         public bool? HasDeadParentId { get; set; }
-        public bool? IsOffline { get; set; }
         public bool? IsVirtualItem { get; set; }
 
         public Guid? ParentId { get; set; }
@@ -143,6 +141,7 @@ namespace MediaBrowser.Controller.Entities
         public SeriesStatus[] SeriesStatuses { get; set; }
         public string AlbumArtistStartsWithOrGreater { get; set; }
         public string ExternalSeriesId { get; set; }
+        public string ExternalId { get; set; }
 
         public string[] AlbumNames { get; set; }
         public string[] ArtistNames { get; set; }

@@ -95,8 +95,8 @@ namespace MediaBrowser.Api.Playback.Hls
 
     public class DynamicHlsService : BaseHlsService
     {
-        public DynamicHlsService(IServerConfigurationManager serverConfig, IUserManager userManager, ILibraryManager libraryManager, IIsoManager isoManager, IMediaEncoder mediaEncoder, IFileSystem fileSystem, IDlnaManager dlnaManager, ISubtitleEncoder subtitleEncoder, IDeviceManager deviceManager, IMediaSourceManager mediaSourceManager, IZipClient zipClient, IJsonSerializer jsonSerializer, INetworkManager networkManager)
-            : base(serverConfig, userManager, libraryManager, isoManager, mediaEncoder, fileSystem, dlnaManager, subtitleEncoder, deviceManager, mediaSourceManager, zipClient, jsonSerializer)
+
+        public DynamicHlsService(IServerConfigurationManager serverConfig, IUserManager userManager, ILibraryManager libraryManager, IIsoManager isoManager, IMediaEncoder mediaEncoder, IFileSystem fileSystem, IDlnaManager dlnaManager, ISubtitleEncoder subtitleEncoder, IDeviceManager deviceManager, IMediaSourceManager mediaSourceManager, IZipClient zipClient, IJsonSerializer jsonSerializer, IAuthorizationContext authorizationContext, INetworkManager networkManager) : base(serverConfig, userManager, libraryManager, isoManager, mediaEncoder, fileSystem, dlnaManager, subtitleEncoder, deviceManager, mediaSourceManager, zipClient, jsonSerializer, authorizationContext)
         {
             NetworkManager = networkManager;
         }
@@ -356,7 +356,8 @@ namespace MediaBrowser.Api.Playback.Hls
             {
                 Logger.ErrorException("Error deleting partial stream file(s) {0}", ex, file.FullName);
 
-                Thread.Sleep(100);
+                var task = Task.Delay(100);
+                Task.WaitAll(task);
                 DeleteFile(file, retryCount + 1);
             }
             catch (Exception ex)
@@ -378,7 +379,7 @@ namespace MediaBrowser.Api.Playback.Hls
                     .OrderByDescending(fileSystem.GetLastWriteTimeUtc)
                     .FirstOrDefault();
             }
-            catch (DirectoryNotFoundException)
+            catch (IOException)
             {
                 return null;
             }
@@ -420,7 +421,7 @@ namespace MediaBrowser.Api.Playback.Hls
             // If all transcoding has completed, just return immediately
             if (transcodingJob != null && transcodingJob.HasExited && FileSystem.FileExists(segmentPath))
             {
-                return GetSegmentResult(state, segmentPath, segmentIndex, transcodingJob);
+                return await GetSegmentResult(state, segmentPath, segmentIndex, transcodingJob).ConfigureAwait(false);
             }
 
             var segmentFilename = Path.GetFileName(segmentPath);
@@ -440,7 +441,7 @@ namespace MediaBrowser.Api.Playback.Hls
                             {
                                 if (FileSystem.FileExists(segmentPath))
                                 {
-                                    return GetSegmentResult(state, segmentPath, segmentIndex, transcodingJob);
+                                    return await GetSegmentResult(state, segmentPath, segmentIndex, transcodingJob).ConfigureAwait(false);
                                 }
                                 //break;
                             }
@@ -456,10 +457,10 @@ namespace MediaBrowser.Api.Playback.Hls
             }
 
             cancellationToken.ThrowIfCancellationRequested();
-            return GetSegmentResult(state, segmentPath, segmentIndex, transcodingJob);
+            return await GetSegmentResult(state, segmentPath, segmentIndex, transcodingJob).ConfigureAwait(false);
         }
 
-        private object GetSegmentResult(StreamState state, string segmentPath, int index, TranscodingJob transcodingJob)
+        private Task<object> GetSegmentResult(StreamState state, string segmentPath, int index, TranscodingJob transcodingJob)
         {
             var segmentEndingPositionTicks = GetEndPositionTicks(state, index);
 
@@ -475,7 +476,7 @@ namespace MediaBrowser.Api.Playback.Hls
                         ApiEntryPoint.Instance.OnTranscodeEndRequest(transcodingJob);
                     }
                 }
-            }).Result;
+            });
         }
 
         private async Task<object> GetMasterPlaylistInternal(StreamRequest request, string method)
@@ -881,7 +882,7 @@ namespace MediaBrowser.Api.Playback.Hls
 
             if (state.IsOutputVideo && !EnableCopyTs(state) && !string.Equals(state.OutputVideoCodec, "copy", StringComparison.OrdinalIgnoreCase) && (state.Request.StartTimeTicks ?? 0) > 0)
             {
-                timestampOffsetParam = " -output_ts_offset " + MediaEncoder.GetTimeParameter(state.Request.StartTimeTicks ?? 0).ToString(CultureInfo.InvariantCulture);
+                timestampOffsetParam = " -output_ts_offset " + MediaEncoder.GetTimeParameter(state.Request.StartTimeTicks ?? 0);
             }
 
             var mapArgs = state.IsOutputVideo ? GetMapArgs(state) : string.Empty;

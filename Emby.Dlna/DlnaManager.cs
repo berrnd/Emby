@@ -16,12 +16,8 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using MediaBrowser.Common.IO;
-using MediaBrowser.Controller.IO;
 using MediaBrowser.Model.IO;
-#if NETSTANDARD1_6
-using System.Reflection;
-#endif
+using MediaBrowser.Model.Reflection;
 
 namespace Emby.Dlna
 {
@@ -33,6 +29,7 @@ namespace Emby.Dlna
         private readonly ILogger _logger;
         private readonly IJsonSerializer _jsonSerializer;
         private readonly IServerApplicationHost _appHost;
+        private readonly IAssemblyInfo _assemblyInfo;
 
         private readonly Dictionary<string, Tuple<InternalProfileInfo, DeviceProfile>> _profiles = new Dictionary<string, Tuple<InternalProfileInfo, DeviceProfile>>(StringComparer.Ordinal);
 
@@ -40,7 +37,7 @@ namespace Emby.Dlna
             IFileSystem fileSystem,
             IApplicationPaths appPaths,
             ILogger logger,
-            IJsonSerializer jsonSerializer, IServerApplicationHost appHost)
+            IJsonSerializer jsonSerializer, IServerApplicationHost appHost, IAssemblyInfo assemblyInfo)
         {
             _xmlSerializer = xmlSerializer;
             _fileSystem = fileSystem;
@@ -48,6 +45,7 @@ namespace Emby.Dlna
             _logger = logger;
             _jsonSerializer = jsonSerializer;
             _appHost = appHost;
+            _assemblyInfo = assemblyInfo;
         }
 
         public void InitProfiles()
@@ -240,6 +238,12 @@ namespace Emby.Dlna
 
         private bool IsMatch(IDictionary<string, string> headers, HttpHeaderInfo header)
         {
+            // Handle invalid user setup
+            if (string.IsNullOrWhiteSpace(header.Name))
+            {
+                return false;
+            }
+
             string value;
 
             if (headers.TryGetValue(header.Name, out value))
@@ -285,7 +289,9 @@ namespace Emby.Dlna
                 var allFiles = _fileSystem.GetFiles(path)
                     .ToList();
 
-                var xmlFies = allFiles
+                var xmlFies = type == DeviceProfileType.System ? 
+                    new List<FileSystemMetadata>() : 
+                    allFiles
                     .Where(i => string.Equals(i.Extension, ".xml", StringComparison.OrdinalIgnoreCase))
                     .ToList();
 
@@ -306,7 +312,7 @@ namespace Emby.Dlna
                     .Where(i => i != null)
                     .ToList();
             }
-            catch (DirectoryNotFoundException)
+            catch (IOException)
             {
                 return new List<DeviceProfile>();
             }
@@ -328,7 +334,7 @@ namespace Emby.Dlna
 
                     if (string.Equals(Path.GetExtension(path), ".xml", StringComparison.OrdinalIgnoreCase))
                     {
-                        var tempProfile = (Emby.Dlna.ProfileSerialization.DeviceProfile)_xmlSerializer.DeserializeFromFile(typeof(Emby.Dlna.ProfileSerialization.DeviceProfile), path);
+                        var tempProfile = (ProfileSerialization.DeviceProfile)_xmlSerializer.DeserializeFromFile(typeof(Emby.Dlna.ProfileSerialization.DeviceProfile), path);
 
                         var json = _jsonSerializer.SerializeToString(tempProfile);
                         profile = (DeviceProfile)_jsonSerializer.DeserializeFromString<DeviceProfile>(json);
@@ -400,17 +406,11 @@ namespace Emby.Dlna
 
         private void ExtractSystemProfiles()
         {
-#if NET46
-            var assembly = GetType().Assembly;
             var namespaceName = GetType().Namespace + ".Profiles.Json.";
-#elif NETSTANDARD1_6
-            var assembly = GetType().GetTypeInfo().Assembly;
-            var namespaceName = GetType().GetTypeInfo().Namespace + ".Profiles.Json.";
-#endif
 
             var systemProfilesPath = SystemProfilesPath;
 
-            foreach (var name in assembly.GetManifestResourceNames()
+            foreach (var name in _assemblyInfo.GetManifestResourceNames(GetType())
                 .Where(i => i.StartsWith(namespaceName))
                 .ToList())
             {
@@ -418,9 +418,9 @@ namespace Emby.Dlna
 
                 var path = Path.Combine(systemProfilesPath, filename);
 
-                using (var stream = assembly.GetManifestResourceStream(name))
+                using (var stream = _assemblyInfo.GetManifestResourceStream(GetType(), name))
                 {
-                    var fileInfo = new FileInfo(path);
+                    var fileInfo = _fileSystem.GetFileInfo(path);
 
                     if (!fileInfo.Exists || fileInfo.Length != stream.Length)
                     {
@@ -512,7 +512,7 @@ namespace Emby.Dlna
 
             try
             {
-                File.Delete(Path.ChangeExtension(path, ".xml"));
+                _fileSystem.DeleteFile(Path.ChangeExtension(path, ".xml"));
             }
             catch
             {
@@ -560,20 +560,13 @@ namespace Emby.Dlna
                 ? ImageFormat.Png
                 : ImageFormat.Jpg;
 
-#if NET46
+            var resource = GetType().Namespace + ".Images." + filename.ToLower();
+
             return new ImageStream
             {
                 Format = format,
-                Stream = GetType().Assembly.GetManifestResourceStream("MediaBrowser.Dlna.Images." + filename.ToLower())
+                Stream = _assemblyInfo.GetManifestResourceStream(GetType(), resource)
             };
-#elif NETSTANDARD1_6
-            return new ImageStream
-            {
-                Format = format,
-                Stream = GetType().GetTypeInfo().Assembly.GetManifestResourceStream("MediaBrowser.Dlna.Images." + filename.ToLower())
-            };
-#endif
-            throw new NotImplementedException();
         }
     }
 

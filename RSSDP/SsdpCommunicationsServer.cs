@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
+using MediaBrowser.Model.Net;
 
 namespace Rssdp.Infrastructure
 {
@@ -78,17 +79,6 @@ namespace Rssdp.Infrastructure
         }
 
         /// <summary>
-        /// Partial constructor.
-        /// </summary>
-        /// <param name="socketFactory">An implementation of the <see cref="ISocketFactory"/> interface that can be used to make new unicast and multicast sockets. Cannot be null.</param>
-        /// <param name="localPort">The specific local port to use for all sockets created by this instance. Specify zero to indicate the system should choose a free port itself.</param>
-        /// <exception cref="System.ArgumentNullException">The <paramref name="socketFactory"/> argument is null.</exception>
-        public SsdpCommunicationsServer(ISocketFactory socketFactory, int localPort)
-            : this(socketFactory, localPort, SsdpConstants.SsdpDefaultMulticastTimeToLive)
-        {
-        }
-
-        /// <summary>
         /// Full constructor.
         /// </summary>
         /// <param name="socketFactory">An implementation of the <see cref="ISocketFactory"/> interface that can be used to make new unicast and multicast sockets. Cannot be null.</param>
@@ -157,10 +147,10 @@ namespace Rssdp.Infrastructure
         /// Sends a message to a particular address (uni or multicast) and port.
         /// </summary>
         /// <param name="messageData">A byte array containing the data to send.</param>
-        /// <param name="destination">A <see cref="UdpEndPoint"/> representing the destination address for the data. Can be either a multicast or unicast destination.</param>
+        /// <param name="destination">A <see cref="IpEndPointInfo"/> representing the destination address for the data. Can be either a multicast or unicast destination.</param>
         /// <exception cref="System.ArgumentNullException">Thrown if the <paramref name="messageData"/> argument is null.</exception>
         /// <exception cref="System.ObjectDisposedException">Thrown if the <see cref="DisposableManagedObjectBase.IsDisposed"/> property is true (because <seealso cref="DisposableManagedObjectBase.Dispose()" /> has been called previously).</exception>
-        public async Task SendMessage(byte[] messageData, UdpEndPoint destination)
+        public async Task SendMessage(byte[] messageData, IpEndPointInfo destination)
         {
             if (messageData == null) throw new ArgumentNullException("messageData");
 
@@ -169,26 +159,39 @@ namespace Rssdp.Infrastructure
             EnsureSendSocketCreated();
 
             // SSDP spec recommends sending messages multiple times (not more than 3) to account for possible packet loss over UDP.
-            await Repeat(SsdpConstants.UdpResendCount, TimeSpan.FromMilliseconds(100), () => SendMessageIfSocketNotDisposed(messageData, destination)).ConfigureAwait(false);
+            for (var i = 0; i < SsdpConstants.UdpResendCount; i++)
+            {
+                await SendMessageIfSocketNotDisposed(messageData, destination).ConfigureAwait(false);
+
+                await Task.Delay(100).ConfigureAwait(false);
+            }
         }
 
         /// <summary>
         /// Sends a message to the SSDP multicast address and port.
         /// </summary>
-        /// <param name="messageData">A byte array containing the data to send.</param>
-        /// <exception cref="System.ArgumentNullException">Thrown if the <paramref name="messageData"/> argument is null.</exception>
-        /// <exception cref="System.ObjectDisposedException">Thrown if the <see cref="DisposableManagedObjectBase.IsDisposed"/> property is true (because <seealso cref="DisposableManagedObjectBase.Dispose()" /> has been called previously).</exception>
-        public async Task SendMulticastMessage(byte[] messageData)
+        public async Task SendMulticastMessage(string message)
         {
-            if (messageData == null) throw new ArgumentNullException("messageData");
+            if (message == null) throw new ArgumentNullException("messageData");
+
+            byte[] messageData = Encoding.UTF8.GetBytes(message);
 
             ThrowIfDisposed();
 
             EnsureSendSocketCreated();
 
             // SSDP spec recommends sending messages multiple times (not more than 3) to account for possible packet loss over UDP.
-            await Repeat(SsdpConstants.UdpResendCount, TimeSpan.FromMilliseconds(100),
-                () => SendMessageIfSocketNotDisposed(messageData, new UdpEndPoint() { IPAddress = SsdpConstants.MulticastLocalAdminAddress, Port = SsdpConstants.MulticastPort })).ConfigureAwait(false);
+            for (var i = 0; i < SsdpConstants.UdpResendCount; i++)
+            {
+                await SendMessageIfSocketNotDisposed(messageData, new IpEndPointInfo
+                {
+                    IpAddress = new IpAddressInfo { Address = SsdpConstants.MulticastLocalAdminAddress },
+                    Port = SsdpConstants.MulticastPort
+
+                }).ConfigureAwait(false);
+
+                await Task.Delay(100).ConfigureAwait(false);
+            }
         }
 
         /// <summary>
@@ -254,28 +257,16 @@ namespace Rssdp.Infrastructure
 
         #region Private Methods
 
-        private async Task SendMessageIfSocketNotDisposed(byte[] messageData, UdpEndPoint destination)
+        private Task SendMessageIfSocketNotDisposed(byte[] messageData, IpEndPointInfo destination)
         {
             var socket = _SendSocket;
             if (socket != null)
             {
-                await _SendSocket.SendTo(messageData, destination).ConfigureAwait(false);
+                return _SendSocket.SendAsync(messageData, messageData.Length, destination);
             }
-            else
-            {
-                ThrowIfDisposed();
-            }
-        }
 
-        private static async Task Repeat(int repetitions, TimeSpan delay, Func<Task> work)
-        {
-            for (int cnt = 0; cnt < repetitions; cnt++)
-            {
-                await work().ConfigureAwait(false);
-
-                if (delay != TimeSpan.Zero)
-                    await Task.Delay(delay).ConfigureAwait(false);
-            }
+            ThrowIfDisposed();
+            return Task.FromResult(true);
         }
 
         private IUdpSocket ListenForBroadcastsAsync()
@@ -289,7 +280,7 @@ namespace Rssdp.Infrastructure
 
         private IUdpSocket CreateSocketAndListenForResponsesAsync()
         {
-            _SendSocket = _SocketFactory.CreateUdpSocket(_LocalPort);
+            _SendSocket = _SocketFactory.CreateSsdpUdpSocket(_LocalPort);
 
             ListenToSocket(_SendSocket);
 
@@ -302,21 +293,19 @@ namespace Rssdp.Infrastructure
             // Tasks are captured to local variables even if we don't use them just to avoid compiler warnings.
             var t = Task.Run(async () =>
             {
-
                 var cancelled = false;
                 while (!cancelled)
                 {
                     try
                     {
-                        var result = await socket.ReceiveAsync();
+                        var result = await socket.ReceiveAsync().ConfigureAwait(false);
 
                         if (result.ReceivedBytes > 0)
                         {
                             // Strange cannot convert compiler error here if I don't explicitly
                             // assign or cast to Action first. Assignment is easier to read,
                             // so went with that.
-                            Action processWork = () => ProcessMessage(System.Text.UTF8Encoding.UTF8.GetString(result.Buffer, 0, result.ReceivedBytes), result.ReceivedFrom);
-                            var processTask = Task.Run(processWork);
+                            ProcessMessage(System.Text.UTF8Encoding.UTF8.GetString(result.Buffer, 0, result.ReceivedBytes), result.RemoteEndPoint);
                         }
                     }
                     catch (ObjectDisposedException)
@@ -338,12 +327,14 @@ namespace Rssdp.Infrastructure
                 lock (_SendSocketSynchroniser)
                 {
                     if (_SendSocket == null)
+                    {
                         _SendSocket = CreateSocketAndListenForResponsesAsync();
+                    }
                 }
             }
         }
 
-        private void ProcessMessage(string data, UdpEndPoint endPoint)
+        private void ProcessMessage(string data, IpEndPointInfo endPoint)
         {
             //Responses start with the HTTP version, prefixed with HTTP/ while
             //requests start with a method which can vary and might be one we haven't 
@@ -375,7 +366,7 @@ namespace Rssdp.Infrastructure
             }
         }
 
-        private void OnRequestReceived(HttpRequestMessage data, UdpEndPoint endPoint)
+        private void OnRequestReceived(HttpRequestMessage data, IpEndPointInfo endPoint)
         {
             //SSDP specification says only * is currently used but other uri's might
             //be implemented in the future and should be ignored unless understood.
@@ -387,7 +378,7 @@ namespace Rssdp.Infrastructure
                 handlers(this, new RequestReceivedEventArgs(data, endPoint));
         }
 
-        private void OnResponseReceived(HttpResponseMessage data, UdpEndPoint endPoint)
+        private void OnResponseReceived(HttpResponseMessage data, IpEndPointInfo endPoint)
         {
             var handlers = this.ResponseReceived;
             if (handlers != null)

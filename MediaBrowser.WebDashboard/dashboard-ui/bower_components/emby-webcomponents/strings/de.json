@@ -1,4 +1,6 @@
 {
+    "EmbyPremiereMonthlyWithPrice": "Emby Premiere Monthly {0}",
+    "HeaderAlreadyPaid": "Already Paid?",
     "MessageUnlockAppWithPurchaseOrSupporter": "Schalte diese Funktion mit einer kleinen einmaligen Geb\u00fchr oder einem aktiven Emby Premium Abo frei.",
     "MessageUnlockAppWithSupporter": "Schalte diese Funktion mit einem aktiven Emby Premium Abo frei.",
     "MessageToValidateSupporter": "Wenn du eine aktive Emby Premiere Mitgliedschaft hast, stelle bitte sicher, dass du diese \u00fcber das Emby Server Dashboard eingerichtet hast (Hauptmenu -> Emby Premiere).",
@@ -350,5 +352,6 @@
     "MessageDidYouKnowCinemaMode": "Wusstest du schon, das du mit Emby Premiere dein Erlebnis mit Funktionen wie dem Kino-Modus noch verbessern kannst?",
     "MessageDidYouKnowCinemaMode2": "Der Kino-Modus bringt das richtige Kino-Erlebnis nach Hause, mit Trailern und eigenen Intros vor deinem Hauptfilm.",
     "HeaderPlayMyMedia": "Spiele meine Medien ab",
-    "HeaderDiscoverEmbyPremiere": "Entdecke Emby Premiere"
+    "HeaderDiscoverEmbyPremiere": "Entdecke Emby Premiere",
+    "OneChannel": "Ein Kanal"
 }

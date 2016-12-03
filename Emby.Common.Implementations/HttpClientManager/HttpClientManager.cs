@@ -42,7 +42,7 @@ namespace Emby.Common.Implementations.HttpClientManager
         private readonly IApplicationPaths _appPaths;
 
         private readonly IFileSystem _fileSystem;
-        private readonly IMemoryStreamProvider _memoryStreamProvider;
+        private readonly IMemoryStreamFactory _memoryStreamProvider;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="HttpClientManager" /> class.
@@ -53,7 +53,7 @@ namespace Emby.Common.Implementations.HttpClientManager
         /// <exception cref="System.ArgumentNullException">appPaths
         /// or
         /// logger</exception>
-        public HttpClientManager(IApplicationPaths appPaths, ILogger logger, IFileSystem fileSystem, IMemoryStreamProvider memoryStreamProvider)
+        public HttpClientManager(IApplicationPaths appPaths, ILogger logger, IFileSystem fileSystem, IMemoryStreamFactory memoryStreamProvider)
         {
             if (appPaths == null)
             {
@@ -169,9 +169,23 @@ namespace Emby.Common.Implementations.HttpClientManager
                 AddRequestHeaders(httpWebRequest, options);
 
 #if NET46
-                httpWebRequest.AutomaticDecompression = options.EnableHttpCompression ?
-                    (options.DecompressionMethod ?? DecompressionMethods.Deflate) :
-                    DecompressionMethods.None;
+                if (options.EnableHttpCompression)
+                {
+                    if (options.DecompressionMethod.HasValue)
+                    {
+                        httpWebRequest.AutomaticDecompression = options.DecompressionMethod.Value == CompressionMethod.Gzip
+                            ? DecompressionMethods.GZip
+                            : DecompressionMethods.Deflate;
+                    }
+                    else
+                    {
+                        httpWebRequest.AutomaticDecompression = DecompressionMethods.Deflate;
+                    }
+                }
+                else
+                {
+                    httpWebRequest.AutomaticDecompression = DecompressionMethods.None;
+                }
 #endif    
             }
 

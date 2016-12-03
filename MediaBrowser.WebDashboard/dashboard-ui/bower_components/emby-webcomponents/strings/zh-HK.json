@@ -1,4 +1,6 @@
 {
+    "EmbyPremiereMonthlyWithPrice": "Emby Premiere Monthly {0}",
+    "HeaderAlreadyPaid": "Already Paid?",
     "MessageUnlockAppWithPurchaseOrSupporter": "Unlock this feature with a small one-time purchase, or with an active Emby Premiere subscription.",
     "MessageUnlockAppWithSupporter": "Unlock this feature with an active Emby Premiere subscription.",
     "MessageToValidateSupporter": "If you have an active Emby Premiere subscription, ensure you've setup Emby Premiere in your Emby Server Dashboard, which you can access by clicking Emby Premiere within the main menu.",
@@ -182,7 +184,7 @@
     "LabelAirsBeforeSeason": "\u5c1a\u672a\u64ad\u653e\u5287\u96c6\u5b63\u5ea6\uff1a",
     "LabelAirsAfterSeason": "\u5df2\u64ad\u653e\u5287\u96c6\u5b63\u5ea6\uff1a",
     "LabelAirsBeforeEpisode": "Airs before episode:",
-    "HeaderExternalIds": "External Id's:",
+    "HeaderExternalIds": "External Ids:",
     "HeaderDisplaySettings": "Display Settings",
     "LabelTreatImageAs": "Treat image as:",
     "LabelDisplayOrder": "Display order:",
@@ -350,5 +352,6 @@
     "MessageDidYouKnowCinemaMode": "Did you know that with Emby Premiere, you can enhance your experience with features like Cinema Mode?",
     "MessageDidYouKnowCinemaMode2": "Cinema Mode gives you the true cinema experience with trailers and custom intros before the main feature.",
     "HeaderPlayMyMedia": "Play my Media",
-    "HeaderDiscoverEmbyPremiere": "Discover Emby Premiere"
+    "HeaderDiscoverEmbyPremiere": "Discover Emby Premiere",
+    "OneChannel": "One channel"
 }

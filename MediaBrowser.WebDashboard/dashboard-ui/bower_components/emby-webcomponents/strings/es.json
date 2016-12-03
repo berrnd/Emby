@@ -1,4 +1,6 @@
 {
+    "EmbyPremiereMonthlyWithPrice": "Emby Premiere Monthly {0}",
+    "HeaderAlreadyPaid": "Already Paid?",
     "MessageUnlockAppWithPurchaseOrSupporter": "Unlock this feature with a small one-time purchase, or with an active Emby Premiere subscription.",
     "MessageUnlockAppWithSupporter": "Unlock this feature with an active Emby Premiere subscription.",
     "MessageToValidateSupporter": "If you have an active Emby Premiere subscription, ensure you've setup Emby Premiere in your Emby Server Dashboard, which you can access by clicking Emby Premiere within the main menu.",
@@ -162,7 +164,7 @@
     "LabelOverview": "Resumen:",
     "LabelShortOverview": "Resumen corto:",
     "LabelReleaseDate": "Fecha de lanzamiento:",
-    "LabelYear": "Year:",
+    "LabelYear": "A\u00f1o:",
     "LabelPlaceOfBirth": "Lugar de nacimiento:",
     "LabelAirDays": "D\u00edas de emisi\u00f3n:",
     "LabelAirTime": "Tiempo de emisi\u00f3n:",
@@ -350,5 +352,6 @@
     "MessageDidYouKnowCinemaMode": "Did you know that with Emby Premiere, you can enhance your experience with features like Cinema Mode?",
     "MessageDidYouKnowCinemaMode2": "Cinema Mode gives you the true cinema experience with trailers and custom intros before the main feature.",
     "HeaderPlayMyMedia": "Play my Media",
-    "HeaderDiscoverEmbyPremiere": "Discover Emby Premiere"
+    "HeaderDiscoverEmbyPremiere": "Discover Emby Premiere",
+    "OneChannel": "One channel"
 }

@@ -566,18 +566,35 @@ namespace MediaBrowser.Controller.Entities
 
         private async Task<QueryResult<BaseItem>> GetMovieGenres(Folder parent, User user, InternalItemsQuery query)
         {
-            var result = _libraryManager.GetGenres(new InternalItemsQuery(user)
+            var tasks = parent.QueryRecursive(new InternalItemsQuery(user)
             {
-                AncestorIds = new[] { parent.Id.ToString("N") },
-                StartIndex = query.StartIndex,
-                Limit = query.Limit
-            });
+                IncludeItemTypes = new[] { typeof(Movie).Name },
+                Recursive = true,
+                EnableTotalRecordCount = false
 
-            return new QueryResult<BaseItem>
-            {
-                TotalRecordCount = result.TotalRecordCount,
-                Items = result.Items.Select(i => i.Item1).ToArray()
-            };
+            }).Items
+                .SelectMany(i => i.Genres)
+                .DistinctNames()
+                .Select(i =>
+                {
+                    try
+                    {
+                        return _libraryManager.GetGenre(i);
+                    }
+                    catch
+                    {
+                        // Full exception logged at lower levels
+                        _logger.Error("Error getting genre");
+                        return null;
+                    }
+
+                })
+                .Where(i => i != null)
+                .Select(i => GetUserView(i.Name, SpecialFolder.MovieGenre, i.SortName, parent));
+
+            var genres = await Task.WhenAll(tasks).ConfigureAwait(false);
+
+            return GetResult(genres, parent, query);
         }
 
         private async Task<QueryResult<BaseItem>> GetMovieGenreItems(Folder queryParent, Folder displayParent, User user, InternalItemsQuery query)
@@ -692,18 +709,35 @@ namespace MediaBrowser.Controller.Entities
 
         private async Task<QueryResult<BaseItem>> GetTvGenres(Folder parent, User user, InternalItemsQuery query)
         {
-            var result = _libraryManager.GetGenres(new InternalItemsQuery(user)
+            var tasks = parent.QueryRecursive(new InternalItemsQuery(user)
             {
-                AncestorIds = new[] { parent.Id.ToString("N") },
-                StartIndex = query.StartIndex,
-                Limit = query.Limit
-            });
+                IncludeItemTypes = new[] { typeof(Series).Name },
+                Recursive = true,
+                EnableTotalRecordCount = false
 
-            return new QueryResult<BaseItem>
-            {
-                TotalRecordCount = result.TotalRecordCount,
-                Items = result.Items.Select(i => i.Item1).ToArray()
-            };
+            }).Items
+                .SelectMany(i => i.Genres)
+                .DistinctNames()
+                .Select(i =>
+                {
+                    try
+                    {
+                        return _libraryManager.GetGenre(i);
+                    }
+                    catch
+                    {
+                        // Full exception logged at lower levels
+                        _logger.Error("Error getting genre");
+                        return null;
+                    }
+
+                })
+                .Where(i => i != null)
+                .Select(i => GetUserView(i.Name, SpecialFolder.TvGenre, i.SortName, parent));
+
+            var genres = await Task.WhenAll(tasks).ConfigureAwait(false);
+
+            return GetResult(genres, parent, query);
         }
 
         private QueryResult<BaseItem> GetTvGenreItems(Folder queryParent, Folder displayParent, User user, InternalItemsQuery query)
@@ -1778,7 +1812,7 @@ namespace MediaBrowser.Controller.Entities
                 .Where(i => user.IsFolderGrouped(i.Id) && UserView.IsEligibleForGrouping(i));
         }
 
-        private IEnumerable<Folder> GetMediaFolders(User user, IEnumerable<string> viewTypes)
+        private List<Folder> GetMediaFolders(User user, IEnumerable<string> viewTypes)
         {
             if (user == null)
             {
@@ -1788,7 +1822,7 @@ namespace MediaBrowser.Controller.Entities
                         var folder = i as ICollectionFolder;
 
                         return folder != null && viewTypes.Contains(folder.CollectionType ?? string.Empty, StringComparer.OrdinalIgnoreCase);
-                    });
+                    }).ToList();
             }
             return GetMediaFolders(user)
                 .Where(i =>
@@ -1796,17 +1830,17 @@ namespace MediaBrowser.Controller.Entities
                     var folder = i as ICollectionFolder;
 
                     return folder != null && viewTypes.Contains(folder.CollectionType ?? string.Empty, StringComparer.OrdinalIgnoreCase);
-                });
+                }).ToList();
         }
 
-        private IEnumerable<Folder> GetMediaFolders(Folder parent, User user, IEnumerable<string> viewTypes)
+        private List<Folder> GetMediaFolders(Folder parent, User user, IEnumerable<string> viewTypes)
         {
             if (parent == null || parent is UserView)
             {
                 return GetMediaFolders(user, viewTypes);
             }
 
-            return new[] { parent };
+            return new List<Folder> { parent };
         }
 
         private IEnumerable<BaseItem> GetRecursiveChildren(Folder parent, User user, IEnumerable<string> viewTypes)

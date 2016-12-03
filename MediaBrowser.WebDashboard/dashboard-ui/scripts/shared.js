@@ -1,4 +1,4 @@
-﻿define(['jQuery', 'libraryBrowser'], function ($, libraryBrowser) {
+﻿define(['jQuery', 'libraryBrowser', 'imageLoader', 'indicators'], function ($, libraryBrowser, imageLoader, indicators) {
     'use strict';
 
     var currentItem;
@@ -21,7 +21,7 @@
 
         libraryBrowser.renderName(item, $('.itemName', page)[0], false);
         libraryBrowser.renderParentName(item, $('.parentName', page)[0]);
-        libraryBrowser.renderDetailPageBackdrop(page, item);
+        libraryBrowser.renderDetailPageBackdrop(page, item, imageLoader);
 
         renderImage(page, item);
 
@@ -36,7 +36,7 @@
         $('.collectionItems', page).empty();
 
         if (item.MediaSources && item.MediaSources.length) {
-            ItemDetailPage.renderMediaSources(page, item);
+            ItemDetailPage.renderMediaSources(page, null, item);
         }
 
         var chapters = item.Chapters || [];
@@ -59,7 +59,7 @@
     }
 
     function renderImage(page, item) {
-        libraryBrowser.renderDetailImage(page.querySelector('.detailImageContainer'), item, false);
+        libraryBrowser.renderDetailImage(page.querySelector('.detailImageContainer'), item, false, null, imageLoader, indicators);
     }
 
     $(document).on('pageinit', "#publicSharedItemPage", function () {

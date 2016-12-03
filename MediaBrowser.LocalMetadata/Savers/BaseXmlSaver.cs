@@ -226,8 +226,11 @@ namespace MediaBrowser.LocalMetadata.Savers
                 if (file.IsHidden)
                 {
                     FileSystem.SetHidden(path, false);
-
                     wasHidden = true;
+                }
+                if (file.IsReadOnly)
+                {
+                    FileSystem.SetReadOnly(path, false);
                 }
             }
 
@@ -310,388 +313,382 @@ namespace MediaBrowser.LocalMetadata.Savers
                 writer.WriteElementString("ContentRating", item.OfficialRating);
             }
 
-            //if (!string.IsNullOrEmpty(item.OfficialRatingDescription))
-            //{
-            //    builder.Append("<MPAADescription>" + SecurityElement.Escape(item.OfficialRatingDescription) + "</MPAADescription>");
-            //}
+            if (!string.IsNullOrEmpty(item.OfficialRatingDescription))
+            {
+                writer.WriteElementString("MPAADescription", item.OfficialRatingDescription);
+            }
 
-            //builder.Append("<Added>" + SecurityElement.Escape(item.DateCreated.ToLocalTime().ToString("G")) + "</Added>");
+            writer.WriteElementString("Added", item.DateCreated.ToLocalTime().ToString("G"));
 
-            //builder.Append("<LockData>" + item.IsLocked.ToString().ToLower() + "</LockData>");
+            writer.WriteElementString("LockData", item.IsLocked.ToString().ToLower());
 
-            //if (item.LockedFields.Count > 0)
-            //{
-            //    builder.Append("<LockedFields>" + string.Join("|", item.LockedFields.Select(i => i.ToString()).ToArray()) + "</LockedFields>");
-            //}
+            if (item.LockedFields.Count > 0)
+            {
+                writer.WriteElementString("LockedFields", string.Join("|", item.LockedFields.Select(i => i.ToString()).ToArray()));
+            }
 
-            //if (!string.IsNullOrEmpty(item.DisplayMediaType))
-            //{
-            //    builder.Append("<Type>" + SecurityElement.Escape(item.DisplayMediaType) + "</Type>");
-            //}
+            if (!string.IsNullOrEmpty(item.DisplayMediaType))
+            {
+                writer.WriteElementString("Type", item.DisplayMediaType);
+            }
 
-            //if (item.CriticRating.HasValue)
-            //{
-            //    builder.Append("<CriticRating>" + SecurityElement.Escape(item.CriticRating.Value.ToString(UsCulture)) + "</CriticRating>");
-            //}
+            if (item.CriticRating.HasValue)
+            {
+                writer.WriteElementString("CriticRating", item.CriticRating.Value.ToString(UsCulture));
+            }
 
-            //if (!string.IsNullOrEmpty(item.CriticRatingSummary))
-            //{
-            //    builder.Append("<CriticRatingSummary><![CDATA[" + item.CriticRatingSummary + "]]></CriticRatingSummary>");
-            //}
+            if (!string.IsNullOrEmpty(item.CriticRatingSummary))
+            {
+                writer.WriteElementString("CriticRatingSummary", item.CriticRatingSummary);
+            }
 
-            //if (!string.IsNullOrEmpty(item.Overview))
-            //{
-            //    builder.Append("<Overview><![CDATA[" + item.Overview + "]]></Overview>");
-            //}
+            if (!string.IsNullOrEmpty(item.Overview))
+            {
+                writer.WriteElementString("Overview", item.Overview);
+            }
 
-            //var hasOriginalTitle = item as IHasOriginalTitle;
-            //if (hasOriginalTitle != null)
-            //{
-            //    if (!string.IsNullOrEmpty(hasOriginalTitle.OriginalTitle))
-            //    {
-            //        builder.Append("<OriginalTitle>" + SecurityElement.Escape(hasOriginalTitle.OriginalTitle) + "</OriginalTitle>");
-            //    }
-            //}
+            if (!string.IsNullOrEmpty(item.OriginalTitle))
+            {
+                writer.WriteElementString("OriginalTitle", item.OriginalTitle);
+            }
+            if (!string.IsNullOrEmpty(item.ShortOverview))
+            {
+                writer.WriteElementString("ShortOverview", item.ShortOverview);
+            }
+            if (!string.IsNullOrEmpty(item.CustomRating))
+            {
+                writer.WriteElementString("CustomRating", item.CustomRating);
+            }
 
-            //if (!string.IsNullOrEmpty(item.ShortOverview))
-            //{
-            //    builder.Append("<ShortOverview><![CDATA[" + item.ShortOverview + "]]></ShortOverview>");
-            //}
+            if (!string.IsNullOrEmpty(item.Name) && !(item is Episode))
+            {
+                writer.WriteElementString("LocalTitle", item.Name);
+            }
 
-            //if (!string.IsNullOrEmpty(item.CustomRating))
-            //{
-            //    builder.Append("<CustomRating>" + SecurityElement.Escape(item.CustomRating) + "</CustomRating>");
-            //}
+            if (!string.IsNullOrEmpty(item.ForcedSortName))
+            {
+                writer.WriteElementString("SortTitle", item.ForcedSortName);
+            }
 
-            //if (!string.IsNullOrEmpty(item.Name) && !(item is Episode))
-            //{
-            //    builder.Append("<LocalTitle>" + SecurityElement.Escape(item.Name) + "</LocalTitle>");
-            //}
+            if (item.PremiereDate.HasValue)
+            {
+                if (item is Person)
+                {
+                    writer.WriteElementString("BirthDate", item.PremiereDate.Value.ToLocalTime().ToString("yyyy-MM-dd"));
+                }
+                else if (!(item is Episode))
+                {
+                    writer.WriteElementString("PremiereDate", item.PremiereDate.Value.ToLocalTime().ToString("yyyy-MM-dd"));
+                }
+            }
 
-            //if (!string.IsNullOrEmpty(item.ForcedSortName))
-            //{
-            //    builder.Append("<SortTitle>" + SecurityElement.Escape(item.ForcedSortName) + "</SortTitle>");
-            //}
+            if (item.EndDate.HasValue)
+            {
+                if (item is Person)
+                {
+                    writer.WriteElementString("DeathDate", item.EndDate.Value.ToLocalTime().ToString("yyyy-MM-dd"));
+                }
+                else if (!(item is Episode))
+                {
+                    writer.WriteElementString("EndDate", item.EndDate.Value.ToLocalTime().ToString("yyyy-MM-dd"));
+                }
+            }
 
-            //if (item.PremiereDate.HasValue)
-            //{
-            //    if (item is Person)
-            //    {
-            //        builder.Append("<BirthDate>" + SecurityElement.Escape(item.PremiereDate.Value.ToLocalTime().ToString("yyyy-MM-dd")) + "</BirthDate>");
-            //    }
-            //    else if (!(item is Episode))
-            //    {
-            //        builder.Append("<PremiereDate>" + SecurityElement.Escape(item.PremiereDate.Value.ToLocalTime().ToString("yyyy-MM-dd")) + "</PremiereDate>");
-            //    }
-            //}
+            var hasTrailers = item as IHasTrailers;
+            if (hasTrailers != null)
+            {
+                if (hasTrailers.RemoteTrailers.Count > 0)
+                {
+                    writer.WriteStartElement("Trailers");
 
-            //if (item.EndDate.HasValue)
-            //{
-            //    if (item is Person)
-            //    {
-            //        builder.Append("<DeathDate>" + SecurityElement.Escape(item.EndDate.Value.ToString("yyyy-MM-dd")) + "</DeathDate>");
-            //    }
-            //    else if (!(item is Episode))
-            //    {
-            //        builder.Append("<EndDate>" + SecurityElement.Escape(item.EndDate.Value.ToString("yyyy-MM-dd")) + "</EndDate>");
-            //    }
-            //}
+                    foreach (var trailer in hasTrailers.RemoteTrailers)
+                    {
+                        writer.WriteElementString("Trailer", trailer.Url);
+                    }
 
-            //var hasTrailers = item as IHasTrailers;
-            //if (hasTrailers != null)
-            //{
-            //    if (hasTrailers.RemoteTrailers.Count > 0)
-            //    {
-            //        builder.Append("<Trailers>");
+                    writer.WriteEndElement();
+                }
+            }
 
-            //        foreach (var trailer in hasTrailers.RemoteTrailers)
-            //        {
-            //            builder.Append("<Trailer>" + SecurityElement.Escape(trailer.Url) + "</Trailer>");
-            //        }
+            if (item.ProductionLocations.Count > 0)
+            {
+                writer.WriteStartElement("Countries");
 
-            //        builder.Append("</Trailers>");
-            //    }
-            //}
+                foreach (var name in item.ProductionLocations)
+                {
+                    writer.WriteElementString("Country", name);
+                }
 
-            ////if (hasProductionLocations.ProductionLocations.Count > 0)
-            ////{
-            ////    builder.Append("<Countries>");
+                writer.WriteEndElement();
+            }
 
-            ////    foreach (var name in hasProductionLocations.ProductionLocations)
-            ////    {
-            ////        builder.Append("<Country>" + SecurityElement.Escape(name) + "</Country>");
-            ////    }
+            var hasDisplayOrder = item as IHasDisplayOrder;
+            if (hasDisplayOrder != null && !string.IsNullOrEmpty(hasDisplayOrder.DisplayOrder))
+            {
+                writer.WriteElementString("DisplayOrder", hasDisplayOrder.DisplayOrder);
+            }
 
-            ////    builder.Append("</Countries>");
-            ////}
+            var hasMetascore = item as IHasMetascore;
+            if (hasMetascore != null && hasMetascore.Metascore.HasValue)
+            {
+                writer.WriteElementString("Metascore", hasMetascore.Metascore.Value.ToString(UsCulture));
+            }
 
-            //var hasDisplayOrder = item as IHasDisplayOrder;
-            //if (hasDisplayOrder != null && !string.IsNullOrEmpty(hasDisplayOrder.DisplayOrder))
-            //{
-            //    builder.Append("<DisplayOrder>" + SecurityElement.Escape(hasDisplayOrder.DisplayOrder) + "</DisplayOrder>");
-            //}
+            var hasAwards = item as IHasAwards;
+            if (hasAwards != null && !string.IsNullOrEmpty(hasAwards.AwardSummary))
+            {
+                writer.WriteElementString("AwardSummary", hasAwards.AwardSummary);
+            }
 
-            //var hasMetascore = item as IHasMetascore;
-            //if (hasMetascore != null && hasMetascore.Metascore.HasValue)
-            //{
-            //    builder.Append("<Metascore>" + SecurityElement.Escape(hasMetascore.Metascore.Value.ToString(UsCulture)) + "</Metascore>");
-            //}
+            var hasBudget = item as IHasBudget;
+            if (hasBudget != null)
+            {
+                if (hasBudget.Budget.HasValue)
+                {
+                    writer.WriteElementString("Budget", hasBudget.Budget.Value.ToString(UsCulture));
+                }
 
-            //var hasAwards = item as IHasAwards;
-            //if (hasAwards != null && !string.IsNullOrEmpty(hasAwards.AwardSummary))
-            //{
-            //    builder.Append("<AwardSummary>" + SecurityElement.Escape(hasAwards.AwardSummary) + "</AwardSummary>");
-            //}
+                if (hasBudget.Revenue.HasValue)
+                {
+                    writer.WriteElementString("Revenue", hasBudget.Revenue.Value.ToString(UsCulture));
+                }
+            }
 
-            //var hasBudget = item as IHasBudget;
-            //if (hasBudget != null)
-            //{
-            //    if (hasBudget.Budget.HasValue)
-            //    {
-            //        builder.Append("<Budget>" + SecurityElement.Escape(hasBudget.Budget.Value.ToString(UsCulture)) + "</Budget>");
-            //    }
+            if (item.CommunityRating.HasValue)
+            {
+                writer.WriteElementString("Rating", item.CommunityRating.Value.ToString(UsCulture));
+            }
+            if (item.VoteCount.HasValue)
+            {
+                writer.WriteElementString("VoteCount", item.VoteCount.Value.ToString(UsCulture));
+            }
 
-            //    if (hasBudget.Revenue.HasValue)
-            //    {
-            //        builder.Append("<Revenue>" + SecurityElement.Escape(hasBudget.Revenue.Value.ToString(UsCulture)) + "</Revenue>");
-            //    }
-            //}
+            if (item.ProductionYear.HasValue && !(item is Person))
+            {
+                writer.WriteElementString("ProductionYear", item.ProductionYear.Value.ToString(UsCulture));
+            }
 
-            //if (item.CommunityRating.HasValue)
-            //{
-            //    builder.Append("<Rating>" + SecurityElement.Escape(item.CommunityRating.Value.ToString(UsCulture)) + "</Rating>");
-            //}
-            //if (item.VoteCount.HasValue)
-            //{
-            //    builder.Append("<VoteCount>" + SecurityElement.Escape(item.VoteCount.Value.ToString(UsCulture)) + "</VoteCount>");
-            //}
+            if (!string.IsNullOrEmpty(item.HomePageUrl))
+            {
+                writer.WriteElementString("Website", item.HomePageUrl);
+            }
 
-            //if (item.ProductionYear.HasValue && !(item is Person))
-            //{
-            //    builder.Append("<ProductionYear>" + SecurityElement.Escape(item.ProductionYear.Value.ToString(UsCulture)) + "</ProductionYear>");
-            //}
+            var hasAspectRatio = item as IHasAspectRatio;
+            if (hasAspectRatio != null)
+            {
+                if (!string.IsNullOrEmpty(hasAspectRatio.AspectRatio))
+                {
+                    writer.WriteElementString("AspectRatio", hasAspectRatio.AspectRatio);
+                }
+            }
 
-            //if (!string.IsNullOrEmpty(item.HomePageUrl))
-            //{
-            //    builder.Append("<Website>" + SecurityElement.Escape(item.HomePageUrl) + "</Website>");
-            //}
+            if (!string.IsNullOrEmpty(item.PreferredMetadataLanguage))
+            {
+                writer.WriteElementString("Language", item.PreferredMetadataLanguage);
+            }
+            if (!string.IsNullOrEmpty(item.PreferredMetadataCountryCode))
+            {
+                writer.WriteElementString("CountryCode", item.PreferredMetadataCountryCode);
+            }
 
-            //var hasAspectRatio = item as IHasAspectRatio;
-            //if (hasAspectRatio != null)
-            //{
-            //    if (!string.IsNullOrEmpty(hasAspectRatio.AspectRatio))
-            //    {
-            //        builder.Append("<AspectRatio>" + SecurityElement.Escape(hasAspectRatio.AspectRatio) + "</AspectRatio>");
-            //    }
-            //}
+            // Use original runtime here, actual file runtime later in MediaInfo
+            var runTimeTicks = item.RunTimeTicks;
 
-            //if (!string.IsNullOrEmpty(item.PreferredMetadataLanguage))
-            //{
-            //    builder.Append("<Language>" + SecurityElement.Escape(item.PreferredMetadataLanguage) + "</Language>");
-            //}
-            //if (!string.IsNullOrEmpty(item.PreferredMetadataCountryCode))
-            //{
-            //    builder.Append("<CountryCode>" + SecurityElement.Escape(item.PreferredMetadataCountryCode) + "</CountryCode>");
-            //}
+            if (runTimeTicks.HasValue)
+            {
+                var timespan = TimeSpan.FromTicks(runTimeTicks.Value);
 
-            //// Use original runtime here, actual file runtime later in MediaInfo
-            //var runTimeTicks = item.RunTimeTicks;
+                writer.WriteElementString("RunningTime", Convert.ToInt32(timespan.TotalMinutes).ToString(UsCulture));
+            }
 
-            //if (runTimeTicks.HasValue)
-            //{
-            //    var timespan = TimeSpan.FromTicks(runTimeTicks.Value);
+            if (item.ProviderIds != null)
+            {
+                foreach (var providerKey in item.ProviderIds.Keys)
+                {
+                    var providerId = item.ProviderIds[providerKey];
+                    if (!string.IsNullOrEmpty(providerId))
+                    {
+                        writer.WriteElementString(providerKey + "Id", providerId);
+                    }
+                }
+            }
 
-            //    builder.Append("<RunningTime>" + Convert.ToInt32(timespan.TotalMinutes).ToString(UsCulture) + "</RunningTime>");
-            //}
+            if (!string.IsNullOrWhiteSpace(item.Tagline))
+            {
+                writer.WriteStartElement("Taglines");
+                writer.WriteElementString("Tagline", item.Tagline);
+                writer.WriteEndElement();
+            }
 
-            //if (item.ProviderIds != null)
-            //{
-            //    foreach (var providerKey in item.ProviderIds.Keys)
-            //    {
-            //        var providerId = item.ProviderIds[providerKey];
-            //        if (!string.IsNullOrEmpty(providerId))
-            //        {
-            //            builder.Append(string.Format("<{0}>{1}</{0}>", providerKey + "Id", SecurityElement.Escape(providerId)));
-            //        }
-            //    }
-            //}
+            if (item.Genres.Count > 0)
+            {
+                writer.WriteStartElement("Genres");
 
-            //if (!string.IsNullOrWhiteSpace(item.Tagline))
-            //{
-            //    builder.Append("<Taglines>");
-            //    builder.Append("<Tagline>" + SecurityElement.Escape(item.Tagline) + "</Tagline>");
-            //    builder.Append("</Taglines>");
-            //}
+                foreach (var genre in item.Genres)
+                {
+                    writer.WriteElementString("Genre", genre);
+                }
 
-            //if (item.Genres.Count > 0)
-            //{
-            //    builder.Append("<Genres>");
+                writer.WriteEndElement();
+            }
 
-            //    foreach (var genre in item.Genres)
-            //    {
-            //        builder.Append("<Genre>" + SecurityElement.Escape(genre) + "</Genre>");
-            //    }
+            if (item.Studios.Count > 0)
+            {
+                writer.WriteStartElement("Studios");
 
-            //    builder.Append("</Genres>");
-            //}
+                foreach (var studio in item.Studios)
+                {
+                    writer.WriteElementString("Studio", studio);
+                }
 
-            //if (item.Studios.Count > 0)
-            //{
-            //    builder.Append("<Studios>");
+                writer.WriteEndElement();
+            }
 
-            //    foreach (var studio in item.Studios)
-            //    {
-            //        builder.Append("<Studio>" + SecurityElement.Escape(studio) + "</Studio>");
-            //    }
+            if (item.Tags.Count > 0)
+            {
+                writer.WriteStartElement("Tags");
 
-            //    builder.Append("</Studios>");
-            //}
+                foreach (var tag in item.Tags)
+                {
+                    writer.WriteElementString("Tag", tag);
+                }
 
-            //if (item.Tags.Count > 0)
-            //{
-            //    builder.Append("<Tags>");
+                writer.WriteEndElement();
+            }
 
-            //    foreach (var tag in item.Tags)
-            //    {
-            //        builder.Append("<Tag>" + SecurityElement.Escape(tag) + "</Tag>");
-            //    }
+            if (item.Keywords.Count > 0)
+            {
+                writer.WriteStartElement("PlotKeywords");
 
-            //    builder.Append("</Tags>");
-            //}
+                foreach (var tag in item.Keywords)
+                {
+                    writer.WriteElementString("PlotKeyword", tag);
+                }
 
-            //if (item.Keywords.Count > 0)
-            //{
-            //    builder.Append("<PlotKeywords>");
+                writer.WriteEndElement();
+            }
 
-            //    foreach (var tag in item.Keywords)
-            //    {
-            //        builder.Append("<PlotKeyword>" + SecurityElement.Escape(tag) + "</PlotKeyword>");
-            //    }
+            var people = libraryManager.GetPeople(item);
 
-            //    builder.Append("</PlotKeywords>");
-            //}
+            if (people.Count > 0)
+            {
+                writer.WriteStartElement("Persons");
 
-            //var people = libraryManager.GetPeople(item);
+                foreach (var person in people)
+                {
+                    writer.WriteStartElement("Person");
+                    writer.WriteElementString("Name", person.Name);
+                    writer.WriteElementString("Type", person.Type);
+                    writer.WriteElementString("Role", person.Role);
 
-            //if (people.Count > 0)
-            //{
-            //    builder.Append("<Persons>");
+                    if (person.SortOrder.HasValue)
+                    {
+                        writer.WriteElementString("SortOrder", person.SortOrder.Value.ToString(UsCulture));
+                    }
 
-            //    foreach (var person in people)
-            //    {
-            //        builder.Append("<Person>");
-            //        builder.Append("<Name>" + SecurityElement.Escape(person.Name) + "</Name>");
-            //        builder.Append("<Type>" + SecurityElement.Escape(person.Type) + "</Type>");
-            //        builder.Append("<Role>" + SecurityElement.Escape(person.Role) + "</Role>");
+                    writer.WriteEndElement();
+                }
 
-            //        if (person.SortOrder.HasValue)
-            //        {
-            //            builder.Append("<SortOrder>" + SecurityElement.Escape(person.SortOrder.Value.ToString(UsCulture)) + "</SortOrder>");
-            //        }
+                writer.WriteEndElement();
+            }
 
-            //        builder.Append("</Person>");
-            //    }
+            var boxset = item as BoxSet;
+            if (boxset != null)
+            {
+                AddLinkedChildren(boxset, writer, "CollectionItems", "CollectionItem");
+            }
 
-            //    builder.Append("</Persons>");
-            //}
+            var playlist = item as Playlist;
+            if (playlist != null)
+            {
+                AddLinkedChildren(playlist, writer, "PlaylistItems", "PlaylistItem");
+            }
 
-            //var boxset = item as BoxSet;
-            //if (boxset != null)
-            //{
-            //    AddLinkedChildren(boxset, builder, "CollectionItems", "CollectionItem");
-            //}
+            var hasShares = item as IHasShares;
+            if (hasShares != null)
+            {
+                AddShares(hasShares, writer);
+            }
 
-            //var playlist = item as Playlist;
-            //if (playlist != null)
-            //{
-            //    AddLinkedChildren(playlist, builder, "PlaylistItems", "PlaylistItem");
-            //}
-
-            //var hasShares = item as IHasShares;
-            //if (hasShares != null)
-            //{
-            //    AddShares(hasShares, builder);
-            //}
+            AddMediaInfo(item, writer);
         }
 
-        public static void AddShares(IHasShares item, StringBuilder builder)
+        public static void AddShares(IHasShares item, XmlWriter writer)
         {
-            //builder.Append("<Shares>");
+            writer.WriteStartElement("Shares");
 
-            //foreach (var share in item.Shares)
-            //{
-            //    builder.Append("<Share>");
+            foreach (var share in item.Shares)
+            {
+                writer.WriteStartElement("Share");
 
-            //    builder.Append("<UserId>" + SecurityElement.Escape(share.UserId) + "</UserId>");
-            //    builder.Append("<CanEdit>" + SecurityElement.Escape(share.CanEdit.ToString().ToLower()) + "</CanEdit>");
+                writer.WriteElementString("UserId", share.UserId);
+                writer.WriteElementString("CanEdit", share.CanEdit.ToString().ToLower());
 
-            //    builder.Append("</Share>");
-            //}
+                writer.WriteEndElement();
+            }
 
-            //builder.Append("</Shares>");
+            writer.WriteEndElement();
         }
 
         /// <summary>
         /// Appends the media info.
         /// </summary>
         /// <typeparam name="T"></typeparam>
-        public static void AddMediaInfo<T>(T item, StringBuilder builder, IItemRepository itemRepository)
+        public static void AddMediaInfo<T>(T item, XmlWriter writer)
             where T : BaseItem
         {
             var video = item as Video;
 
             if (video != null)
             {
-                //AddChapters(video, builder, itemRepository);
-
                 if (video.Video3DFormat.HasValue)
                 {
                     switch (video.Video3DFormat.Value)
                     {
                         case Video3DFormat.FullSideBySide:
-                            builder.Append("<Format3D>FSBS</Format3D>");
+                            writer.WriteElementString("Format3D", "FSBS");
                             break;
                         case Video3DFormat.FullTopAndBottom:
-                            builder.Append("<Format3D>FTAB</Format3D>");
+                            writer.WriteElementString("Format3D", "FTAB");
                             break;
                         case Video3DFormat.HalfSideBySide:
-                            builder.Append("<Format3D>HSBS</Format3D>");
+                            writer.WriteElementString("Format3D", "HSBS");
                             break;
                         case Video3DFormat.HalfTopAndBottom:
-                            builder.Append("<Format3D>HTAB</Format3D>");
+                            writer.WriteElementString("Format3D", "HTAB");
                             break;
                         case Video3DFormat.MVC:
-                            builder.Append("<Format3D>MVC</Format3D>");
+                            writer.WriteElementString("Format3D", "MVC");
                             break;
                     }
                 }
             }
         }
 
-        public static void AddLinkedChildren(Folder item, StringBuilder builder, string pluralNodeName, string singularNodeName)
+        public static void AddLinkedChildren(Folder item, XmlWriter writer, string pluralNodeName, string singularNodeName)
         {
-            //var items = item.LinkedChildren
-            //    .Where(i => i.Type == LinkedChildType.Manual)
-            //    .ToList();
+            var items = item.LinkedChildren
+                .Where(i => i.Type == LinkedChildType.Manual)
+                .ToList();
 
-            //if (items.Count == 0)
-            //{
-            //    return;
-            //}
+            if (items.Count == 0)
+            {
+                return;
+            }
 
-            //builder.Append("<" + pluralNodeName + ">");
-            //foreach (var link in items)
-            //{
-            //    builder.Append("<" + singularNodeName + ">");
+            writer.WriteStartElement(pluralNodeName);
 
-            //    if (!string.IsNullOrWhiteSpace(link.Path))
-            //    {
-            //        builder.Append("<Path>" + SecurityElement.Escape((link.Path)) + "</Path>");
-            //    }
+            foreach (var link in items)
+            {
+                if (!string.IsNullOrWhiteSpace(link.Path))
+                {
+                    writer.WriteStartElement(singularNodeName);
+                    writer.WriteElementString("Path", link.Path);
+                    writer.WriteEndElement();
+                }
+            }
 
-            //    builder.Append("</" + singularNodeName + ">");
-            //}
-            //builder.Append("</" + pluralNodeName + ">");
+            writer.WriteEndElement();
         }
 
         private static bool IsPersonType(PersonInfo person, string type)
@@ -724,8 +721,10 @@ namespace MediaBrowser.LocalMetadata.Savers
                             return;
                         }
 
+                        reader.Read();
+
                         // Loop through each element
-                        while (reader.Read())
+                        while (!reader.EOF)
                         {
                             if (reader.NodeType == XmlNodeType.Element)
                             {
@@ -739,6 +738,10 @@ namespace MediaBrowser.LocalMetadata.Savers
                                 {
                                     reader.Skip();
                                 }
+                            }
+                            else
+                            {
+                                reader.Read();
                             }
                         }
                     }

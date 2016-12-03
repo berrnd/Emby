@@ -159,7 +159,7 @@ define(['browser'], function (browser) {
                 break;
             case 'mpg':
             case 'mpeg':
-                supported = browser.edgeUwp;
+                supported = browser.edgeUwp || browser.tizen;
                 break;
             case '3gp':
             case 'flv':
@@ -170,7 +170,7 @@ define(['browser'], function (browser) {
                 supported = browser.tizen;
                 break;
             case 'mov':
-                supported = browser.chrome || browser.edgeUwp;
+                supported = browser.tizen || browser.chrome || browser.edgeUwp;
                 videoCodecs.push('h264');
                 break;
             case 'm2ts':
@@ -184,6 +184,10 @@ define(['browser'], function (browser) {
             case 'ts':
                 supported = testCanPlayTs();
                 videoCodecs.push('h264');
+                if (canPlayH265()) {
+                    videoCodecs.push('h265');
+                    videoCodecs.push('hevc');
+                }
                 profileContainer = 'ts,mpegts';
                 break;
             default:
@@ -205,7 +209,7 @@ define(['browser'], function (browser) {
     function getMaxBitrate() {
 
         if (browser.edgeUwp) {
-            return 30000000;
+            return 40000000;
         }
 
         // 10mbps
@@ -263,16 +267,19 @@ define(['browser'], function (browser) {
         // Only put mp3 first if mkv support is there
         // Otherwise with HLS and mp3 audio we're seeing some browsers
         // safari is lying
-        if ((videoTestElement.canPlayType('audio/mp4; codecs="ac-3"').replace(/no/, '') && !browser.safari) || browser.edgeUwp || browser.tizen) {
-            if ((options.disableVideoAudioCodecs || []).indexOf('ac3') === -1) {
-                videoAudioCodecs.push('ac3');
+        if ((videoTestElement.canPlayType('audio/mp4; codecs="ac-3"').replace(/no/, '') && !browser.osx && !browser.iOS) || browser.edgeUwp || browser.tizen || browser.web0s) {
+            videoAudioCodecs.push('ac3');
 
-                // This works in edge desktop, but not mobile
-                // TODO: Retest this on mobile
-                if (!browser.edge || !browser.touch) {
-                    hlsVideoAudioCodecs.push('ac3');
-                }
+            // This works in edge desktop, but not mobile
+            // TODO: Retest this on mobile
+            if (!browser.edge || !browser.touch) {
+                hlsVideoAudioCodecs.push('ac3');
             }
+        }
+
+        if (browser.tizen) {
+            videoAudioCodecs.push('eac3');
+            hlsVideoAudioCodecs.push('eac3');
         }
 
         var mp3Added = false;
@@ -302,6 +309,14 @@ define(['browser'], function (browser) {
             //videoAudioCodecs.push('truehd');
         }
 
+        videoAudioCodecs = videoAudioCodecs.filter(function (c) {
+            return (options.disableVideoAudioCodecs || []).indexOf(c) === -1;
+        });
+
+        hlsVideoAudioCodecs = hlsVideoAudioCodecs.filter(function (c) {
+            return (options.disableHlsVideoAudioCodecs || []).indexOf(c) === -1;
+        });
+
         var mp4VideoCodecs = [];
         if (canPlayH264()) {
             mp4VideoCodecs.push('h264');
@@ -319,7 +334,12 @@ define(['browser'], function (browser) {
                 AudioCodec: videoAudioCodecs.join(',')
             });
         }
-
+        
+        if (browser.tizen) {
+            mp4VideoCodecs.push('mpeg2video');
+            mp4VideoCodecs.push('vc1');
+        }
+        
         if (canPlayMkv && mp4VideoCodecs.length) {
             profile.DirectPlayProfiles.push({
                 Container: 'mkv',
@@ -373,21 +393,23 @@ define(['browser'], function (browser) {
 
         profile.TranscodingProfiles = [];
 
-        ['opus', 'mp3', 'aac'].filter(canPlayAudioFormat).forEach(function (audioFormat) {
+        ['opus', 'mp3', 'aac', 'wav'].filter(canPlayAudioFormat).forEach(function (audioFormat) {
 
             profile.TranscodingProfiles.push({
                 Container: audioFormat,
                 Type: 'Audio',
                 AudioCodec: audioFormat,
                 Context: 'Streaming',
-                Protocol: 'http'
+                Protocol: 'http',
+                MaxAudioChannels: physicalAudioChannels.toString()
             });
             profile.TranscodingProfiles.push({
                 Container: audioFormat,
                 Type: 'Audio',
                 AudioCodec: audioFormat,
                 Context: 'Static',
-                Protocol: 'http'
+                Protocol: 'http',
+                MaxAudioChannels: physicalAudioChannels.toString()
             });
         });
 
@@ -418,7 +440,7 @@ define(['browser'], function (browser) {
                 Context: 'Streaming',
                 Protocol: 'hls',
                 MaxAudioChannels: physicalAudioChannels.toString(),
-                EnableSplittingOnNonKeyFrames: browser.safari ? true : false
+                EnableSplittingOnNonKeyFrames: (browser.osx || browser.iOS) ? true : false
             });
         }
 
@@ -475,14 +497,8 @@ define(['browser'], function (browser) {
         profile.ContainerProfiles = [];
 
         profile.CodecProfiles = [];
-        profile.CodecProfiles.push({
-            Type: 'Audio',
-            Conditions: [{
-                Condition: 'LessThanEqual',
-                Property: 'AudioChannels',
-                Value: '2'
-            }]
-        });
+
+        var supportsSecondaryAudio = browser.tizen;
 
         // Handle he-aac not supported
         if (!videoTestElement.canPlayType('video/mp4; codecs="avc1.640029, mp4a.40.5"').replace(/no/, '')) {
@@ -499,7 +515,24 @@ define(['browser'], function (browser) {
                         Condition: 'LessThanEqual',
                         Property: 'AudioBitrate',
                         Value: '128000'
-                    },
+                    }
+                ]
+            });
+
+            if (!supportsSecondaryAudio) {
+                profile.CodecProfiles[profile.CodecProfiles.length - 1].Conditions.push({
+                    Condition: 'Equals',
+                    Property: 'IsSecondaryAudio',
+                    Value: 'false',
+                    IsRequired: 'false'
+                });
+            }
+        }
+
+        if (!supportsSecondaryAudio) {
+            profile.CodecProfiles.push({
+                Type: 'VideoAudio',
+                Conditions: [
                     {
                         Condition: 'Equals',
                         Property: 'IsSecondaryAudio',
@@ -509,18 +542,6 @@ define(['browser'], function (browser) {
                 ]
             });
         }
-
-        profile.CodecProfiles.push({
-            Type: 'VideoAudio',
-            Conditions: [
-                {
-                    Condition: 'Equals',
-                    Property: 'IsSecondaryAudio',
-                    Value: 'false',
-                    IsRequired: 'false'
-                }
-            ]
-        });
 
         var maxLevel = '41';
 
@@ -558,18 +579,6 @@ define(['browser'], function (browser) {
                 IsRequired: false
             });
         }
-
-        profile.CodecProfiles.push({
-            Type: 'Video',
-            Codec: 'vpx',
-            Conditions: [
-            {
-                Condition: 'NotEquals',
-                Property: 'IsAnamorphic',
-                Value: 'true',
-                IsRequired: false
-            }]
-        });
 
         // Subtitle profiles
         // External vtt or burn in

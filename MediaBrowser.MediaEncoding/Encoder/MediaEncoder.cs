@@ -14,19 +14,17 @@ using MediaBrowser.Model.MediaInfo;
 using MediaBrowser.Model.Serialization;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Configuration;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Extensions;
-using MediaBrowser.Common.IO;
 using MediaBrowser.Common.Net;
-using MediaBrowser.Controller.IO;
+using MediaBrowser.Model.Diagnostics;
+using MediaBrowser.Model.System;
 
 namespace MediaBrowser.MediaEncoding.Encoder
 {
@@ -81,14 +79,21 @@ namespace MediaBrowser.MediaEncoding.Encoder
         protected readonly Func<IMediaSourceManager> MediaSourceManager;
         private readonly IHttpClient _httpClient;
         private readonly IZipClient _zipClient;
-        private readonly IMemoryStreamProvider _memoryStreamProvider;
+        private readonly IProcessFactory _processFactory;
+        private readonly IMemoryStreamFactory _memoryStreamProvider;
 
         private readonly List<ProcessWrapper> _runningProcesses = new List<ProcessWrapper>();
         private readonly bool _hasExternalEncoder;
-        private string _originalFFMpegPath;
-        private string _originalFFProbePath;
+        private readonly string _originalFFMpegPath;
+        private readonly string _originalFFProbePath;
+        private readonly int DefaultImageExtractionTimeoutMs;
+        private readonly bool EnableEncoderFontFile;
 
-        public MediaEncoder(ILogger logger, IJsonSerializer jsonSerializer, string ffMpegPath, string ffProbePath, bool hasExternalEncoder, IServerConfigurationManager configurationManager, IFileSystem fileSystem, ILiveTvManager liveTvManager, IIsoManager isoManager, ILibraryManager libraryManager, IChannelManager channelManager, ISessionManager sessionManager, Func<ISubtitleEncoder> subtitleEncoder, Func<IMediaSourceManager> mediaSourceManager, IHttpClient httpClient, IZipClient zipClient, IMemoryStreamProvider memoryStreamProvider)
+        private readonly IEnvironmentInfo _environmentInfo;
+
+        public MediaEncoder(ILogger logger, IJsonSerializer jsonSerializer, string ffMpegPath, string ffProbePath, bool hasExternalEncoder, IServerConfigurationManager configurationManager, IFileSystem fileSystem, ILiveTvManager liveTvManager, IIsoManager isoManager, ILibraryManager libraryManager, IChannelManager channelManager, ISessionManager sessionManager, Func<ISubtitleEncoder> subtitleEncoder, Func<IMediaSourceManager> mediaSourceManager, IHttpClient httpClient, IZipClient zipClient, IMemoryStreamFactory memoryStreamProvider, IProcessFactory processFactory,
+            int defaultImageExtractionTimeoutMs,
+            bool enableEncoderFontFile, IEnvironmentInfo environmentInfo)
         {
             _logger = logger;
             _jsonSerializer = jsonSerializer;
@@ -104,18 +109,80 @@ namespace MediaBrowser.MediaEncoding.Encoder
             _httpClient = httpClient;
             _zipClient = zipClient;
             _memoryStreamProvider = memoryStreamProvider;
+            _processFactory = processFactory;
+            DefaultImageExtractionTimeoutMs = defaultImageExtractionTimeoutMs;
+            EnableEncoderFontFile = enableEncoderFontFile;
+            _environmentInfo = environmentInfo;
             FFProbePath = ffProbePath;
             FFMpegPath = ffMpegPath;
             _originalFFProbePath = ffProbePath;
             _originalFFMpegPath = ffMpegPath;
 
             _hasExternalEncoder = hasExternalEncoder;
+
+            SetEnvironmentVariable();
+        }
+
+        private readonly object _logLock = new object();
+        public void SetLogFilename(string name)
+        {
+            lock (_logLock)
+            {
+                try
+                {
+                    _environmentInfo.SetProcessEnvironmentVariable("FFREPORT", "file=" + name + ":level=32");
+                }
+                catch (Exception ex)
+                {
+                    _logger.ErrorException("Error setting FFREPORT environment variable", ex);
+                }
+            }
+        }
+
+        public void ClearLogFilename()
+        {
+            lock (_logLock)
+            {
+                try
+                {
+                    _environmentInfo.SetProcessEnvironmentVariable("FFREPORT", null);
+                }
+                catch (Exception ex)
+                {
+                    //_logger.ErrorException("Error setting FFREPORT environment variable", ex);
+                }
+            }
+        }
+
+        private void SetEnvironmentVariable()
+        {
+            try
+            {
+                //_environmentInfo.SetProcessEnvironmentVariable("FFREPORT", "file=program-YYYYMMDD-HHMMSS.txt:level=32");
+            }
+            catch (Exception ex)
+            {
+                _logger.ErrorException("Error setting FFREPORT environment variable", ex);
+            }
+            try
+            {
+                //_environmentInfo.SetUserEnvironmentVariable("FFREPORT", "file=program-YYYYMMDD-HHMMSS.txt:level=32");
+            }
+            catch (Exception ex)
+            {
+                _logger.ErrorException("Error setting FFREPORT environment variable", ex);
+            }
         }
 
         public string EncoderLocationType
         {
             get
             {
+                if (_hasExternalEncoder)
+                {
+                    return "External";
+                }
+
                 if (string.IsNullOrWhiteSpace(FFMpegPath))
                 {
                     return null;
@@ -158,12 +225,12 @@ namespace MediaBrowser.MediaEncoding.Encoder
 
             if (!string.IsNullOrWhiteSpace(FFMpegPath))
             {
-                var result = new EncoderValidator(_logger).Validate(FFMpegPath);
+                var result = new EncoderValidator(_logger, _processFactory).Validate(FFMpegPath);
 
                 SetAvailableDecoders(result.Item1);
                 SetAvailableEncoders(result.Item2);
 
-                if (Environment.OSVersion.Platform == PlatformID.Win32NT)
+                if (EnableEncoderFontFile)
                 {
                     var directory = Path.GetDirectoryName(FFMpegPath);
 
@@ -180,6 +247,12 @@ namespace MediaBrowser.MediaEncoding.Encoder
         {
             ConfigureEncoderPaths();
 
+            if (_hasExternalEncoder)
+            {
+                LogPaths();
+                return;
+            }
+
             // If the path was passed in, save it into config now.
             var encodingOptions = GetEncodingOptions();
             var appPath = encodingOptions.EncoderAppPath;
@@ -189,7 +262,7 @@ namespace MediaBrowser.MediaEncoding.Encoder
             if (!string.IsNullOrWhiteSpace(valueToSave))
             {
                 // if using system variable, don't save this.
-                if (IsSystemInstalledPath(valueToSave))
+                if (IsSystemInstalledPath(valueToSave) || _hasExternalEncoder)
                 {
                     valueToSave = null;
                 }
@@ -204,6 +277,11 @@ namespace MediaBrowser.MediaEncoding.Encoder
 
         public async Task UpdateEncoderPath(string path, string pathType)
         {
+            if (_hasExternalEncoder)
+            {
+                return;
+            }
+
             Tuple<string, string> newPaths;
 
             if (string.Equals(pathType, "system", StringComparison.OrdinalIgnoreCase))
@@ -255,11 +333,16 @@ namespace MediaBrowser.MediaEncoding.Encoder
 
         private bool ValidateVersion(string path, bool logOutput)
         {
-            return new EncoderValidator(_logger).ValidateVersion(path, logOutput);
+            return new EncoderValidator(_logger, _processFactory).ValidateVersion(path, logOutput);
         }
 
         private void ConfigureEncoderPaths()
         {
+            if (_hasExternalEncoder)
+            {
+                return;
+            }
+
             var appPath = GetEncodingOptions().EncoderAppPath;
 
             if (string.IsNullOrWhiteSpace(appPath))
@@ -433,7 +516,7 @@ namespace MediaBrowser.MediaEncoding.Encoder
             if (request.AnalyzeDurationSections > 0)
             {
                 analyzeDuration = "-analyzeduration " +
-                                  (request.AnalyzeDurationSections*1000000).ToString(CultureInfo.InvariantCulture);
+                                  (request.AnalyzeDurationSections * 1000000).ToString(CultureInfo.InvariantCulture);
             }
             else
             {
@@ -509,31 +592,24 @@ namespace MediaBrowser.MediaEncoding.Encoder
                 ? "{0} -i {1} -threads 0 -v info -print_format json -show_streams -show_chapters -show_format"
                 : "{0} -i {1} -threads 0 -v info -print_format json -show_streams -show_format";
 
-            var process = new Process
+            var process = _processFactory.Create(new ProcessOptions
             {
-                StartInfo = new ProcessStartInfo
-                {
-                    CreateNoWindow = true,
-                    UseShellExecute = false,
+                CreateNoWindow = true,
+                UseShellExecute = false,
 
-                    // Must consume both or ffmpeg may hang due to deadlocks. See comments below.   
-                    RedirectStandardOutput = true,
-                    //RedirectStandardError = true,
-                    RedirectStandardInput = false,
-                    FileName = FFProbePath,
-                    Arguments = string.Format(args,
-                    probeSizeArgument, inputPath).Trim(),
+                // Must consume both or ffmpeg may hang due to deadlocks. See comments below.   
+                RedirectStandardOutput = true,
+                FileName = FFProbePath,
+                Arguments = string.Format(args, probeSizeArgument, inputPath).Trim(),
 
-                    WindowStyle = ProcessWindowStyle.Hidden,
-                    ErrorDialog = false
-                },
-
+                IsHidden = true,
+                ErrorDialog = false,
                 EnableRaisingEvents = true
-            };
+            });
 
             _logger.Debug("{0} {1}", process.StartInfo.FileName, process.StartInfo.Arguments);
 
-            using (var processWrapper = new ProcessWrapper(process, this, _logger, false))
+            using (var processWrapper = new ProcessWrapper(process, this, _logger))
             {
                 await _ffProbeResourcePool.WaitAsync(cancellationToken).ConfigureAwait(false);
 
@@ -595,7 +671,7 @@ namespace MediaBrowser.MediaEncoding.Encoder
                 }
                 catch
                 {
-                    StopProcess(processWrapper, 100, true);
+                    StopProcess(processWrapper, 100);
 
                     throw;
                 }
@@ -644,31 +720,25 @@ namespace MediaBrowser.MediaEncoding.Encoder
 
             var args = "{0} -i {1} -map 0:v:{2} -an -filter:v idet -frames:v 500 -an -f null /dev/null";
 
-            var process = new Process
+            var process = _processFactory.Create(new ProcessOptions
             {
-                StartInfo = new ProcessStartInfo
-                {
-                    CreateNoWindow = true,
-                    UseShellExecute = false,
+                CreateNoWindow = true,
+                UseShellExecute = false,
 
-                    // Must consume both or ffmpeg may hang due to deadlocks. See comments below.   
-                    //RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    RedirectStandardInput = false,
-                    FileName = FFMpegPath,
-                    Arguments = string.Format(args, probeSizeArgument, inputPath, videoStream.Index.ToString(CultureInfo.InvariantCulture)).Trim(),
+                // Must consume both or ffmpeg may hang due to deadlocks. See comments below.   
+                RedirectStandardError = true,
+                FileName = FFMpegPath,
+                Arguments = string.Format(args, probeSizeArgument, inputPath, videoStream.Index.ToString(CultureInfo.InvariantCulture)).Trim(),
 
-                    WindowStyle = ProcessWindowStyle.Hidden,
-                    ErrorDialog = false
-                },
-
+                IsHidden = true,
+                ErrorDialog = false,
                 EnableRaisingEvents = true
-            };
+            });
 
             _logger.Debug("{0} {1}", process.StartInfo.FileName, process.StartInfo.Arguments);
             var idetFoundInterlaced = false;
 
-            using (var processWrapper = new ProcessWrapper(process, this, _logger, false))
+            using (var processWrapper = new ProcessWrapper(process, this, _logger))
             {
                 try
                 {
@@ -711,7 +781,7 @@ namespace MediaBrowser.MediaEncoding.Encoder
                 }
                 catch
                 {
-                    StopProcess(processWrapper, 100, true);
+                    StopProcess(processWrapper, 100);
 
                     throw;
                 }
@@ -898,7 +968,7 @@ namespace MediaBrowser.MediaEncoding.Encoder
             var mapArg = imageStreamIndex.HasValue ? (" -map 0:v:" + imageStreamIndex.Value.ToString(CultureInfo.InvariantCulture)) : string.Empty;
 
             var enableThumbnail = !new List<string> { "wtv" }.Contains(container ?? string.Empty, StringComparer.OrdinalIgnoreCase);
-            var thumbnail = enableThumbnail ? ",thumbnail=30" : string.Empty;
+            var thumbnail = enableThumbnail ? ",thumbnail=24" : string.Empty;
 
             // Use ffmpeg to sample 100 (we can drop this if required using thumbnail=50 for 50 frames) frames and pick the best thumbnail. Have a fall back just in case.
             var args = useIFrame ? string.Format("-i {0}{3} -threads 0 -v quiet -vframes 1 -vf \"{2}{4}\" -f image2 \"{1}\"", inputPath, tempExtractPath, vf, mapArg, thumbnail) :
@@ -916,22 +986,19 @@ namespace MediaBrowser.MediaEncoding.Encoder
                 args = string.Format("-ss {0} ", GetTimeParameter(offset.Value)) + args;
             }
 
-            var process = new Process
+            var process = _processFactory.Create(new ProcessOptions
             {
-                StartInfo = new ProcessStartInfo
-                {
-                    CreateNoWindow = true,
-                    UseShellExecute = false,
-                    FileName = FFMpegPath,
-                    Arguments = args,
-                    WindowStyle = ProcessWindowStyle.Hidden,
-                    ErrorDialog = false
-                }
-            };
+                CreateNoWindow = true,
+                UseShellExecute = true,
+                FileName = FFMpegPath,
+                Arguments = args,
+                IsHidden = true,
+                ErrorDialog = false
+            });
 
             _logger.Debug("{0} {1}", process.StartInfo.FileName, process.StartInfo.Arguments);
 
-            using (var processWrapper = new ProcessWrapper(process, this, _logger, false))
+            using (var processWrapper = new ProcessWrapper(process, this, _logger))
             {
                 await resourcePool.WaitAsync(cancellationToken).ConfigureAwait(false);
 
@@ -944,14 +1011,14 @@ namespace MediaBrowser.MediaEncoding.Encoder
                     var timeoutMs = ConfigurationManager.Configuration.ImageExtractionTimeoutMs;
                     if (timeoutMs <= 0)
                     {
-                        timeoutMs = Environment.Is64BitOperatingSystem ? (Environment.ProcessorCount > 2 ? 14000 : 20000) : 40000;
+                        timeoutMs = DefaultImageExtractionTimeoutMs;
                     }
 
                     ranToCompletion = process.WaitForExit(timeoutMs);
 
                     if (!ranToCompletion)
                     {
-                        StopProcess(processWrapper, 1000, false);
+                        StopProcess(processWrapper, 1000);
                     }
 
                 }
@@ -1022,19 +1089,15 @@ namespace MediaBrowser.MediaEncoding.Encoder
                 args = probeSize + " " + args;
             }
 
-            var process = new Process
+            var process = _processFactory.Create(new ProcessOptions
             {
-                StartInfo = new ProcessStartInfo
-                {
-                    CreateNoWindow = true,
-                    UseShellExecute = false,
-                    FileName = FFMpegPath,
-                    Arguments = args,
-                    WindowStyle = ProcessWindowStyle.Hidden,
-                    ErrorDialog = false,
-                    RedirectStandardInput = true
-                }
-            };
+                CreateNoWindow = true,
+                UseShellExecute = true,
+                FileName = FFMpegPath,
+                Arguments = args,
+                IsHidden = true,
+                ErrorDialog = false
+            });
 
             _logger.Info(process.StartInfo.FileName + " " + process.StartInfo.Arguments);
 
@@ -1042,7 +1105,7 @@ namespace MediaBrowser.MediaEncoding.Encoder
 
             bool ranToCompletion = false;
 
-            using (var processWrapper = new ProcessWrapper(process, this, _logger, true))
+            using (var processWrapper = new ProcessWrapper(process, this, _logger))
             {
                 try
                 {
@@ -1074,7 +1137,7 @@ namespace MediaBrowser.MediaEncoding.Encoder
 
                     if (!ranToCompletion)
                     {
-                        StopProcess(processWrapper, 1000, false);
+                        StopProcess(processWrapper, 1000);
                     }
                 }
                 finally
@@ -1107,7 +1170,8 @@ namespace MediaBrowser.MediaEncoding.Encoder
                 LibraryManager,
                 SessionManager,
                 SubtitleEncoder(),
-                MediaSourceManager())
+                MediaSourceManager(),
+                _processFactory)
                 .Start(options, progress, cancellationToken).ConfigureAwait(false);
 
             await job.TaskCompletionSource.Task.ConfigureAwait(false);
@@ -1127,7 +1191,8 @@ namespace MediaBrowser.MediaEncoding.Encoder
                 LibraryManager,
                 SessionManager,
                 SubtitleEncoder(),
-                MediaSourceManager())
+                MediaSourceManager(),
+                _processFactory)
                 .Start(options, progress, cancellationToken).ConfigureAwait(false);
 
             await job.TaskCompletionSource.Task.ConfigureAwait(false);
@@ -1144,40 +1209,25 @@ namespace MediaBrowser.MediaEncoding.Encoder
                 _runningProcesses.Add(process);
             }
         }
-        private void StopProcess(ProcessWrapper process, int waitTimeMs, bool enableForceKill)
+        private void StopProcess(ProcessWrapper process, int waitTimeMs)
         {
+            try
+            {
+                if (process.Process.WaitForExit(waitTimeMs))
+                {
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("Error in WaitForExit", ex);
+            }
+
             try
             {
                 _logger.Info("Killing ffmpeg process");
 
-                if (process.IsRedirectingStdin)
-                {
-                    try
-                    {
-                        process.Process.StandardInput.WriteLine("q");
-                    }
-                    catch (Exception)
-                    {
-                        _logger.Error("Error sending q command to process");
-                    }
-                }
-
-                try
-                {
-                    if (process.Process.WaitForExit(waitTimeMs))
-                    {
-                        return;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.Error("Error in WaitForExit", ex);
-                }
-
-                if (enableForceKill)
-                {
-                    process.Process.Kill();
-                }
+                process.Process.Kill();
             }
             catch (Exception ex)
             {
@@ -1198,14 +1248,17 @@ namespace MediaBrowser.MediaEncoding.Encoder
             {
                 if (!process.HasExited)
                 {
-                    StopProcess(process, 500, true);
+                    StopProcess(process, 500);
                 }
             }
         }
 
         public string EscapeSubtitleFilterPath(string path)
         {
-            return path.Replace('\\', '/').Replace(":/", "\\:/").Replace("'", "'\\\\\\''");
+            // https://ffmpeg.org/ffmpeg-filters.html#Notes-on-filtergraph-escaping
+            // We need to double escape
+
+            return path.Replace('\\', '/').Replace(":", "\\:").Replace("'", "'\\\\\\''");
         }
 
         /// <summary>
@@ -1231,25 +1284,23 @@ namespace MediaBrowser.MediaEncoding.Encoder
 
         private class ProcessWrapper : IDisposable
         {
-            public readonly Process Process;
+            public readonly IProcess Process;
             public bool HasExited;
             public int? ExitCode;
             private readonly MediaEncoder _mediaEncoder;
             private readonly ILogger _logger;
-            public bool IsRedirectingStdin { get; private set; }
 
-            public ProcessWrapper(Process process, MediaEncoder mediaEncoder, ILogger logger, bool isRedirectingStdin)
+            public ProcessWrapper(IProcess process, MediaEncoder mediaEncoder, ILogger logger)
             {
                 Process = process;
                 _mediaEncoder = mediaEncoder;
                 _logger = logger;
                 Process.Exited += Process_Exited;
-                IsRedirectingStdin = isRedirectingStdin;
             }
 
             void Process_Exited(object sender, EventArgs e)
             {
-                var process = (Process)sender;
+                var process = (IProcess)sender;
 
                 HasExited = true;
 
@@ -1269,7 +1320,7 @@ namespace MediaBrowser.MediaEncoding.Encoder
                 DisposeProcess(process);
             }
 
-            private void DisposeProcess(Process process)
+            private void DisposeProcess(IProcess process)
             {
                 try
                 {

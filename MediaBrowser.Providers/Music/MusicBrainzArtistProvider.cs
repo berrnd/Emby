@@ -86,9 +86,10 @@ namespace MediaBrowser.Providers.Music
                 using (var reader = XmlReader.Create(oReader, settings))
                 {
                     reader.MoveToContent();
+                    reader.Read();
 
                     // Loop through each element
-                    while (reader.Read())
+                    while (!reader.EOF)
                     {
                         if (reader.NodeType == XmlNodeType.Element)
                         {
@@ -108,6 +109,10 @@ namespace MediaBrowser.Providers.Music
                                     }
                             }
                         }
+                        else
+                        {
+                            reader.Read();
+                        }
                     }
 
                     return new List<RemoteSearchResult>();
@@ -120,9 +125,10 @@ namespace MediaBrowser.Providers.Music
             var list = new List<RemoteSearchResult>();
 
             reader.MoveToContent();
+            reader.Read();
 
             // Loop through each element
-            while (reader.Read())
+            while (!reader.EOF)
             {
                 if (reader.NodeType == XmlNodeType.Element)
                 {
@@ -148,6 +154,10 @@ namespace MediaBrowser.Providers.Music
                                 break;
                             }
                     }
+                }
+                else
+                {
+                    reader.Read();
                 }
             }
 

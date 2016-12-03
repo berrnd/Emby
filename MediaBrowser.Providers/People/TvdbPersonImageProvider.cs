@@ -62,13 +62,10 @@ namespace MediaBrowser.Providers.People
 
         public Task<IEnumerable<RemoteImageInfo>> GetImages(IHasImages item, CancellationToken cancellationToken)
         {
-            // Avoid implicitly captured closure
-            var itemName = item.Name;
-
             var seriesWithPerson = _libraryManager.GetItemList(new InternalItemsQuery
             {
                 IncludeItemTypes = new[] { typeof(Series).Name },
-                Person = itemName
+                PersonIds = new[] { item.Id.ToString("N") }
 
             }).Cast<Series>()
                 .Where(i => TvdbSeriesProvider.IsValidSeries(i.ProviderIds))
@@ -117,9 +114,10 @@ namespace MediaBrowser.Providers.People
                     using (var reader = XmlReader.Create(streamReader, settings))
                     {
                         reader.MoveToContent();
+                        reader.Read();
 
                         // Loop through each element
-                        while (reader.Read())
+                        while (!reader.EOF)
                         {
                             cancellationToken.ThrowIfCancellationRequested();
 
@@ -145,6 +143,10 @@ namespace MediaBrowser.Providers.People
                                         break;
                                 }
                             }
+                            else
+                            {
+                                reader.Read();
+                            }
                         }
                     }
                 }
@@ -161,12 +163,14 @@ namespace MediaBrowser.Providers.People
         /// <returns>System.String.</returns>
         private RemoteImageInfo FetchImageInfoFromActorNode(string personName, XmlReader reader)
         {
-            reader.MoveToContent();
-
             string name = null;
             string image = null;
 
-            while (reader.Read())
+            reader.MoveToContent();
+            reader.Read();
+
+            // Loop through each element
+            while (!reader.EOF)
             {
                 if (reader.NodeType == XmlNodeType.Element)
                 {
@@ -188,6 +192,10 @@ namespace MediaBrowser.Providers.People
                             reader.Skip();
                             break;
                     }
+                }
+                else
+                {
+                    reader.Read();
                 }
             }
 
@@ -216,8 +224,7 @@ namespace MediaBrowser.Providers.People
             return _httpClient.GetResponse(new HttpRequestOptions
             {
                 CancellationToken = cancellationToken,
-                Url = url,
-                ResourcePool = TvdbSeriesProvider.Current.TvDbResourcePool
+                Url = url
             });
         }
     }

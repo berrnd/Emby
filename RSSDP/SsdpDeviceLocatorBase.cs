@@ -7,6 +7,8 @@ using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using MediaBrowser.Model.Threading;
+using RSSDP;
 
 namespace Rssdp.Infrastructure
 {
@@ -24,15 +26,8 @@ namespace Rssdp.Infrastructure
         private IList<DiscoveredSsdpDevice> _SearchResults;
         private object _SearchResultsSynchroniser;
 
-        private System.Threading.Timer _ExpireCachedDevicesTimer;
-
-        private const string HttpURequestMessageFormat = @"{0} * HTTP/1.1
-HOST: {1}:{2}
-MAN: ""{3}""
-MX: {5}
-ST: {4}
-
-";
+        private ITimer _ExpireCachedDevicesTimer;
+        private ITimerFactory _timerFactory;
 
         private static readonly TimeSpan DefaultSearchWaitTime = TimeSpan.FromSeconds(4);
         private static readonly TimeSpan OneSecond = TimeSpan.FromSeconds(1);
@@ -44,12 +39,12 @@ ST: {4}
         /// <summary>
         /// Default constructor.
         /// </summary>
-        /// <param name="communicationsServer">The <see cref="ISsdpCommunicationsServer"/> implementation to use for network communications.</param>
-        protected SsdpDeviceLocatorBase(ISsdpCommunicationsServer communicationsServer)
+        protected SsdpDeviceLocatorBase(ISsdpCommunicationsServer communicationsServer, ITimerFactory timerFactory)
         {
             if (communicationsServer == null) throw new ArgumentNullException("communicationsServer");
 
             _CommunicationsServer = communicationsServer;
+            _timerFactory = timerFactory;
             _CommunicationsServer.ResponseReceived += CommsServer_ResponseReceived;
 
             _SearchResultsSynchroniser = new object();
@@ -164,21 +159,16 @@ ST: {4}
             if (searchWaitTime > TimeSpan.Zero)
                 await BroadcastDiscoverMessage(searchTarget, SearchTimeToMXValue(searchWaitTime)).ConfigureAwait(false);
 
-            await Task.Run(() =>
+            lock (_SearchResultsSynchroniser)
             {
-                lock (_SearchResultsSynchroniser)
+                foreach (var device in GetUnexpiredDevices().Where(NotificationTypeMatchesFilter))
                 {
-                    foreach (var device in GetUnexpiredDevices().Where((d) => NotificationTypeMatchesFilter(d)))
-                    {
-                        if (this.IsDisposed) return;
-
-                        DeviceFound(device, false);
-                    }
+                    DeviceFound(device, false);
                 }
-            }).ConfigureAwait(false);
+            }
 
             if (searchWaitTime != TimeSpan.Zero)
-                await Task.Delay(searchWaitTime);
+                await Task.Delay(searchWaitTime).ConfigureAwait(false);
 
             IEnumerable<DiscoveredSsdpDevice> retVal = null;
 
@@ -190,7 +180,7 @@ ST: {4}
                     _SearchResults = null;
                 }
 
-                var expireTask = RemoveExpiredDevicesFromCacheAsync();
+                RemoveExpiredDevicesFromCache();
             }
             finally
             {
@@ -415,25 +405,27 @@ ST: {4}
 
         #region Network Message Processing
 
-        private static byte[] BuildDiscoverMessage(string serviceType, TimeSpan mxValue)
-        {
-            return System.Text.UTF8Encoding.UTF8.GetBytes(
-                String.Format(HttpURequestMessageFormat,
-                    SsdpConstants.MSearchMethod,
-                    SsdpConstants.MulticastLocalAdminAddress,
-                    SsdpConstants.MulticastPort,
-                    SsdpConstants.SsdpDiscoverMessage,
-                    serviceType,
-                    mxValue.TotalSeconds
-                )
-            );
-        }
-
         private Task BroadcastDiscoverMessage(string serviceType, TimeSpan mxValue)
         {
-            var broadcastMessage = BuildDiscoverMessage(serviceType, mxValue);
+            var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-            return _CommunicationsServer.SendMulticastMessage(broadcastMessage);
+            values["HOST"] = "239.255.255.250:1900";
+            values["USER-AGENT"] = "UPnP/1.0 DLNADOC/1.50 Platinum/1.0.4.2";
+            //values["X-EMBY-SERVERID"] = _appHost.SystemId;
+
+            values["MAN"] = "\"ssdp:discover\"";
+
+            // Search target
+            values["ST"] = "ssdp:all";
+
+            // Seconds to delay response
+            values["MX"] = "3";
+
+            var header = "M-SEARCH * HTTP/1.1";
+
+            var message = SsdpHelper.BuildMessage(header, values);
+
+            return _CommunicationsServer.SendMulticastMessage(message);
         }
 
         private void ProcessSearchResponseMessage(HttpResponseMessage message)
@@ -521,7 +513,7 @@ ST: {4}
             if (IsDisposed) return;
 
             if (_ExpireCachedDevicesTimer == null)
-                _ExpireCachedDevicesTimer = new Timer(this.ExpireCachedDevices, null, System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
+                _ExpireCachedDevicesTimer = _timerFactory.Create(this.ExpireCachedDevices, null, System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
 
             _ExpireCachedDevicesTimer.Change(60000, System.Threading.Timeout.Infinite);
         }
@@ -606,19 +598,11 @@ ST: {4}
 
         #region Expiry and Device Removal
 
-        private Task RemoveExpiredDevicesFromCacheAsync()
-        {
-            return Task.Run(() =>
-            {
-                RemoveExpiredDevicesFromCache();
-            });
-        }
-
         private void RemoveExpiredDevicesFromCache()
         {
             if (this.IsDisposed) return;
 
-            IEnumerable<DiscoveredSsdpDevice> expiredDevices = null;
+            DiscoveredSsdpDevice[] expiredDevices = null;
             lock (_Devices)
             {
                 expiredDevices = (from device in _Devices where device.IsExpired() select device).ToArray();

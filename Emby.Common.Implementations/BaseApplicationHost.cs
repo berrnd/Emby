@@ -4,7 +4,6 @@ using Emby.Common.Implementations.Devices;
 using Emby.Common.Implementations.IO;
 using Emby.Common.Implementations.ScheduledTasks;
 using Emby.Common.Implementations.Serialization;
-using Emby.Common.Implementations.Updates;
 using MediaBrowser.Common.Net;
 using MediaBrowser.Common.Plugins;
 using MediaBrowser.Common.Progress;
@@ -27,11 +26,19 @@ using System.Threading;
 using System.Threading.Tasks;
 using MediaBrowser.Common.Extensions;
 using Emby.Common.Implementations.Cryptography;
+using Emby.Common.Implementations.Diagnostics;
+using Emby.Common.Implementations.Net;
+using Emby.Common.Implementations.EnvironmentInfo;
+using Emby.Common.Implementations.Threading;
 using MediaBrowser.Common;
 using MediaBrowser.Common.IO;
 using MediaBrowser.Model.Cryptography;
+using MediaBrowser.Model.Diagnostics;
+using MediaBrowser.Model.Net;
 using MediaBrowser.Model.System;
 using MediaBrowser.Model.Tasks;
+using MediaBrowser.Model.Threading;
+
 #if NETSTANDARD1_6
 using System.Runtime.Loader;
 #endif
@@ -144,7 +151,9 @@ namespace Emby.Common.Implementations
 
         protected IIsoManager IsoManager { get; private set; }
 
-        protected ISystemEvents SystemEvents { get; private set; }
+        protected IProcessFactory ProcessFactory { get; private set; }
+        protected ITimerFactory TimerFactory { get; private set; }
+        protected ISocketFactory SocketFactory { get; private set; }
 
         /// <summary>
         /// Gets the name.
@@ -158,7 +167,9 @@ namespace Emby.Common.Implementations
         /// <value><c>true</c> if this instance is running as service; otherwise, <c>false</c>.</value>
         public abstract bool IsRunningAsService { get; }
 
-        protected ICryptographyProvider CryptographyProvider = new CryptographyProvider();
+        protected ICryptoProvider CryptographyProvider = new CryptographyProvider();
+
+        protected IEnvironmentInfo EnvironmentInfo { get; private set; }
 
         private DeviceId _deviceId;
         public string SystemId
@@ -169,43 +180,44 @@ namespace Emby.Common.Implementations
                 {
                     _deviceId = new DeviceId(ApplicationPaths, LogManager.GetLogger("SystemId"), FileSystemManager);
                 }
-
+             
                 return _deviceId.Value;
             }
         }
 
         public virtual string OperatingSystemDisplayName
         {
-            get
-            {
-#if NET46
-                return Environment.OSVersion.VersionString;
-#endif
-#if NETSTANDARD1_6
-                return System.Runtime.InteropServices.RuntimeInformation.OSDescription;
-#endif
-                return "Operating System";
-            }
+            get { return EnvironmentInfo.OperatingSystemName; }
         }
-
-        public IMemoryStreamProvider MemoryStreamProvider { get; set; }
 
         /// <summary>
         /// The container
         /// </summary>
         protected readonly SimpleInjector.Container Container = new SimpleInjector.Container();
 
+        protected ISystemEvents SystemEvents { get; private set; }
+        protected IMemoryStreamFactory MemoryStreamFactory { get; private set; }
+
         /// <summary>
         /// Initializes a new instance of the <see cref="BaseApplicationHost{TApplicationPathsType}"/> class.
         /// </summary>
         protected BaseApplicationHost(TApplicationPathsType applicationPaths,
             ILogManager logManager,
-            IFileSystem fileSystem)
+            IFileSystem fileSystem,
+            IEnvironmentInfo environmentInfo,
+            ISystemEvents systemEvents,
+            IMemoryStreamFactory memoryStreamFactory,
+            INetworkManager networkManager)
         {
+            NetworkManager = networkManager;
+            EnvironmentInfo = environmentInfo;
+            SystemEvents = systemEvents;
+            MemoryStreamFactory = memoryStreamFactory;
+
             // hack alert, until common can target .net core
             BaseExtensions.CryptographyProvider = CryptographyProvider;
-
-            XmlSerializer = new XmlSerializer(fileSystem, logManager.GetLogger("XmlSerializer"));
+            
+            XmlSerializer = new MyXmlSerializer(fileSystem, logManager.GetLogger("XmlSerializer"));
             FailedAssemblies = new List<string>();
 
             ApplicationPaths = applicationPaths;
@@ -227,9 +239,6 @@ namespace Emby.Common.Implementations
             progress.Report(1);
 
             JsonSerializer = CreateJsonSerializer();
-
-            MemoryStreamProvider = CreateMemoryStreamProvider();
-            SystemEvents = CreateSystemEvents();
 
             OnLoggerLoaded(true);
             LogManager.LoggerLoaded += (s, e) => OnLoggerLoaded(false);
@@ -261,9 +270,6 @@ namespace Emby.Common.Implementations
 
             progress.Report(100);
         }
-
-        protected abstract IMemoryStreamProvider CreateMemoryStreamProvider();
-        protected abstract ISystemEvents CreateSystemEvents();
 
         protected virtual void OnLoggerLoaded(bool isFirstLoad)
         {
@@ -319,7 +325,7 @@ namespace Emby.Common.Implementations
 
             builder.AppendLine(string.Format("Processor count: {0}", Environment.ProcessorCount));
             builder.AppendLine(string.Format("Program data path: {0}", appPaths.ProgramDataPath));
-            builder.AppendLine(string.Format("Application Path: {0}", appPaths.ApplicationPath));
+            builder.AppendLine(string.Format("Application directory: {0}", appPaths.ProgramSystemPath));
 
             return builder;
         }
@@ -516,24 +522,35 @@ return null;
 
             RegisterSingleInstance(JsonSerializer);
             RegisterSingleInstance(XmlSerializer);
-            RegisterSingleInstance(MemoryStreamProvider);
+            RegisterSingleInstance(MemoryStreamFactory);
             RegisterSingleInstance(SystemEvents);
 
             RegisterSingleInstance(LogManager);
             RegisterSingleInstance(Logger);
 
             RegisterSingleInstance(TaskManager);
+            RegisterSingleInstance(EnvironmentInfo);
 
             RegisterSingleInstance(FileSystemManager);
 
-            HttpClient = new HttpClientManager.HttpClientManager(ApplicationPaths, LogManager.GetLogger("HttpClient"), FileSystemManager, MemoryStreamProvider);
+            HttpClient = new HttpClientManager.HttpClientManager(ApplicationPaths, LogManager.GetLogger("HttpClient"), FileSystemManager, MemoryStreamFactory);
             RegisterSingleInstance(HttpClient);
 
-            NetworkManager = CreateNetworkManager(LogManager.GetLogger("NetworkManager"));
             RegisterSingleInstance(NetworkManager);
 
             IsoManager = new IsoManager();
             RegisterSingleInstance(IsoManager);
+
+            ProcessFactory = new ProcessFactory();
+            RegisterSingleInstance(ProcessFactory);
+
+            TimerFactory = new TimerFactory();
+            RegisterSingleInstance(TimerFactory);
+
+            SocketFactory = new SocketFactory(LogManager.GetLogger("SocketFactory"));
+            RegisterSingleInstance(SocketFactory);
+
+            RegisterSingleInstance(CryptographyProvider);
 
             return Task.FromResult(true);
         }
@@ -570,8 +587,6 @@ return null;
                 return ex.Types.Where(t => t != null);
             }
         }
-
-        protected abstract INetworkManager CreateNetworkManager(ILogger logger);
 
         /// <summary>
         /// Creates an instance of type and resolves all constructor dependancies

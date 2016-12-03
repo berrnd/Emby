@@ -100,12 +100,14 @@
     <Compile Include="Connect\PinExchangeResult.cs" />
     <Compile Include="Connect\PinStatusResult.cs" />
     <Compile Include="Connect\UserLinkType.cs" />
-    <Compile Include="Cryptography\ICryptographyProvider.cs" />
+    <Compile Include="Cryptography\ICryptoProvider.cs" />
     <Compile Include="Devices\DeviceOptions.cs" />
     <Compile Include="Devices\DeviceQuery.cs" />
     <Compile Include="Devices\LocalFileInfo.cs" />
     <Compile Include="Devices\DeviceInfo.cs" />
     <Compile Include="Devices\DevicesOptions.cs" />
+    <Compile Include="Diagnostics\IProcess.cs" />
+    <Compile Include="Diagnostics\IProcessFactory.cs" />
     <Compile Include="Dlna\CodecProfile.cs" />
     <Compile Include="Dlna\ContainerProfile.cs" />
     <Compile Include="Dlna\DeviceProfile.cs" />
@@ -135,7 +137,16 @@
     <Compile Include="Dto\MetadataEditorInfo.cs" />
     <Compile Include="Dto\NameIdPair.cs" />
     <Compile Include="Dto\NameValuePair.cs" />
-    <Compile Include="TextEncoding\IEncoding.cs" />
+    <Compile Include="Net\IpEndPointInfo.cs" />
+    <Compile Include="Net\ISocket.cs" />
+    <Compile Include="Net\ISocketFactory.cs" />
+    <Compile Include="Net\IUdpSocket.cs" />
+    <Compile Include="Net\SocketReceiveResult.cs" />
+    <Compile Include="Services\IHttpResult.cs" />
+    <Compile Include="Social\ISharingRepository.cs" />
+    <Compile Include="System\IEnvironmentInfo.cs" />
+    <Compile Include="System\IPowerManagement.cs" />
+    <Compile Include="Text\ITextEncoding.cs" />
     <Compile Include="Extensions\LinqExtensions.cs" />
     <Compile Include="FileOrganization\SmartMatchInfo.cs" />
 	<!--myproduction-change-start-->
@@ -144,7 +155,7 @@
     <Compile Include="Health\IHealthMonitor.cs" />
     <Compile Include="IO\FileSystemMetadata.cs" />
     <Compile Include="IO\IFileSystem.cs" />
-    <Compile Include="IO\IMemoryStreamProvider.cs" />
+    <Compile Include="IO\IMemoryStreamFactory.cs" />
     <Compile Include="IO\IShortcutHandler.cs" />
     <Compile Include="IO\StreamDefaults.cs" />
     <Compile Include="Globalization\ILocalizationManager.cs" />
@@ -425,6 +436,8 @@
     <Compile Include="Tasks\ScheduledTaskHelpers.cs" />
     <Compile Include="Tasks\TaskCompletionEventArgs.cs" />
     <Compile Include="Tasks\TaskExecutionOptions.cs" />
+    <Compile Include="Threading\ITimer.cs" />
+    <Compile Include="Threading\ITimerFactory.cs" />
     <Compile Include="Updates\CheckForUpdateResult.cs" />
     <Compile Include="Updates\PackageTargetSystem.cs" />
     <Compile Include="Updates\InstallationInfo.cs" />

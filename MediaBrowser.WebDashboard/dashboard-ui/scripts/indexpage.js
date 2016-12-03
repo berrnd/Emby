@@ -1,31 +1,12 @@
 ﻿define(['libraryBrowser', 'emby-tabs', 'emby-button'], function (libraryBrowser) {
+    'use strict';
 
     var defaultFirstSection = 'smalllibrarytiles';
 
     function getDefaultSection(index) {
-
+		
 		//myproduction-change-start
 		//Changed default sections
-        if (AppInfo.isNativeApp) {
-
-            switch (index) {
-
-                case 0:
-                    return 'librarybuttons';
-                case 1:
-                    return 'latestmedia';
-                case 2:
-                    return 'none';
-                case 3:
-                    return 'none';
-                case 4:
-                    return 'none';
-                case 5:
-                    return 'none';
-                default:
-                    return '';
-            }
-        }
         switch (index) {
 
             case 0:
@@ -36,17 +17,19 @@
                 return 'none';
             case 3:
                 return 'none';
+            case 4:
+                return 'none';
             default:
                 return '';
         }
 		//myproduction-change-end
     }
 
-    function loadSection(page, user, displayPreferences, index) {
+    function loadSection(page, user, userSettings, index) {
 
         var userId = user.Id;
-		
-		//myproduction-change-start
+
+        //myproduction-change-start
 		//Only use settings provided by getDefaultSection
         var section = getDefaultSection(index);
 		//myproduction-change-end
@@ -55,30 +38,22 @@
             section = defaultFirstSection;
         }
 
-        var showLibraryTileNames = displayPreferences.CustomPrefs.enableLibraryTileNames != '0';
-
         var elem = page.querySelector('.section' + index);
 
         if (section == 'latestmedia') {
             return Sections.loadRecentlyAdded(elem, user);
         }
-        else if (section == 'latestmovies') {
-            return Sections.loadLatestMovies(elem, user);
-        }
-        else if (section == 'latestepisodes') {
-            return Sections.loadLatestEpisodes(elem, user);
-        }
         else if (section == 'librarytiles') {
-            return Sections.loadLibraryTiles(elem, user, 'backdrop', index, false, showLibraryTileNames);
+            return Sections.loadLibraryTiles(elem, user, 'backdrop', index);
         }
         else if (section == 'smalllibrarytiles') {
-            return Sections.loadLibraryTiles(elem, user, 'smallBackdrop', index, false, showLibraryTileNames);
+            return Sections.loadLibraryTiles(elem, user, 'smallBackdrop', index);
         }
         else if (section == 'smalllibrarytiles-automobile') {
-            return Sections.loadLibraryTiles(elem, user, 'smallBackdrop', index, true, showLibraryTileNames);
+            return Sections.loadLibraryTiles(elem, user, 'smallBackdrop', index);
         }
         else if (section == 'librarytiles-automobile') {
-            return Sections.loadLibraryTiles(elem, user, 'backdrop', index, true, showLibraryTileNames);
+            return Sections.loadLibraryTiles(elem, user, 'backdrop', index);
         }
         else if (section == 'librarybuttons') {
             return Sections.loadlibraryButtons(elem, userId, index);
@@ -106,10 +81,10 @@
         }
     }
 
-    function loadSections(page, user, displayPreferences) {
+    function loadSections(page, user, userSettings) {
 
         var i, length;
-        var sectionCount = 6;
+        var sectionCount = 5;
 
         var elem = page.querySelector('.sections');
 
@@ -127,7 +102,7 @@
 
         for (i = 0, length = sectionCount; i < length; i++) {
 
-            promises.push(loadSection(page, user, displayPreferences, i));
+            promises.push(loadSection(page, user, userSettings, i));
         }
 
         return Promise.all(promises);
@@ -215,41 +190,54 @@
         });
     }
 
+    function getRequirePromise(deps) {
+
+        return new Promise(function (resolve, reject) {
+
+            require(deps, resolve);
+        });
+    }
+
     function loadHomeTab(page, tabContent) {
 
         if (window.ApiClient) {
             var userId = Dashboard.getCurrentUserId();
             Dashboard.showLoadingMsg();
 
-            getDisplayPreferences('home', userId).then(function (result) {
+            var promises = [
+                getDisplayPreferences('home', userId),
+                Dashboard.getCurrentUser(),
+                getRequirePromise(['userSettings'])
+            ];
 
-                Dashboard.getCurrentUser().then(function (user) {
+            Promise.all(promises).then(function(responses) {
+                var displayPreferences = responses[0];
+                var user = responses[1];
+                var userSettings = responses[2];
 
-                    loadSections(tabContent, user, result).then(function () {
+                loadSections(tabContent, user, userSettings).then(function () {
 
-                        if (!AppInfo.isNativeApp) {
-                            showWelcomeIfNeeded(page, result);
-                        }
-                        Dashboard.hideLoadingMsg();
-                    });
-
+                    if (!AppInfo.isNativeApp) {
+                        showWelcomeIfNeeded(page, displayPreferences);
+                    }
+                    Dashboard.hideLoadingMsg();
                 });
-            });
-			
-			//myproduction-change-start
-			//Added statistics overview
-			ApiClient.getItemCounts().then(function (itemCounts)
-			{
-				document.getElementById("statisticsMovieCount").textContent = itemCounts.MovieCount;
-				document.getElementById("statisticsSeriesCount").textContent = itemCounts.SeriesCount;
-				document.getElementById("statisticsEpisodesCount").textContent = itemCounts.EpisodeCount;
 				
-				document.getElementById("statisticsTotalRunTime").textContent = germanDuration(itemCounts.LibraryStatistics.TotalRunTimeTicks);
-				document.getElementById("statisticsTotalFileSize").textContent = humanFileSize(itemCounts.LibraryStatistics.TotalFileSize);
+				//myproduction-change-start
+				//Added statistics overview
+				ApiClient.getItemCounts().then(function (itemCounts)
+				{
+					document.getElementById("statisticsMovieCount").textContent = itemCounts.MovieCount;
+					document.getElementById("statisticsSeriesCount").textContent = itemCounts.SeriesCount;
+					document.getElementById("statisticsEpisodesCount").textContent = itemCounts.EpisodeCount;
+					
+					document.getElementById("statisticsTotalRunTime").textContent = germanDuration(itemCounts.LibraryStatistics.TotalRunTimeTicks);
+					document.getElementById("statisticsTotalFileSize").textContent = humanFileSize(itemCounts.LibraryStatistics.TotalFileSize);
 
-				document.getElementById("statisticsNewestItemDate").textContent = germanDate(new Date(itemCounts.LibraryStatistics.NewestItemDate));
-			});
-			//myproduction-change-end
+					document.getElementById("statisticsNewestItemDate").textContent = germanDate(new Date(itemCounts.LibraryStatistics.NewestItemDate));
+				});
+				//myproduction-change-end
+            });
         }
     }
 	

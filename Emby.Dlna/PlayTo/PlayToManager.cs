@@ -11,12 +11,13 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
-using System.Net.Sockets;
 using System.Threading.Tasks;
 using MediaBrowser.Controller.MediaEncoding;
 using MediaBrowser.Model.Dlna;
 using MediaBrowser.Model.Events;
 using MediaBrowser.Model.Globalization;
+using MediaBrowser.Model.Net;
+using MediaBrowser.Model.Threading;
 
 namespace Emby.Dlna.PlayTo
 {
@@ -38,11 +39,12 @@ namespace Emby.Dlna.PlayTo
         private readonly IDeviceDiscovery _deviceDiscovery;
         private readonly IMediaSourceManager _mediaSourceManager;
         private readonly IMediaEncoder _mediaEncoder;
+        private readonly ITimerFactory _timerFactory;
 
         private readonly List<string> _nonRendererUrls = new List<string>();
         private DateTime _lastRendererClear;
 
-        public PlayToManager(ILogger logger, ISessionManager sessionManager, ILibraryManager libraryManager, IUserManager userManager, IDlnaManager dlnaManager, IServerApplicationHost appHost, IImageProcessor imageProcessor, IDeviceDiscovery deviceDiscovery, IHttpClient httpClient, IServerConfigurationManager config, IUserDataManager userDataManager, ILocalizationManager localization, IMediaSourceManager mediaSourceManager, IMediaEncoder mediaEncoder)
+        public PlayToManager(ILogger logger, ISessionManager sessionManager, ILibraryManager libraryManager, IUserManager userManager, IDlnaManager dlnaManager, IServerApplicationHost appHost, IImageProcessor imageProcessor, IDeviceDiscovery deviceDiscovery, IHttpClient httpClient, IServerConfigurationManager config, IUserDataManager userDataManager, ILocalizationManager localization, IMediaSourceManager mediaSourceManager, IMediaEncoder mediaEncoder, ITimerFactory timerFactory)
         {
             _logger = logger;
             _sessionManager = sessionManager;
@@ -58,6 +60,7 @@ namespace Emby.Dlna.PlayTo
             _localization = localization;
             _mediaSourceManager = mediaSourceManager;
             _mediaEncoder = mediaEncoder;
+            _timerFactory = timerFactory;
         }
 
         public void Start()
@@ -107,7 +110,7 @@ namespace Emby.Dlna.PlayTo
 
                 var uri = info.Location;
                 _logger.Debug("Attempting to create PlayToController from location {0}", location);
-                var device = await Device.CreateuPnpDeviceAsync(uri, _httpClient, _config, _logger).ConfigureAwait(false);
+                var device = await Device.CreateuPnpDeviceAsync(uri, _httpClient, _config, _logger, _timerFactory).ConfigureAwait(false);
 
                 if (device.RendererCommands == null)
                 {
@@ -129,11 +132,11 @@ namespace Emby.Dlna.PlayTo
                     string serverAddress;
                     if (info.LocalIpAddress == null)
                     {
-                        serverAddress = await GetServerAddress(null, false).ConfigureAwait(false);
+                        serverAddress = await GetServerAddress(null).ConfigureAwait(false);
                     }
                     else
                     {
-                        serverAddress = await GetServerAddress(info.LocalIpAddress.Address, info.LocalIpAddress.IsIpv6).ConfigureAwait(false);
+                        serverAddress = await GetServerAddress(info.LocalIpAddress).ConfigureAwait(false);
                     }
 
                     string accessToken = null;
@@ -187,14 +190,14 @@ namespace Emby.Dlna.PlayTo
             }
         }
 
-        private Task<string> GetServerAddress(string ipAddress, bool isIpv6)
+        private Task<string> GetServerAddress(IpAddressInfo address)
         {
-            if (string.IsNullOrWhiteSpace(ipAddress))
+            if (address == null)
             {
                 return _appHost.GetLocalApiUrl();
             }
 
-            return Task.FromResult(_appHost.GetLocalApiUrl(ipAddress, isIpv6));
+            return Task.FromResult(_appHost.GetLocalApiUrl(address));
         }
 
         public void Dispose()
