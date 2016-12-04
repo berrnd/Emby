@@ -155,6 +155,12 @@
             }, function () {
                 Dashboard.hideLoadingMsg();
             });
+			
+			//myproduction-change-start
+			//Added search tracking
+			var piwikTracker = Piwik.getAsyncTracker();
+			piwikTracker.trackSiteSearch(searchTerm);
+			//myproduction-change-end
         }
 
         function onSearchChange(val) {
