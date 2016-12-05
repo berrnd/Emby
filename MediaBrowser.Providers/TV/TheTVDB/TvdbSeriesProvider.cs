@@ -306,7 +306,7 @@ namespace MediaBrowser.Providers.TV
                     reader.Read();
 
                     // Loop through each element
-                    while (!reader.EOF)
+                    while (!reader.EOF && reader.ReadState == ReadState.Interactive)
                     {
                         if (reader.NodeType == XmlNodeType.Element)
                         {
@@ -314,6 +314,11 @@ namespace MediaBrowser.Providers.TV
                             {
                                 case "Series":
                                     {
+                                        if (reader.IsEmptyElement)
+                                        {
+                                            reader.Read();
+                                            continue;
+                                        }
                                         using (var subtree = reader.ReadSubtree())
                                         {
                                             return FindSeriesId(subtree);
@@ -342,7 +347,7 @@ namespace MediaBrowser.Providers.TV
             reader.Read();
 
             // Loop through each element
-            while (!reader.EOF)
+            while (!reader.EOF && reader.ReadState == ReadState.Interactive)
             {
                 if (reader.NodeType == XmlNodeType.Element)
                 {
@@ -377,7 +382,7 @@ namespace MediaBrowser.Providers.TV
         internal static bool IsValidSeries(Dictionary<string, string> seriesProviderIds)
         {
             string id;
-            if (seriesProviderIds.TryGetValue(MetadataProviders.Tvdb.ToString(), out id) && !string.IsNullOrEmpty(id))
+            if (seriesProviderIds.TryGetValue(MetadataProviders.Tvdb.ToString(), out id))
             {
                 // This check should ideally never be necessary but we're seeing some cases of this and haven't tracked them down yet.
                 if (!string.IsNullOrWhiteSpace(id))
@@ -386,7 +391,7 @@ namespace MediaBrowser.Providers.TV
                 }
             }
 
-            if (seriesProviderIds.TryGetValue(MetadataProviders.Imdb.ToString(), out id) && !string.IsNullOrEmpty(id))
+            if (seriesProviderIds.TryGetValue(MetadataProviders.Imdb.ToString(), out id))
             {
                 // This check should ideally never be necessary but we're seeing some cases of this and haven't tracked them down yet.
                 if (!string.IsNullOrWhiteSpace(id))
@@ -405,7 +410,7 @@ namespace MediaBrowser.Providers.TV
             try
             {
                 string seriesId;
-                if (seriesProviderIds.TryGetValue(MetadataProviders.Tvdb.ToString(), out seriesId) && !string.IsNullOrEmpty(seriesId))
+                if (seriesProviderIds.TryGetValue(MetadataProviders.Tvdb.ToString(), out seriesId) && !string.IsNullOrWhiteSpace(seriesId))
                 {
                     var seriesDataPath = GetSeriesDataPath(_config.ApplicationPaths, seriesProviderIds);
 
@@ -419,7 +424,7 @@ namespace MediaBrowser.Providers.TV
                     return seriesDataPath;
                 }
 
-                if (seriesProviderIds.TryGetValue(MetadataProviders.Imdb.ToString(), out seriesId) && !string.IsNullOrEmpty(seriesId))
+                if (seriesProviderIds.TryGetValue(MetadataProviders.Imdb.ToString(), out seriesId) && !string.IsNullOrWhiteSpace(seriesId))
                 {
                     var seriesDataPath = GetSeriesDataPath(_config.ApplicationPaths, seriesProviderIds);
 
@@ -549,7 +554,7 @@ namespace MediaBrowser.Providers.TV
                         reader.Read();
 
                         // Loop through each element
-                        while (!reader.EOF)
+                        while (!reader.EOF && reader.ReadState == ReadState.Interactive)
                         {
                             cancellationToken.ThrowIfCancellationRequested();
 
@@ -559,6 +564,11 @@ namespace MediaBrowser.Providers.TV
                                 {
                                     case "Series":
                                         {
+                                            if (reader.IsEmptyElement)
+                                            {
+                                                reader.Read();
+                                                continue;
+                                            }
                                             using (var subtree = reader.ReadSubtree())
                                             {
                                                 var searchResult = GetSeriesSearchResultFromSubTree(subtree, comparableName);
@@ -607,7 +617,7 @@ namespace MediaBrowser.Providers.TV
             reader.Read();
 
             // Loop through each element
-            while (!reader.EOF)
+            while (!reader.EOF && reader.ReadState == ReadState.Interactive)
             {
                 if (reader.NodeType == XmlNodeType.Element)
                 {
@@ -789,7 +799,7 @@ namespace MediaBrowser.Providers.TV
                         reader.Read();
 
                         // Loop through each element
-                        while (!reader.EOF)
+                        while (!reader.EOF && reader.ReadState == ReadState.Interactive)
                         {
                             cancellationToken.ThrowIfCancellationRequested();
 
@@ -799,6 +809,11 @@ namespace MediaBrowser.Providers.TV
                                 {
                                     case "Series":
                                         {
+                                            if (reader.IsEmptyElement)
+                                            {
+                                                reader.Read();
+                                                continue;
+                                            }
                                             using (var subtree = reader.ReadSubtree())
                                             {
                                                 FetchDataFromSeriesNode(result, subtree, cancellationToken);
@@ -808,6 +823,11 @@ namespace MediaBrowser.Providers.TV
 
                                     case "Episode":
                                         {
+                                            if (reader.IsEmptyElement)
+                                            {
+                                                reader.Read();
+                                                continue;
+                                            }
                                             using (var subtree = reader.ReadSubtree())
                                             {
                                                 var date = GetFirstAiredDateFromEpisodeNode(subtree, cancellationToken);
@@ -849,7 +869,7 @@ namespace MediaBrowser.Providers.TV
             reader.Read();
 
             // Loop through each element
-            while (!reader.EOF)
+            while (!reader.EOF && reader.ReadState == ReadState.Interactive)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -934,7 +954,7 @@ namespace MediaBrowser.Providers.TV
                         reader.Read();
 
                         // Loop through each element
-                        while (!reader.EOF)
+                        while (!reader.EOF && reader.ReadState == ReadState.Interactive)
                         {
                             if (reader.NodeType == XmlNodeType.Element)
                             {
@@ -942,6 +962,11 @@ namespace MediaBrowser.Providers.TV
                                 {
                                     case "Actor":
                                         {
+                                            if (reader.IsEmptyElement)
+                                            {
+                                                reader.Read();
+                                                continue;
+                                            }
                                             using (var subtree = reader.ReadSubtree())
                                             {
                                                 FetchDataFromActorNode(result, subtree);
@@ -978,7 +1003,7 @@ namespace MediaBrowser.Providers.TV
             reader.Read();
 
             // Loop through each element
-            while (!reader.EOF)
+            while (!reader.EOF && reader.ReadState == ReadState.Interactive)
             {
                 if (reader.NodeType == XmlNodeType.Element)
                 {
@@ -1056,7 +1081,7 @@ namespace MediaBrowser.Providers.TV
             reader.Read();
 
             // Loop through each element
-            while (!reader.EOF)
+            while (!reader.EOF && reader.ReadState == ReadState.Interactive)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -1315,7 +1340,7 @@ namespace MediaBrowser.Providers.TV
                         reader.Read();
 
                         // Loop through each element
-                        while (!reader.EOF)
+                        while (!reader.EOF && reader.ReadState == ReadState.Interactive)
                         {
                             if (reader.NodeType == XmlNodeType.Element)
                             {
@@ -1366,7 +1391,7 @@ namespace MediaBrowser.Providers.TV
                     reader.Read();
 
                     // Loop through each element
-                    while (!reader.EOF)
+                    while (!reader.EOF && reader.ReadState == ReadState.Interactive)
                     {
                         if (reader.NodeType == XmlNodeType.Element)
                         {
