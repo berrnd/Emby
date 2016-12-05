@@ -265,7 +265,7 @@
 			yearTxt = "Jahr";
 		}
 		
-		var dayTxt = "Tagen";
+		var dayTxt = "Tage";
 		if (days == 1)
 		{
 			dayTxt = "Tag";
