@@ -233,8 +233,6 @@
 					
 					document.getElementById("statisticsTotalRunTime").textContent = germanDuration(itemCounts.LibraryStatistics.TotalRunTimeTicks);
 					document.getElementById("statisticsTotalFileSize").textContent = humanFileSize(itemCounts.LibraryStatistics.TotalFileSize);
-
-					document.getElementById("statisticsNewestItemDate").textContent = germanDate(new Date(itemCounts.LibraryStatistics.NewestItemDate));
 				});
 				//myproduction-change-end
             });
@@ -261,7 +259,7 @@
 		var hours = Math.floor(((totalSeconds % 31536000) % 86400) / 3600);
 		//var minutes = Math.floor((((totalSeconds % 31536000) % 86400) % 3600) / 60);
 		
-		var yearTxt = "Jahren";
+		var yearTxt = "Jahre";
 		if (years == 1)
 		{
 			yearTxt = "Jahr";

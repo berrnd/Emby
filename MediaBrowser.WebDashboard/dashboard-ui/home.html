@@ -32,25 +32,27 @@
 
         <!--myproduction-change-start-->
         <!--Added statistics overview-->
-        <div class="homePageSection" style="display: inline-block; vertical-align: top; margin-right: 15px;">
+        <div class="homePageSection">
           <h1 class="listHeader">Statistik</h1>
           <div style="padding-left: 2vw;">
-            <h2 id="statisticsSectionMediaSummary" style="display: inline;">Aktuell sind <span id="statisticsMovieCount" style="color: #F16834;">...</span> Filme und <span id="statisticsSeriesCount" style="color: #F16834;">...</span> Serien mit insgesamt <span id="statisticsEpisodesCount" style="color: #F16834;">...</span> Episoden verfügbar</h2>
-            <p style="line-height: 5px; font-size: 5px;"></p>
-            <h2 id="statisticsSectionMediaSummaryData" style="display: inline;">Das entspricht einer Datenmenge von <span id="statisticsTotalFileSize" style="color: #F16834;">...</span><br>bzw. einer gesamten Spieldauer von <span id="statisticsTotalRunTime" style="color: #F16834;">...</span></h2>
-            <p style="line-height: 5px; font-size: 5px;"></p>
-            <h2 id="statisticsSectionNewestItem" style="display: inline;">Neue Medieninhalte wurden zuletzt am <span id="statisticsNewestItemDate" style="color: #F16834;">...</span> hinzugefügt</h2>
+			<h2>
+				<span id="statisticsMovieCount" style="color: #F16834;">...</span> Filme, <span id="statisticsSeriesCount" style="color: #F16834;">...</span> Serien mit insgesamt <span id="statisticsEpisodesCount" style="color: #F16834;">...</span> Episoden, <span id="statisticsTotalFileSize" style="color: #F16834;">...</span> Daten, <span id="statisticsTotalRunTime" style="color: #F16834;">...</span> Spieldauer
+			</h2>
           </div>
         </div>
         <!--myproduction-change-end-->
         
         <!--myproduction-change-start-->
         <!--Added wish button-->
-        <div class="homePageSection" style="display: inline-block; float: right;padding-right:80px;">
-          <h1 class="listHeader" style="padding-left: 0;">Wunschecke</h1>
-          <p>Eine Serie ist unvollständig, du hättest gerne was Neues oder irgendwas geht nicht?</p>
-          <p><button is="emby-button" type="button" class="raised" onclick="WuenschDirWas();"><i class="md-icon">add_shopping_cart</i><span>Ich wünsch mir was</span></button></p>
-        </div>
+        <div class="homePageSection">
+          <h1 class="listHeader">Wunschecke</h1>
+		  <div style="padding-left: 2vw;">
+			<h3>Eine Serie ist unvollständig, du hättest gerne was Neues oder irgendwas geht nicht?</h3>
+		  </div>
+		  <div style="display:flex;flex-wrap:wrap;padding-left: 2vw;">
+			<button is="emby-button" type="button" class="raised subdued emby-button emby-button-noflex" onclick="WuenschDirWas();"><i class="md-icon">add_shopping_cart</i><span>Ich wünsch mir was</span></button>
+		  </div>
+		</div>
         <script>
           function WuenschDirWas()
           {

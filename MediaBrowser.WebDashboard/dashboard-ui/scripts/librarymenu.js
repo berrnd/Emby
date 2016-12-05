@@ -29,13 +29,20 @@
         html += '<span class="headerSelectedPlayer"></span>';
         html += '<button is="paper-icon-button-light" class="btnCast headerButton headerButtonRight hide autoSize"><i class="md-icon">cast</i></button>';
 
-        html += '<button type="button" is="paper-icon-button-light" class="headerButton headerButtonRight headerSearchButton hide autoSize"><i class="md-icon">search</i></button>';
+		//myproduction-change-start
+		//Added search button label
+        html += '<button style="display: block;font-weight:normal;" type="button" is="paper-icon-button-light" class="headerButton headerButtonRight headerSearchButton hide autoSize"><i class="md-icon">search</i> Suche</button>';
+		//myproduction-change-end
 
         html += '<button is="paper-icon-button-light" class="headerButton headerButtonRight headerVoiceButton hide autoSize"><i class="md-icon">mic</i></button>';
 
         html += '<button is="paper-icon-button-light" class="headerButton headerButtonRight btnNotifications"><div class="btnNotificationsInner">0</div></button>';
-
-        html += '<button is="paper-icon-button-light" class="headerButton headerButtonRight headerUserButton autoSize"><i class="md-icon">person</i></button>';
+		
+		//myproduction-change-start
+		//Replaced user menu with logout button
+        //html += '<button is="paper-icon-button-light" class="headerButton headerButtonRight headerUserButton autoSize"><i class="md-icon">person</i></button>';
+		html += '<button style="display: block;font-weight:normal;" is="paper-icon-button-light" class="headerButton headerButtonRight btnLogout autoSize" onclick="Dashboard.logout();"><i class="md-icon">lock</i> Abmelden</button>';
+		//myproduction-change-end
 
         if (!browserInfo.mobile && !Dashboard.isConnectMode()) {
             html += '<button is="paper-icon-button-light" class="headerButton headerButtonRight dashboardEntryHeaderButton autoSize" onclick="return LibraryMenu.onSettingsClicked(event);"><i class="md-icon">settings</i></button>';

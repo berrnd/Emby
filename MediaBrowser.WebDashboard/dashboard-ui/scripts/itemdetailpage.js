@@ -141,8 +141,12 @@
             else {
                 hideAll(page, 'btnPlay');
             }
-
-            if ((item.LocalTrailerCount || (item.RemoteTrailers && item.RemoteTrailers.length)) && item.PlayAccess == 'Full') {
+			
+			//myproduction-change-start
+			//Always show trailer button
+            //if ((item.LocalTrailerCount || (item.RemoteTrailers && item.RemoteTrailers.length)) && item.PlayAccess == 'Full') {
+			if (item.LocalTrailerCount || (item.RemoteTrailers && item.RemoteTrailers.length)) {
+			//myproduction-change-end
                 hideAll(page, 'btnPlayTrailer', true);
             } else {
                 hideAll(page, 'btnPlayTrailer');
@@ -2064,6 +2068,11 @@
         }
 
         function onPlayTrailerClick() {
+			//myproduction-change-start
+			//Added piwik tracking
+			var piwikTracker = Piwik.getAsyncTracker();
+            piwikTracker.trackEvent("MediaAccess", "PlayedTrailer", currentItem.Name);
+			//myproduction-change-end
             playTrailer(view);
         }
 
