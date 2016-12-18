@@ -52,9 +52,9 @@ namespace Emby.Server.Implementations.Activity
                 throw new ArgumentNullException("entry");
             }
 
-            using (var connection = CreateConnection())
+            using (WriteLock.Write())
             {
-                using (WriteLock.Write())
+                using (var connection = CreateConnection())
                 {
                     connection.RunInTransaction(db =>
                     {
@@ -80,9 +80,9 @@ namespace Emby.Server.Implementations.Activity
 
         public QueryResult<ActivityLogEntry> GetActivityLogEntries(DateTime? minDate, int? startIndex, int? limit)
         {
-            using (var connection = CreateConnection(true))
+            using (WriteLock.Read())
             {
-                using (WriteLock.Read())
+                using (var connection = CreateConnection(true))
                 {
                     var commandText = BaseActivitySelectText;
                     var whereClauses = new List<string>();
@@ -120,38 +120,44 @@ namespace Emby.Server.Implementations.Activity
                         commandText += " LIMIT " + limit.Value.ToString(_usCulture);
                     }
 
-                    var list = new List<ActivityLogEntry>();
+                    var statementTexts = new List<string>();
+                    statementTexts.Add(commandText);
+                    statementTexts.Add("select count (Id) from ActivityLogEntries" + whereTextWithoutPaging);
 
-                    using (var statement = connection.PrepareStatement(commandText))
+                    return connection.RunInTransaction(db =>
                     {
-                        if (minDate.HasValue)
+                        var list = new List<ActivityLogEntry>();
+                        var result = new QueryResult<ActivityLogEntry>();
+
+                        var statements = PrepareAllSafe(db, statementTexts).ToList();
+
+                        using (var statement = statements[0])
                         {
-                            statement.TryBind("@DateCreated", minDate.Value.ToDateTimeParamValue());
+                            if (minDate.HasValue)
+                            {
+                                statement.TryBind("@DateCreated", minDate.Value.ToDateTimeParamValue());
+                            }
+
+                            foreach (var row in statement.ExecuteQuery())
+                            {
+                                list.Add(GetEntry(row));
+                            }
                         }
 
-                        foreach (var row in statement.ExecuteQuery())
+                        using (var statement = statements[1])
                         {
-                            list.Add(GetEntry(row));
-                        }
-                    }
+                            if (minDate.HasValue)
+                            {
+                                statement.TryBind("@DateCreated", minDate.Value.ToDateTimeParamValue());
+                            }
 
-                    int totalRecordCount;
-
-                    using (var statement = connection.PrepareStatement("select count (Id) from ActivityLogEntries" + whereTextWithoutPaging))
-                    {
-                        if (minDate.HasValue)
-                        {
-                            statement.TryBind("@DateCreated", minDate.Value.ToDateTimeParamValue());
+                            result.TotalRecordCount = statement.ExecuteQuery().SelectScalarInt().First();
                         }
 
-                        totalRecordCount = statement.ExecuteQuery().SelectScalarInt().First();
-                    }
+                        result.Items = list.ToArray();
+                        return result;
 
-                    return new QueryResult<ActivityLogEntry>()
-                    {
-                        Items = list.ToArray(),
-                        TotalRecordCount = totalRecordCount
-                    };
+                    }, ReadTransactionMode);
                 }
             }
         }

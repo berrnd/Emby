@@ -466,7 +466,7 @@ var Dashboard = {
             divider: true,
             name: Globalize.translate('TabLibrary'),
             href: "library.html",
-            pageIds: ['mediaLibraryPage', 'libraryPathMappingPage', 'librarySettingsPage', 'libraryDisplayPage'],
+            pageIds: ['mediaLibraryPage', 'librarySettingsPage', 'libraryDisplayPage'],
             icon: 'folder',
             color: '#38c'
         }, {
@@ -557,13 +557,6 @@ var Dashboard = {
             href: "reports.html",
             pageIds: [],
             icon: 'insert_chart'
-        }, {
-            name: Globalize.translate('TabAbout'),
-            href: "about.html",
-            icon: 'info',
-            color: '#679C34',
-            divider: true,
-            pageIds: ['aboutPage']
         }];
 
     },
@@ -798,6 +791,15 @@ var Dashboard = {
                         }]
                     });
 
+                    //profile.TranscodingProfiles.filter(function (p) {
+
+                    //    return p.Type == 'Video' && p.Container == 'mkv';
+
+                    //}).forEach(function (p) {
+
+                    //    p.Container = 'ts';
+                    //});
+
                     profile.TranscodingProfiles.filter(function (p) {
 
                         return p.Type == 'Video' && p.CopyTimestamps == true;
@@ -821,7 +823,7 @@ var Dashboard = {
                 if (enableVlcAudio) {
 
                     profile.DirectPlayProfiles.push({
-                        Container: "aac,mp3,mpa,wav,wma,mp2,ogg,oga,webma,ape,opus,flac",
+                        Container: "aac,mp3,mpa,wav,wma,mp2,ogg,oga,webma,ape,opus,flac,m4a",
                         Type: 'Audio'
                     });
 
@@ -1085,22 +1087,28 @@ var AppInfo = {};
             return;
         }
 
+        if (AppInfo.isNativeApp) {
+            return;
+        }
+		
+		//myproduction-change-start
+		//Disabled season specific hemes
+		return;
+		//myproduction-change-end
+
         var date = new Date();
         var month = date.getMonth();
         var day = date.getDate();
 		
-		//myproduction-change-start
-		//Disabled season specific themes
-        //if (month == 9 && day >= 30) {
-        //    require(['themes/halloween/theme']);
-        //    return;
-        //}
-		//
-        //if (month == 11 && day >= 21 && day <= 26) {
-        //    require(['themes/holiday/theme']);
-        //    return;
-        //}
-		//myproduction-change-end
+        if (month == 9 && day >= 30) {
+            require(['themes/halloween/theme']);
+            return;
+        }
+
+        if (month == 11 && day >= 20 && day <= 25) {
+            require(['themes/holiday/theme']);
+            return;
+        }
     }
 
     function returnFirstDependency(obj) {
@@ -1281,11 +1289,12 @@ var AppInfo = {};
         define("peoplecardbuilder", [embyWebComponentsBowerPath + "/cardbuilder/peoplecardbuilder"], returnFirstDependency);
         define("chaptercardbuilder", [embyWebComponentsBowerPath + "/cardbuilder/chaptercardbuilder"], returnFirstDependency);
 
+        define("deleteHelper", [embyWebComponentsBowerPath + "/deletehelper"], returnFirstDependency);
         define("tvguide", [embyWebComponentsBowerPath + "/guide/guide"], returnFirstDependency);
         define("programStyles", ['css!' + embyWebComponentsBowerPath + "/guide/programs"], returnFirstDependency);
         define("guide-settings-dialog", [embyWebComponentsBowerPath + "/guide/guide-settings"], returnFirstDependency);
-        define("guide-categories-dialog", [embyWebComponentsBowerPath + "/guide/guide-categories"], returnFirstDependency);
         define("syncDialog", [embyWebComponentsBowerPath + "/sync/sync"], returnFirstDependency);
+        define("syncToggle", [embyWebComponentsBowerPath + "/sync/synctoggle"], returnFirstDependency);
         define("voiceDialog", [embyWebComponentsBowerPath + "/voice/voicedialog"], returnFirstDependency);
         define("voiceReceiver", [embyWebComponentsBowerPath + "/voice/voicereceiver"], returnFirstDependency);
         define("voiceProcessor", [embyWebComponentsBowerPath + "/voice/voiceprocessor"], returnFirstDependency);
@@ -1859,14 +1868,6 @@ var AppInfo = {};
         console.log('Defining core routes');
 
         defineRoute({
-            path: '/about.html',
-            dependencies: [],
-            autoFocus: false,
-            controller: 'dashboard/aboutpage',
-            roles: 'admin'
-        });
-
-        defineRoute({
             path: '/addplugin.html',
             dependencies: [],
             autoFocus: false,
@@ -2131,13 +2132,6 @@ var AppInfo = {};
             autoFocus: false,
             roles: 'admin',
             controller: 'dashboard/librarydisplay'
-        });
-
-        defineRoute({
-            path: '/librarypathmapping.html',
-            dependencies: [],
-            autoFocus: false,
-            roles: 'admin'
         });
 
         defineRoute({

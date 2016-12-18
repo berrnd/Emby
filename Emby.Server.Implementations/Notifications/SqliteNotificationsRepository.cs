@@ -51,24 +51,24 @@ namespace Emby.Server.Implementations.Notifications
         {
             var result = new NotificationResult();
 
-            using (var connection = CreateConnection(true))
+            var clauses = new List<string>();
+            var paramList = new List<object>();
+
+            if (query.IsRead.HasValue)
             {
-                using (WriteLock.Read())
+                clauses.Add("IsRead=?");
+                paramList.Add(query.IsRead.Value);
+            }
+
+            clauses.Add("UserId=?");
+            paramList.Add(query.UserId.ToGuidParamValue());
+
+            var whereClause = " where " + string.Join(" And ", clauses.ToArray());
+
+            using (WriteLock.Read())
+            {
+                using (var connection = CreateConnection(true))
                 {
-                    var clauses = new List<string>();
-                    var paramList = new List<object>();
-
-                    if (query.IsRead.HasValue)
-                    {
-                        clauses.Add("IsRead=?");
-                        paramList.Add(query.IsRead.Value);
-                    }
-
-                    clauses.Add("UserId=?");
-                    paramList.Add(query.UserId.ToGuidParamValue());
-
-                    var whereClause = " where " + string.Join(" And ", clauses.ToArray());
-
                     result.TotalRecordCount = connection.Query("select count(Id) from Notifications" + whereClause, paramList.ToArray()).SelectScalarInt().First();
 
                     var commandText = string.Format("select Id,UserId,Date,Name,Description,Url,Level,IsRead,Category,RelatedId from Notifications{0} order by IsRead asc, Date desc", whereClause);
@@ -106,27 +106,27 @@ namespace Emby.Server.Implementations.Notifications
         {
             var result = new NotificationsSummary();
 
-            using (var connection = CreateConnection(true))
+            using (WriteLock.Read())
             {
-                using (WriteLock.Read())
+                using (var connection = CreateConnection(true))
                 {
                     using (var statement = connection.PrepareStatement("select Level from Notifications where UserId=@UserId and IsRead=@IsRead"))
                     {
                         statement.TryBind("@IsRead", false);
                         statement.TryBind("@UserId", userId.ToGuidParamValue());
 
+                        var levels = new List<NotificationLevel>();
+
                         foreach (var row in statement.ExecuteQuery())
                         {
-                            var levels = new List<NotificationLevel>();
-
                             levels.Add(GetLevel(row, 0));
+                        }
 
-                            result.UnreadCount = levels.Count;
+                        result.UnreadCount = levels.Count;
 
-                            if (levels.Count > 0)
-                            {
-                                result.MaxUnreadNotificationLevel = levels.Max();
-                            }
+                        if (levels.Count > 0)
+                        {
+                            result.MaxUnreadNotificationLevel = levels.Max();
                         }
                     }
 
@@ -223,9 +223,9 @@ namespace Emby.Server.Implementations.Notifications
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            using (var connection = CreateConnection())
+            lock (WriteLock)
             {
-                using (WriteLock.Write())
+                using (var connection = CreateConnection())
                 {
                     connection.RunInTransaction(conn =>
                     {
@@ -286,9 +286,9 @@ namespace Emby.Server.Implementations.Notifications
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            using (var connection = CreateConnection())
+            using (WriteLock.Write())
             {
-                using (WriteLock.Write())
+                using (var connection = CreateConnection())
                 {
                     connection.RunInTransaction(conn =>
                     {
@@ -308,9 +308,9 @@ namespace Emby.Server.Implementations.Notifications
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            using (var connection = CreateConnection())
+            using (WriteLock.Write())
             {
-                using (WriteLock.Write())
+                using (var connection = CreateConnection())
                 {
                     connection.RunInTransaction(conn =>
                     {

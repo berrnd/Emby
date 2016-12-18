@@ -12,7 +12,8 @@
 }
 
     .background-theme-b .backgroundContainer.withBackdrop {
-        background-color: rgba(6, 6,6, .76);
+        background-color: rgba(6, 6, 6, .94) !important;
+        background: linear-gradient(to right, rgba(0, 0, 0, .99), rgba(0, 0, 0, .92), rgba(0, 0, 0, .5)) !important;
     }
 
 .ui-body-b {
@@ -158,8 +159,6 @@
 }
 
 .detailPageContent {
-    margin: 3em auto 0;
-    padding: 0;
     border-spacing: 0;
     border-collapse: collapse;
 }
@@ -251,7 +250,7 @@ span.itemCommunityRating:not(:empty) + .userDataIcons {
     background-size: cover;
     background-position: center 15%;
     background-repeat: no-repeat;
-    height: 300px;
+    height: 50vh;
     position: relative;
 }
 
@@ -287,12 +286,14 @@ span.itemCommunityRating:not(:empty) + .userDataIcons {
 }
 
 .detailUserDataIcons {
-    display: inline-block;
     margin-left: .5em;
+    white-space: nowrap;
 }
 
 .detailImageContainer {
     margin-right: 2em;
+    width: 280px;
+    flex-shrink: 0;
 }
 
 .detailPagePrimaryContent {
@@ -314,11 +315,11 @@ span.itemCommunityRating:not(:empty) + .userDataIcons {
 @media all and (max-width: 1400px) {
 
     .detailLogo {
-        right: 10%;
+        right: 5%;
     }
 }
 
-@media all and (max-width: 1000px) {
+@media all and (max-width: 1200px) {
 
     .detailLogo {
         display: none;
@@ -327,10 +328,10 @@ span.itemCommunityRating:not(:empty) + .userDataIcons {
 
 .itemDetailImage {
     border: solid 1px transparent;
-    width: 280px;
+    width: 100%;
 }
 
-.thumbDetailImageContainer .itemDetailImage {
+.thumbDetailImageContainer {
     width: 400px;
 }
 
@@ -355,8 +356,9 @@ span.itemCommunityRating:not(:empty) + .userDataIcons {
 
     .detailImageContainer {
         position: absolute;
-        top: -130px;
-        left: 3%;
+        top: -90px;
+        left: 5%;
+        width: auto;
     }
 
     .itemDetailImage {
@@ -400,19 +402,12 @@ span.itemCommunityRating:not(:empty) + .userDataIcons {
     position: absolute;
     right: 5%;
     background-color: #52B54B !important;
+    z-index: 1;
 }
 
 .emby-button.btnFloatingRecord {
     background-color: #cc3333 !important;
 }
-
-.textLinkList a {
-    margin: 0 .5em;
-}
-
-    .textLinkList a:first-child {
-        margin-left: 0;
-    }
 
 @media all and (max-width: 800px) {
 
@@ -500,6 +495,17 @@ span.itemCommunityRating:not(:empty) + .userDataIcons {
         margin-right: .5em;
     }
 
+    .mainDetailButtons.hide + .recordingFields {
+        margin-top: 1.5em !important;
+    }
+
+@media all and (min-width: 800px) {
+
+    .mainDetailButtons, .recordingFields button {
+        font-size: 110%;
+    }
+}
+
 .detailImageProgressContainer {
     position: absolute;
     bottom: 4px;
@@ -510,41 +516,6 @@ span.itemCommunityRating:not(:empty) + .userDataIcons {
 
 .viewControls, .listTopPaging {
     display: inline-block;
-}
-
-@media all and (max-height: 540px) {
-
-    .itemBackdrop {
-        height: 290px;
-    }
-}
-
-@media all and (max-height: 500px) {
-
-    .itemBackdrop {
-        height: 240px;
-    }
-}
-
-@media all and (max-height: 460px) {
-
-    .itemBackdrop {
-        height: 200px;
-    }
-}
-
-@media all and (max-height: 300px) {
-
-    .itemBackdrop {
-        height: 150px;
-    }
-}
-
-@media all and (max-height: 250px) {
-
-    .itemBackdrop {
-        height: 120px;
-    }
 }
 
 @media all and (max-width: 800px) {
@@ -575,18 +546,18 @@ span.itemCommunityRating:not(:empty) + .userDataIcons {
 }
 
 .detailPageContent {
-    max-width: 94%;
+    padding: 3em 3% 0;
 }
 
 @media all and (min-width: 750px) {
     .detailPageContent {
-        max-width: 94%;
+        padding: 3em 3% 0;
     }
 }
 
 @media all and (min-width: 1200px) {
     .detailPageContent {
-        max-width: 90%;
+        padding: 3em 5% 0;
     }
 }
 
@@ -779,6 +750,13 @@ span.itemCommunityRating:not(:empty) + .userDataIcons {
     }
 }
 
+@media all and (max-width: 800px) {
+
+    .detailsHiddenOnMobile {
+        display: none;
+    }
+}
+
 #criticReviewsContent.hiddenScrollX {
     white-space: nowrap;
 }
@@ -799,3 +777,32 @@ span.itemCommunityRating:not(:empty) + .userDataIcons {
     .btnSyncComplete i {
         border-radius: 1000px;
     }
+
+.bulletSeparator {
+    margin: 0 .35em;
+}
+
+.mediaInfoIcons {
+    display: flex;
+    align-items: center;
+    margin: 1.5em 0 1em;
+    flex-wrap: wrap;
+}
+
+.mediaInfoText {
+    background: rgba(31,31,31,.7);
+    padding: .25em .5em;
+    border-radius: .25em;
+    color: #ddd;
+    margin-right: .5em;
+    margin-bottom: .5em;
+    font-size: 94%;
+    background: rgba(170,170,190, .2);
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+}
+
+.mediaInfoText-upper {
+    text-transform: uppercase;
+}

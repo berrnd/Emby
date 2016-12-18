@@ -30,6 +30,7 @@ using MediaBrowser.Model.Globalization;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Model.LiveTv;
 using MediaBrowser.Model.Providers;
+using MediaBrowser.Model.Querying;
 using MediaBrowser.Model.Serialization;
 
 namespace MediaBrowser.Controller.Entities
@@ -135,6 +136,15 @@ namespace MediaBrowser.Controller.Entities
 
         [IgnoreDataMember]
         public virtual bool SupportsPlayedStatus
+        {
+            get
+            {
+                return false;
+            }
+        }
+
+        [IgnoreDataMember]
+        public virtual bool SupportsPositionTicksResume
         {
             get
             {
@@ -2182,7 +2192,7 @@ namespace MediaBrowser.Controller.Entities
             return path;
         }
 
-        public virtual Task FillUserDataDtoValues(UserItemDataDto dto, UserItemData userData, BaseItemDto itemDto, User user)
+        public virtual Task FillUserDataDtoValues(UserItemDataDto dto, UserItemData userData, BaseItemDto itemDto, User user, List<ItemFields> itemFields)
         {
             if (RunTimeTicks.HasValue)
             {

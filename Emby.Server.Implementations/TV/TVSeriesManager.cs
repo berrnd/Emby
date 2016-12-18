@@ -58,13 +58,21 @@ namespace Emby.Server.Implementations.TV
             var items = _libraryManager.GetItemList(new InternalItemsQuery(user)
             {
                 IncludeItemTypes = new[] { typeof(Series).Name },
-                SortOrder = SortOrder.Ascending,
+                SortBy = new[] { ItemSortBy.SeriesDatePlayed },
+                SortOrder = SortOrder.Descending,
                 PresentationUniqueKey = presentationUniqueKey,
                 Limit = limit,
                 ParentId = parentIdGuid,
-                Recursive = true
+                Recursive = true,
+                DtoOptions = new MediaBrowser.Controller.Dto.DtoOptions
+                {
+                    Fields = new List<ItemFields>
+                    {
 
-            }).Cast<Series>();
+                    }
+                }
+
+            }).Cast<Series>().Select(GetUniqueSeriesKey);
 
             // Avoid implicitly captured closure
             var episodes = GetNextUpEpisodes(request, user, items);
@@ -102,11 +110,20 @@ namespace Emby.Server.Implementations.TV
             var items = _libraryManager.GetItemList(new InternalItemsQuery(user)
             {
                 IncludeItemTypes = new[] { typeof(Series).Name },
-                SortOrder = SortOrder.Ascending,
+                SortBy = new[] { ItemSortBy.SeriesDatePlayed },
+                SortOrder = SortOrder.Descending,
                 PresentationUniqueKey = presentationUniqueKey,
-                Limit = limit
+                Limit = limit,
+                DtoOptions = new MediaBrowser.Controller.Dto.DtoOptions
+                {
+                    Fields = new List<ItemFields>
+                    {
 
-            }, parentsFolders.Cast<BaseItem>().ToList()).Cast<Series>();
+                    },
+                    EnableImages = false
+                }
+
+            }, parentsFolders.Cast<BaseItem>().ToList()).Cast<Series>().Select(GetUniqueSeriesKey);
 
             // Avoid implicitly captured closure
             var episodes = GetNextUpEpisodes(request, user, items);
@@ -114,32 +131,30 @@ namespace Emby.Server.Implementations.TV
             return GetResult(episodes, null, request);
         }
 
-        public IEnumerable<Episode> GetNextUpEpisodes(NextUpQuery request, User user, IEnumerable<Series> series)
+        public IEnumerable<Episode> GetNextUpEpisodes(NextUpQuery request, User user, IEnumerable<string> seriesKeys)
         {
             // Avoid implicitly captured closure
             var currentUser = user;
 
-            var allNextUp = series
-                .Select(i => GetNextUp(i, currentUser))
-                // Include if an episode was found, and either the series is not unwatched or the specific series was requested
-                .OrderByDescending(i => i.Item1)
-                .ToList();
+            var allNextUp = seriesKeys
+                .Select(i => GetNextUp(i, currentUser));
+
+            //allNextUp = allNextUp.OrderByDescending(i => i.Item1);
 
             // If viewing all next up for all series, remove first episodes
-            if (string.IsNullOrWhiteSpace(request.SeriesId))
-            {
-                var withoutFirstEpisode = allNextUp
-                    .Where(i => i.Item1 != DateTime.MinValue)
-                    .ToList();
-
-                // But if that returns empty, keep those first episodes (avoid completely empty view)
-                if (withoutFirstEpisode.Count > 0)
-                {
-                    allNextUp = withoutFirstEpisode;
-                }
-            }
+            // But if that returns empty, keep those first episodes (avoid completely empty view)
+            var alwaysEnableFirstEpisode = !string.IsNullOrWhiteSpace(request.SeriesId);
 
             return allNextUp
+                .Where(i =>
+                {
+                    if (alwaysEnableFirstEpisode || i.Item1 != DateTime.MinValue)
+                    {
+                        return true;
+                    }
+
+                    return false;
+                })
                 .Select(i => i.Item2())
                 .Where(i => i != null)
                 .Take(request.Limit ?? int.MaxValue);
@@ -153,20 +168,29 @@ namespace Emby.Server.Implementations.TV
         /// <summary>
         /// Gets the next up.
         /// </summary>
-        /// <param name="series">The series.</param>
-        /// <param name="user">The user.</param>
         /// <returns>Task{Episode}.</returns>
-        private Tuple<DateTime, Func<Episode>> GetNextUp(Series series, User user)
+        private Tuple<DateTime, Func<Episode>> GetNextUp(string seriesKey, User user)
         {
+            var enableSeriesPresentationKey = _config.Configuration.EnableSeriesPresentationUniqueKey;
+
             var lastWatchedEpisode = _libraryManager.GetItemList(new InternalItemsQuery(user)
             {
-                AncestorWithPresentationUniqueKey = GetUniqueSeriesKey(series),
+                AncestorWithPresentationUniqueKey = enableSeriesPresentationKey ? null : seriesKey,
+                SeriesPresentationUniqueKey = enableSeriesPresentationKey ? seriesKey : null,
                 IncludeItemTypes = new[] { typeof(Episode).Name },
                 SortBy = new[] { ItemSortBy.SortName },
                 SortOrder = SortOrder.Descending,
                 IsPlayed = true,
                 Limit = 1,
-                ParentIndexNumberNotEquals = 0
+                ParentIndexNumberNotEquals = 0,
+                DtoOptions = new MediaBrowser.Controller.Dto.DtoOptions
+                {
+                    Fields = new List<ItemFields>
+                    {
+
+                    },
+                    EnableImages = false
+                }
 
             }).FirstOrDefault();
 
@@ -174,7 +198,8 @@ namespace Emby.Server.Implementations.TV
             {
                 return _libraryManager.GetItemList(new InternalItemsQuery(user)
                 {
-                    AncestorWithPresentationUniqueKey = GetUniqueSeriesKey(series),
+                    AncestorWithPresentationUniqueKey = enableSeriesPresentationKey ? null : seriesKey,
+                    SeriesPresentationUniqueKey = enableSeriesPresentationKey ? seriesKey : null,
                     IncludeItemTypes = new[] { typeof(Episode).Name },
                     SortBy = new[] { ItemSortBy.SortName },
                     SortOrder = SortOrder.Ascending,

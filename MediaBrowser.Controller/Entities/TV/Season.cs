@@ -48,11 +48,7 @@ namespace MediaBrowser.Controller.Entities.TV
         [IgnoreDataMember]
         public override Guid? DisplayParentId
         {
-            get
-            {
-                var series = Series;
-                return series == null ? ParentId : series.Id;
-            }
+            get { return SeriesId; }
         }
 
         [IgnoreDataMember]
@@ -208,10 +204,19 @@ namespace MediaBrowser.Controller.Entities.TV
         }
 
         [IgnoreDataMember]
+        public string SeriesPresentationUniqueKey { get; set; }
+
+        [IgnoreDataMember]
         public string SeriesName { get; set; }
 
         [IgnoreDataMember]
         public Guid? SeriesId { get; set; }
+
+        public string FindSeriesPresentationUniqueKey()
+        {
+            var series = Series;
+            return series == null ? null : series.PresentationUniqueKey;
+        }
 
         public string FindSeriesName()
         {

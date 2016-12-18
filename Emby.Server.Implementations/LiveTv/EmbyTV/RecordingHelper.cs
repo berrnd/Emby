@@ -30,6 +30,7 @@ namespace Emby.Server.Implementations.LiveTv.EmbyTV
                 Priority = seriesTimer.Priority,
                 Name = parent.Name,
                 Overview = parent.Overview,
+                SeriesId = parent.SeriesId,
                 SeriesTimerId = seriesTimer.Id,
                 ShowId = parent.ShowId
             };
@@ -41,6 +42,11 @@ namespace Emby.Server.Implementations.LiveTv.EmbyTV
 
         public static void CopyProgramInfoToTimerInfo(ProgramInfo programInfo, TimerInfo timerInfo)
         {
+            timerInfo.Name = programInfo.Name;
+            timerInfo.StartDate = programInfo.StartDate;
+            timerInfo.EndDate = programInfo.EndDate;
+            timerInfo.ChannelId = programInfo.ChannelId;
+
             timerInfo.SeasonNumber = programInfo.SeasonNumber;
             timerInfo.EpisodeNumber = programInfo.EpisodeNumber;
             timerInfo.IsMovie = programInfo.IsMovie;
@@ -54,9 +60,11 @@ namespace Emby.Server.Implementations.LiveTv.EmbyTV
 
             timerInfo.HomePageUrl = programInfo.HomePageUrl;
             timerInfo.CommunityRating = programInfo.CommunityRating;
+            timerInfo.Overview = programInfo.Overview;
             timerInfo.ShortOverview = programInfo.ShortOverview;
             timerInfo.OfficialRating = programInfo.OfficialRating;
             timerInfo.IsRepeat = programInfo.IsRepeat;
+            timerInfo.SeriesId = programInfo.SeriesId;
         }
 
         public static string GetRecordingName(TimerInfo info)

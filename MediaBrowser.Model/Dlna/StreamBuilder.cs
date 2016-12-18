@@ -7,6 +7,7 @@ using MediaBrowser.Model.Session;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 
 namespace MediaBrowser.Model.Dlna
 {
@@ -409,6 +410,8 @@ namespace MediaBrowser.Model.Dlna
                 audioStreamIndex = audioStream.Index;
             }
 
+            var allMediaStreams = item.MediaStreams;
+
             MediaStream videoStream = item.VideoStream;
 
             // TODO: This doesn't accout for situation of device being able to handle media bitrate, but wifi connection not fast enough
@@ -424,7 +427,7 @@ namespace MediaBrowser.Model.Dlna
             if (isEligibleForDirectPlay || isEligibleForDirectStream)
             {
                 // See if it can be direct played
-                PlayMethod? directPlay = GetVideoDirectPlayProfile(options, item, videoStream, audioStream, isEligibleForDirectPlay, isEligibleForDirectStream);
+                PlayMethod? directPlay = GetVideoDirectPlayProfile(options, item, videoStream, audioStream, isEligibleForDirectPlay, isEligibleForDirectStream, allMediaStreams);
 
                 if (directPlay != null)
                 {
@@ -653,7 +656,8 @@ namespace MediaBrowser.Model.Dlna
             MediaStream videoStream,
             MediaStream audioStream,
             bool isEligibleForDirectPlay,
-            bool isEligibleForDirectStream)
+            bool isEligibleForDirectStream,
+            List<MediaStream> allMediaStreams)
         {
             DeviceProfile profile = options.Profile;
 
@@ -701,7 +705,7 @@ namespace MediaBrowser.Model.Dlna
             foreach (ContainerProfile i in profile.ContainerProfiles)
             {
                 if (i.Type == DlnaProfileType.Video &&
-                    ListHelper.ContainsIgnoreCase(i.GetContainers(), container))
+                    i.ContainsContainer(container))
                 {
                     foreach (ProfileCondition c in i.Conditions)
                     {

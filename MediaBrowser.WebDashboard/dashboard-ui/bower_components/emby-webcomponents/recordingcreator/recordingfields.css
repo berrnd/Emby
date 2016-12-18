@@ -1,11 +1,6 @@
-.visibilityHide {
-    visibility: hidden;
-}
-
 .recordingButton {
     margin-left: 0;
     min-width: 10em;
-    font-size: 92%;
 }
 
 .recordingIcon {

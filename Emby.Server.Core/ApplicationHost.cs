@@ -424,6 +424,7 @@ namespace Emby.Server.Core
             ServiceStack.Text.JsConfig<Movie>.ExcludePropertyNames = new[] { "ProviderIds", "ImageInfos", "ProductionLocations", "ThemeSongIds", "ThemeVideoIds", "TotalBitrate", "ShortOverview", "Taglines", "Keywords", "ExtraType" };
             ServiceStack.Text.JsConfig<Playlist>.ExcludePropertyNames = new[] { "ProviderIds", "ImageInfos", "ProductionLocations", "ThemeSongIds", "ThemeVideoIds", "TotalBitrate", "ShortOverview", "Taglines", "Keywords", "ExtraType" };
             ServiceStack.Text.JsConfig<AudioPodcast>.ExcludePropertyNames = new[] { "Artists", "AlbumArtists", "ChannelMediaSources", "ProviderIds", "ImageInfos", "ProductionLocations", "ThemeSongIds", "ThemeVideoIds", "TotalBitrate", "ShortOverview", "Taglines", "Keywords", "ExtraType" };
+            ServiceStack.Text.JsConfig<AudioBook>.ExcludePropertyNames = new[] { "Artists", "AlbumArtists", "ChannelMediaSources", "ProviderIds", "ImageInfos", "ProductionLocations", "ThemeSongIds", "ThemeVideoIds", "TotalBitrate", "ShortOverview", "Taglines", "Keywords", "ExtraType" };
             ServiceStack.Text.JsConfig<Trailer>.ExcludePropertyNames = new[] { "ProviderIds", "ImageInfos", "ProductionLocations", "ThemeSongIds", "ThemeVideoIds", "TotalBitrate", "ShortOverview", "Taglines", "Keywords", "ExtraType" };
             ServiceStack.Text.JsConfig<BoxSet>.ExcludePropertyNames = new[] { "ProviderIds", "ImageInfos", "ProductionLocations", "ThemeSongIds", "ThemeVideoIds", "TotalBitrate", "ShortOverview", "Taglines", "Keywords", "ExtraType" };
             ServiceStack.Text.JsConfig<Episode>.ExcludePropertyNames = new[] { "ProviderIds", "ImageInfos", "ProductionLocations", "ThemeSongIds", "ThemeVideoIds", "TotalBitrate", "ShortOverview", "Taglines", "Keywords", "ExtraType" };
@@ -488,6 +489,7 @@ namespace Emby.Server.Core
         {
             var migrations = new List<IVersionMigration>
             {
+                new LibraryScanMigration(ServerConfigurationManager, TaskManager)
             };
 
             foreach (var task in migrations)
@@ -546,6 +548,8 @@ namespace Emby.Server.Core
             RegisterSingleInstance(UserDataManager);
 
             UserRepository = GetUserRepository();
+            // This is only needed for disposal purposes. If removing this, make sure to have the manager handle disposing it
+            RegisterSingleInstance(UserRepository);
 
             var displayPreferencesRepo = new SqliteDisplayPreferencesRepository(LogManager.GetLogger("SqliteDisplayPreferencesRepository"), JsonSerializer, ApplicationPaths, MemoryStreamFactory);
             DisplayPreferencesRepository = displayPreferencesRepo;
@@ -676,6 +680,8 @@ namespace Emby.Server.Core
 
             var sharingRepo = new SharingRepository(LogManager.GetLogger("SharingRepository"), ApplicationPaths);
             sharingRepo.Initialize();
+            // This is only needed for disposal purposes. If removing this, make sure to have the manager handle disposing it
+            RegisterSingleInstance<ISharingRepository>(sharingRepo);
             RegisterSingleInstance<ISharingManager>(new SharingManager(sharingRepo, ServerConfigurationManager, LibraryManager, this));
 
             var activityLogRepo = GetActivityLogRepository();
@@ -1216,7 +1222,6 @@ namespace Emby.Server.Core
             {
                 HasPendingRestart = HasPendingRestart,
                 Version = ApplicationVersion.ToString(),
-                IsNetworkDeployed = CanSelfUpdate,
                 WebSocketPortNumber = HttpPort,
                 FailedPluginAssemblies = FailedAssemblies.ToList(),
                 InProgressInstallations = InstallationManager.CurrentInstallations.Select(i => i.Item1).ToList(),
@@ -1305,19 +1310,49 @@ namespace Emby.Server.Core
 
         public async Task<List<IpAddressInfo>> GetLocalIpAddresses()
         {
-            var addresses = NetworkManager.GetLocalIpAddresses().ToList();
-            var list = new List<IpAddressInfo>();
+            var addresses = ServerConfigurationManager
+                .Configuration
+                .LocalNetworkAddresses
+                .Select(NormalizeConfiguredLocalAddress)
+                .Where(i => i != null)
+                .ToList();
 
-            foreach (var address in addresses)
+            if (addresses.Count == 0)
             {
-                var valid = await IsIpAddressValidAsync(address).ConfigureAwait(false);
-                if (valid)
+                addresses.AddRange(NetworkManager.GetLocalIpAddresses());
+
+                var list = new List<IpAddressInfo>();
+
+                foreach (var address in addresses)
                 {
-                    list.Add(address);
+                    var valid = await IsIpAddressValidAsync(address).ConfigureAwait(false);
+                    if (valid)
+                    {
+                        list.Add(address);
+                    }
                 }
+
+                addresses = list;
             }
 
-            return list;
+            return addresses;
+        }
+
+        private IpAddressInfo NormalizeConfiguredLocalAddress(string address)
+        {
+            var index = address.Trim('/').IndexOf('/');
+
+            if (index != -1)
+            {
+                address = address.Substring(index + 1);
+            }
+
+            IpAddressInfo result;
+            if (NetworkManager.TryParseIpAddress(address.Trim('/'), out result))
+            {
+                return result;
+            }
+            return null;
         }
 
         private readonly ConcurrentDictionary<string, bool> _validAddressResults = new ConcurrentDictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
@@ -1553,7 +1588,8 @@ namespace Emby.Server.Core
                 throw new NotImplementedException();
             }
 
-            var process = ProcessFactory.Create(new ProcessOptions {
+            var process = ProcessFactory.Create(new ProcessOptions
+            {
                 FileName = url,
                 EnableRaisingEvents = true,
                 UseShellExecute = true,

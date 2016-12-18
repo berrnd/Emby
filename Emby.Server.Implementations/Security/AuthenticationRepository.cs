@@ -66,9 +66,9 @@ namespace Emby.Server.Implementations.Security
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            using (var connection = CreateConnection())
+            using (WriteLock.Write())
             {
-                using (WriteLock.Write())
+                using (var connection = CreateConnection())
                 {
                     connection.RunInTransaction(db =>
                     {
@@ -202,34 +202,44 @@ namespace Emby.Server.Implementations.Security
 
             var list = new List<AuthenticationInfo>();
 
-            using (var connection = CreateConnection(true))
+            using (WriteLock.Read())
             {
-                using (WriteLock.Read())
+                using (var connection = CreateConnection(true))
                 {
-                    using (var statement = connection.PrepareStatement(commandText))
+                    return connection.RunInTransaction(db =>
                     {
-                        BindAuthenticationQueryParams(query, statement);
+                        var result = new QueryResult<AuthenticationInfo>();
 
-                        foreach (var row in statement.ExecuteQuery())
+                        var statementTexts = new List<string>();
+                        statementTexts.Add(commandText);
+                        statementTexts.Add("select count (Id) from AccessTokens" + whereTextWithoutPaging);
+
+                        var statements = PrepareAllSafe(db, statementTexts)
+                            .ToList();
+
+                        using (var statement = statements[0])
                         {
-                            list.Add(Get(row));
-                        }
+                            BindAuthenticationQueryParams(query, statement);
 
-                        using (var totalCountStatement = connection.PrepareStatement("select count (Id) from AccessTokens" + whereTextWithoutPaging))
-                        {
-                            BindAuthenticationQueryParams(query, totalCountStatement);
-
-                            var count = totalCountStatement.ExecuteQuery()
-                                .SelectScalarInt()
-                                .First();
-
-                            return new QueryResult<AuthenticationInfo>()
+                            foreach (var row in statement.ExecuteQuery())
                             {
-                                Items = list.ToArray(),
-                                TotalRecordCount = count
-                            };
+                                list.Add(Get(row));
+                            }
+
+                            using (var totalCountStatement = statements[1])
+                            {
+                                BindAuthenticationQueryParams(query, totalCountStatement);
+
+                                result.TotalRecordCount = totalCountStatement.ExecuteQuery()
+                                    .SelectScalarInt()
+                                    .First();
+                            }
                         }
-                    }
+
+                        result.Items = list.ToArray();
+                        return result;
+
+                    }, ReadTransactionMode);
                 }
             }
         }
@@ -241,9 +251,9 @@ namespace Emby.Server.Implementations.Security
                 throw new ArgumentNullException("id");
             }
 
-            using (var connection = CreateConnection(true))
+            using (WriteLock.Read())
             {
-                using (WriteLock.Read())
+                using (var connection = CreateConnection(true))
                 {
                     var commandText = BaseSelectText + " where Id=@Id";
 

@@ -6,6 +6,7 @@ using MediaBrowser.Model.MediaInfo;
 using MediaBrowser.Model.Session;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace MediaBrowser.Model.Dlna
 {

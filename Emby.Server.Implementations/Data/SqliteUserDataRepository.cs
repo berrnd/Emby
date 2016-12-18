@@ -42,8 +42,10 @@ namespace Emby.Server.Implementations.Data
         /// Opens the connection to the database
         /// </summary>
         /// <returns>Task.</returns>
-        public void Initialize(ReaderWriterLockSlim writeLock)
+        public void Initialize(ReaderWriterLockSlim writeLock, ManagedConnection managedConnection)
         {
+            _connection = managedConnection;
+
             WriteLock.Dispose();
             WriteLock = writeLock;
 
@@ -78,7 +80,14 @@ namespace Emby.Server.Implementations.Data
                     AddColumn(db, "userdata", "SubtitleStreamIndex", "int", existingColumnNames);
                 }, TransactionMode);
 
-                ImportUserDataIfNeeded(connection);
+                try
+                {
+                    ImportUserDataIfNeeded(connection);
+                }
+                catch (Exception ex)
+                {
+                    Logger.ErrorException("Error in ImportUserDataIfNeeded", ex);
+                }
             }
         }
 
@@ -90,7 +99,7 @@ namespace Emby.Server.Implementations.Data
             }
         }
 
-        private void ImportUserDataIfNeeded(IDatabaseConnection connection)
+        private void ImportUserDataIfNeeded(ManagedConnection connection)
         {
             if (!_fileSystem.FileExists(_importFile))
             {
@@ -117,7 +126,7 @@ namespace Emby.Server.Implementations.Data
             }, TransactionMode);
         }
 
-        private void ImportUserData(IDatabaseConnection connection, string file)
+        private void ImportUserData(ManagedConnection connection, string file)
         {
             SqliteExtensions.Attach(connection, file, "UserDataBackup");
 
@@ -188,9 +197,9 @@ namespace Emby.Server.Implementations.Data
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            using (var connection = CreateConnection())
+            using (WriteLock.Write())
             {
-                using (WriteLock.Write())
+                using (var connection = CreateConnection())
                 {
                     connection.RunInTransaction(db =>
                     {
@@ -259,9 +268,9 @@ namespace Emby.Server.Implementations.Data
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            using (var connection = CreateConnection())
+            using (WriteLock.Write())
             {
-                using (WriteLock.Write())
+                using (var connection = CreateConnection())
                 {
                     connection.RunInTransaction(db =>
                     {
@@ -296,9 +305,9 @@ namespace Emby.Server.Implementations.Data
                 throw new ArgumentNullException("key");
             }
 
-            using (var connection = CreateConnection(true))
+            using (WriteLock.Read())
             {
-                using (WriteLock.Read())
+                using (var connection = CreateConnection(true))
                 {
                     using (var statement = connection.PrepareStatement("select key,userid,rating,played,playCount,isFavorite,playbackPositionTicks,lastPlayedDate,AudioStreamIndex,SubtitleStreamIndex from userdata where key =@Key and userId=@UserId"))
                     {
@@ -310,10 +319,10 @@ namespace Emby.Server.Implementations.Data
                             return ReadRow(row);
                         }
                     }
+
+                    return null;
                 }
             }
-
-            return null;
         }
 
         public UserItemData GetUserData(Guid userId, List<string> keys)
@@ -349,9 +358,9 @@ namespace Emby.Server.Implementations.Data
 
             var list = new List<UserItemData>();
 
-            using (var connection = CreateConnection())
+            using (WriteLock.Read())
             {
-                using (WriteLock.Read())
+                using (var connection = CreateConnection())
                 {
                     using (var statement = connection.PrepareStatement("select key,userid,rating,played,playCount,isFavorite,playbackPositionTicks,lastPlayedDate,AudioStreamIndex,SubtitleStreamIndex from userdata where userId=@UserId"))
                     {

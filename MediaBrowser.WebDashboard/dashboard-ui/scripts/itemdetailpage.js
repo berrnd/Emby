@@ -1,8 +1,5 @@
-﻿define(['layoutManager', 'cardBuilder', 'datetime', 'mediaInfo', 'backdrop', 'listView', 'itemContextMenu', 'itemHelper', 'userdataButtons', 'dom', 'indicators', 'apphost', 'imageLoader', 'libraryMenu', 'shell', 'globalize', 'scrollStyles', 'emby-itemscontainer', 'emby-checkbox'], function (layoutManager, cardBuilder, datetime, mediaInfo, backdrop, listView, itemContextMenu, itemHelper, userdataButtons, dom, indicators, appHost, imageLoader, libraryMenu, shell, globalize) {
+﻿define(['layoutManager', 'cardBuilder', 'datetime', 'mediaInfo', 'backdrop', 'listView', 'itemContextMenu', 'itemHelper', 'userdataButtons', 'dom', 'indicators', 'apphost', 'imageLoader', 'libraryMenu', 'shell', 'globalize', 'browser', 'events', 'scrollStyles', 'emby-itemscontainer', 'emby-checkbox'], function (layoutManager, cardBuilder, datetime, mediaInfo, backdrop, listView, itemContextMenu, itemHelper, userdataButtons, dom, indicators, appHost, imageLoader, libraryMenu, shell, globalize, browser, events) {
     'use strict';
-
-    var currentItem;
-    var currentRecordingFields;
 
     function getPromise(params) {
 
@@ -10,6 +7,10 @@
 
         if (id) {
             return ApiClient.getItem(Dashboard.getCurrentUserId(), id);
+        }
+
+        if (params.seriesTimerId) {
+            return ApiClient.getLiveTvSeriesTimer(params.seriesTimerId);
         }
 
         var name = params.genre;
@@ -39,6 +40,9 @@
             throw new Error('Invalid request');
         }
     }
+
+    var currentItem;
+    var currentRecordingFields;
 
     function reload(page, params) {
 
@@ -75,7 +79,8 @@
             positionTo: button,
             cancelTimer: false,
             record: false,
-            editImages: false
+            editImages: false,
+            deleteItem: item.IsFolder === true
         };
 
         if (appHost.supports('sync')) {
@@ -86,14 +91,98 @@
         return options;
     }
 
-    function updateSyncStatus(page, item) {
+    function renderSyncLocalContainer(page, params, user, item) {
 
-        var i, length;
-        var elems = page.querySelectorAll('.chkOffline');
-        for (i = 0, length = elems.length; i < length; i++) {
-
-            elems[i].checked = item.SyncPercent != null;
+        if (page.syncToggleInstance) {
+            page.syncToggleInstance.refresh(item);
+            return;
         }
+
+        require(['syncToggle'], function (syncToggle) {
+
+            page.syncToggleInstance = new syncToggle({
+                user: user,
+                item: item,
+                container: page.querySelector('.syncLocalContainer')
+            });
+
+            events.on(page.syncToggleInstance, 'sync', function () {
+                reload(page, params);
+            });
+        });
+    }
+
+    function getProgramScheduleHtml(items, options) {
+
+        options = options || {};
+
+        var html = '';
+        html += '<div is="emby-itemscontainer" class="itemsContainer vertical-list" data-contextmenu="false">';
+        html += listView.getListViewHtml({
+            items: items,
+            enableUserDataButtons: false,
+            image: false,
+            showProgramDateTime: true,
+            mediaInfo: false,
+            action: 'none',
+            moreButton: false,
+            recordButton: false
+        });
+
+        html += '</div>';
+
+        return html;
+    }
+
+    function renderSeriesTimerSchedule(page, seriesTimerId) {
+
+        ApiClient.getLiveTvTimers({
+            UserId: ApiClient.getCurrentUserId(),
+            ImageTypeLimit: 1,
+            EnableImageTypes: "Primary,Backdrop,Thumb",
+            SortBy: "StartDate",
+            EnableTotalRecordCount: false,
+            EnableUserData: false,
+            SeriesTimerId: seriesTimerId,
+            Fields: "ChannelInfo"
+
+        }).then(function (result) {
+
+            if (result.Items.length && result.Items[0].SeriesTimerId != seriesTimerId) {
+                result.Items = [];
+            }
+
+            var html = getProgramScheduleHtml(result.Items);
+
+            var scheduleTab = page.querySelector('.seriesTimerSchedule');
+            scheduleTab.innerHTML = html;
+
+            imageLoader.lazyChildren(scheduleTab);
+        });
+    }
+
+    function renderSeriesTimerEditor(page, item, user) {
+
+        if (item.Type !== 'SeriesTimer') {
+            return;
+        }
+
+        if (!user.Policy.EnableLiveTvManagement) {
+            page.querySelector('.seriesTimerScheduleSection').classList.add('hide');
+            page.querySelector('.btnCancelSeriesTimer').classList.add('hide');
+            return;
+        }
+
+        require(['seriesRecordingEditor'], function (seriesRecordingEditor) {
+            seriesRecordingEditor.embed(item, ApiClient.serverId(), {
+                context: page.querySelector('.seriesRecordingEditor')
+            });
+        });
+
+        page.querySelector('.seriesTimerScheduleSection').classList.remove('hide');
+        page.querySelector('.btnCancelSeriesTimer').classList.remove('hide');
+
+        renderSeriesTimerSchedule(page, item.Id);
     }
 
     function reloadFromItem(page, params, item) {
@@ -110,15 +199,19 @@
 
             window.scrollTo(0, 0);
 
+            renderSeriesTimerEditor(page, item, user);
+
             renderImage(page, item, user);
             renderLogo(page, item, ApiClient);
 
             setInitialCollapsibleState(page, item, context, user);
             renderDetails(page, item, context);
 
-            backdrop.setBackdrops([item], {
-                blur: 32
-            }, false);
+            if (dom.getWindowSize().innerWidth >= 800) {
+                backdrop.setBackdrops([item]);
+            } else {
+                backdrop.clear();
+            }
 
             LibraryBrowser.renderDetailPageBackdrop(page, item, imageLoader);
 
@@ -144,29 +237,33 @@
             else {
                 hideAll(page, 'btnPlay');
             }
-			
-			//myproduction-change-start
+
+            var hasAnyButton = canPlay;
+
+            //myproduction-change-start
 			//Always show trailer button
             //if ((item.LocalTrailerCount || (item.RemoteTrailers && item.RemoteTrailers.length)) && item.PlayAccess == 'Full') {
 			if (item.LocalTrailerCount || (item.RemoteTrailers && item.RemoteTrailers.length)) {
 			//myproduction-change-end
                 hideAll(page, 'btnPlayTrailer', true);
+                hasAnyButton = true;
             } else {
                 hideAll(page, 'btnPlayTrailer');
             }
 
-            if (itemHelper.canSync(user, item)) {
-                if (appHost.supports('sync')) {
-                    hideAll(page, 'syncLocalContainer', true);
-                    hideAll(page, 'btnSync');
-                } else {
-                    hideAll(page, 'syncLocalContainer');
-                    hideAll(page, 'btnSync', true);
-                }
-                updateSyncStatus(page, item);
+            if (item.CanDelete && !item.IsFolder) {
+                hideAll(page, 'btnDeleteItem', true);
+                hasAnyButton = true;
             } else {
-                hideAll(page, 'btnSync');
-                hideAll(page, 'syncLocalContainer');
+                hideAll(page, 'btnDeleteItem');
+            }
+
+            renderSyncLocalContainer(page, params, user, item);
+
+            if (hasAnyButton || item.Type !== 'Program') {
+                hideAll(page, 'mainDetailButtons', true);
+            } else {
+                hideAll(page, 'mainDetailButtons');
             }
 			
 			//myproduction-change-start
@@ -242,34 +339,6 @@
                 itemBirthLocation.classList.add('hide');
             }
         });
-
-        //if (item.LocationType == "Offline") {
-
-        //    page.querySelector('.offlineIndicator').classList.remove('hide');
-        //}
-        //else {
-        //    page.querySelector('.offlineIndicator').classList.add('hide');
-        //}
-
-        var isMissingEpisode = false;
-
-        if (item.LocationType == "Virtual" && item.Type == "Episode") {
-            try {
-                if (item.PremiereDate && (new Date().getTime() >= datetime.parseISO8601Date(item.PremiereDate, true).getTime())) {
-                    isMissingEpisode = true;
-                }
-            } catch (err) {
-
-            }
-        }
-
-        //if (isMissingEpisode) {
-
-        //    page.querySelector('.missingIndicator').classList.remove('hide');
-        //}
-        //else {
-        //    page.querySelector('.missingIndicator').classList.add('hide');
-        //}
 
         setPeopleHeader(page, item);
 
@@ -384,7 +453,7 @@
 
         if (links.length) {
 
-            var html = links.join('&bull;');
+            var html = links.join('<span class="bulletSeparator">&bull;</span>');
 
             linksElem.innerHTML = html;
             linksElem.classList.remove('hide');
@@ -417,11 +486,64 @@
         else return "#" + (0x100000000 + (f[3] > -1 && t[3] > -1 ? r(((t[3] - f[3]) * p + f[3]) * 255) : t[3] > -1 ? r(t[3] * 255) : f[3] > -1 ? r(f[3] * 255) : 255) * 0x1000000 + r((t[0] - f[0]) * p + f[0]) * 0x10000 + r((t[1] - f[1]) * p + f[1]) * 0x100 + r((t[2] - f[2]) * p + f[2])).toString(16).slice(f[3] > -1 || t[3] > -1 ? 1 : 3);
     }
 
+    function loadSwatch(page, item) {
+
+        var imageTags = item.ImageTags || {};
+
+        if (item.PrimaryImageTag) {
+            imageTags.Primary = item.PrimaryImageTag;
+        }
+
+        var url;
+        var imageHeight = 300;
+
+        if (item.SeriesId && item.SeriesPrimaryImageTag) {
+
+            url = ApiClient.getScaledImageUrl(item.SeriesId, {
+                type: "Primary",
+                maxHeight: imageHeight,
+                tag: item.SeriesPrimaryImageTag
+            });
+        }
+        else if (imageTags.Primary) {
+
+            url = ApiClient.getScaledImageUrl(item.Id, {
+                type: "Primary",
+                maxHeight: imageHeight,
+                tag: item.ImageTags.Primary
+            });
+        }
+
+        if (!url) {
+            return;
+        }
+
+        var img = new Image();
+        img.onload = function () {
+
+            imageLoader.getVibrantInfoFromElement(img, url).then(function (vibrantInfo) {
+
+                vibrantInfo = vibrantInfo.split('|');
+                var detailPageContent = page.querySelector('.detailPageContent');
+                var detailPagePrimaryContainer = page.querySelector('.detailPagePrimaryContainer');
+
+                detailPageContent.style.color = vibrantInfo[1];
+
+                detailPagePrimaryContainer.style.backgroundColor = vibrantInfo[0];
+
+            });
+        };
+
+        img.src = url;
+    }
+
     function renderImage(page, item, user) {
 
         var container = page.querySelector('.detailImageContainer');
 
         LibraryBrowser.renderDetailImage(container, item, user.Policy.IsAdministrator && item.MediaType != 'Photo', null, imageLoader, indicators);
+
+        //loadSwatch(page, item);
     }
 
     function refreshDetailImageUserData(elem, item) {
@@ -508,8 +630,6 @@
 
             if (item.Type == "BoxSet") {
                 page.querySelector('#childrenCollapsible').classList.add('hide');
-            } else {
-                page.querySelector('#childrenCollapsible').classList.remove('hide');
             }
             renderChildren(page, item);
         }
@@ -612,6 +732,12 @@
         }
 
         var overview = page.querySelector('.overview');
+        var externalLinksElem = page.querySelector('.itemExternalLinks');
+
+        if (item.Type === 'Season' || item.Type === 'MusicAlbum' || item.Type === 'MusicArtist') {
+            overview.classList.add('detailsHiddenOnMobile');
+            externalLinksElem.classList.add('detailsHiddenOnMobile');
+        }
 
         renderOverview([overview], item);
 
@@ -648,7 +774,7 @@
 
         renderStudios(page.querySelector('.itemStudios'), item, isStatic);
         renderUserDataIcons(page, item);
-        renderLinks(page.querySelector('.itemExternalLinks'), item);
+        renderLinks(externalLinksElem, item);
 
         page.querySelector('.criticRatingScore').innerHTML = (item.CriticRating || '0') + '%';
 
@@ -664,13 +790,10 @@
 
         renderSeriesAirTime(page, item, isStatic);
 
-        var dateAddedElement = page.querySelector('#dateAdded');
-
-        if (!item.IsFolder && item.MediaType && item.Type !== 'Program' && item.Type !== 'TvChannel' && item.Type !== 'Trailer') {
-            dateAddedElement.classList.remove('hide');
-            dateAddedElement.innerHTML = globalize.translate('DateAddedValue', datetime.toLocaleDateString(datetime.parseISO8601Date(item.DateCreated)));
+        if (renderDynamicMediaIcons(page, item)) {
+            page.querySelector('.mediaInfoIcons').classList.remove('hide');
         } else {
-            dateAddedElement.classList.add('hide');
+            page.querySelector('.mediaInfoIcons').classList.add('hide');
         }
 
         var artist = page.querySelectorAll('.artist');
@@ -695,6 +818,25 @@
         } else {
             page.querySelector('.photoInfo').classList.add('hide');
         }
+    }
+
+    function renderDynamicMediaIcons(view, item) {
+
+        var html = mediaInfo.getMediaInfoStats(item).map(function (mediaInfoItem) {
+
+            var text = mediaInfoItem.text;
+
+            if (mediaInfoItem.type === 'added') {
+                return '<div class="mediaInfoText">' + text + '</div>';
+            }
+
+            return '<div class="mediaInfoText mediaInfoText-upper">' + text + '</div>';
+
+        }).join('');
+
+        view.querySelector('.mediaInfoIcons').innerHTML = html;
+
+        return html;
     }
 
     function renderPhotoInfo(page, item) {
@@ -1120,6 +1262,7 @@
             var isList = false;
 
             var scrollClass = 'hiddenScrollX';
+            var childrenItemsContainer = page.querySelector('.childrenItemsContainer');
 
             if (item.Type == "MusicAlbum") {
 
@@ -1132,7 +1275,8 @@
                     playFromHere: true,
                     action: 'playallfromhere',
                     image: false,
-                    artist: false
+                    artist: 'auto',
+                    containerAlbumArtist: item.AlbumArtist
                 });
                 isList = true;
             }
@@ -1152,21 +1296,34 @@
             }
             else if (item.Type == "Season" || item.Type == "Episode") {
 
-                scrollX = item.Type == "Episode";
-                scrollClass = 'smoothScrollX';
+                if (item.Type === 'Episode') {
+                    childrenItemsContainer.classList.add('darkScroller');
+                }
 
-                html = cardBuilder.getCardsHtml({
-                    items: result.Items,
-                    shape: getThumbShape(scrollX),
-                    showTitle: true,
-                    displayAsSpecial: item.Type == "Season" && item.IndexNumber,
-                    playFromHere: true,
-                    overlayText: true,
-                    lazy: true,
-                    showDetailsMenu: true,
-                    overlayPlayButton: true,
-                    allowBottomPadding: !scrollX
-                });
+                scrollX = item.Type == "Episode";
+                if (!browser.touch) {
+                    scrollClass = 'smoothScrollX';
+                }
+
+                if (result.Items.length == 1 && item.Type === 'Episode') {
+
+                    return;
+
+                } else {
+                    html = cardBuilder.getCardsHtml({
+                        items: result.Items,
+                        shape: getThumbShape(scrollX),
+                        showTitle: true,
+                        displayAsSpecial: item.Type == "Season" && item.IndexNumber,
+                        playFromHere: true,
+                        overlayText: true,
+                        lazy: true,
+                        showDetailsMenu: true,
+                        overlayPlayButton: true,
+                        allowBottomPadding: !scrollX,
+                        includeParentInfoInTitle: false
+                    });
+                }
             }
             else if (item.Type == "GameSystem") {
                 html = cardBuilder.getCardsHtml({
@@ -1179,26 +1336,27 @@
                 });
             }
 
-            var elem = page.querySelector('.childrenItemsContainer');
+            page.querySelector('#childrenCollapsible').classList.remove('hide');
+
             if (scrollX) {
-                elem.classList.add(scrollClass);
-                elem.classList.remove('vertical-wrap');
-                elem.classList.remove('vertical-list');
+                childrenItemsContainer.classList.add(scrollClass);
+                childrenItemsContainer.classList.remove('vertical-wrap');
+                childrenItemsContainer.classList.remove('vertical-list');
             } else {
-                elem.classList.remove('hiddenScrollX');
-                elem.classList.remove('smoothScrollX');
+                childrenItemsContainer.classList.remove('hiddenScrollX');
+                childrenItemsContainer.classList.remove('smoothScrollX');
 
                 if (isList) {
-                    elem.classList.add('vertical-list');
-                    elem.classList.remove('vertical-wrap');
+                    childrenItemsContainer.classList.add('vertical-list');
+                    childrenItemsContainer.classList.remove('vertical-wrap');
                 } else {
-                    elem.classList.add('vertical-wrap');
-                    elem.classList.remove('vertical-list');
+                    childrenItemsContainer.classList.add('vertical-wrap');
+                    childrenItemsContainer.classList.remove('vertical-list');
                 }
             }
 
-            elem.innerHTML = html;
-            imageLoader.lazyChildren(elem);
+            childrenItemsContainer.innerHTML = html;
+            imageLoader.lazyChildren(childrenItemsContainer);
 
             if (item.Type == "BoxSet") {
 
@@ -1218,7 +1376,7 @@
             page.querySelector('#childrenTitle').innerHTML = globalize.translate('HeaderEpisodes');
         }
         else if (item.Type == "Episode") {
-            page.querySelector('#childrenTitle').innerHTML = item.SeriesName + ' - ' + item.SeasonName;
+            page.querySelector('#childrenTitle').innerHTML = item.SeasonName;
         }
         else if (item.Type == "Series") {
             page.querySelector('#childrenTitle').innerHTML = globalize.translate('HeaderSeasons');
@@ -1378,7 +1536,7 @@
             }
 
             if (i > 0) {
-                html += '&bull;';
+                html += '<span class="bulletSeparator">&bull;</span>';
             }
 
             var param = item.Type == "Audio" || item.Type == "MusicArtist" || item.Type == "MusicAlbum" ? "musicgenre" : "genre";
@@ -1518,7 +1676,7 @@
 
         for (var i = 0, length = userDataIcons.length; i < length; i++) {
 
-            if (item.Type == 'Program') {
+            if (item.Type == 'Program' || item.Type == 'SeriesTimer') {
                 userDataIcons[i].classList.add('hide');
             } else {
                 userDataIcons[i].classList.remove('hide');
@@ -1634,6 +1792,10 @@
     }
 
     function renderThemeMedia(page, item) {
+
+        if (item.Type === 'SeriesTimer' || item.Type === 'Timer' || item.Type === 'Genre' || item.Type === 'MusicGenre' || item.Type === 'GameGenre' || item.Type === 'Studio' || item.Type === 'Person') {
+            return;
+        }
 
         ApiClient.getThemeMedia(Dashboard.getCurrentUserId(), item.Id, true).then(function (result) {
 
@@ -2102,35 +2264,28 @@
         playCurrentItem(this);
     }
 
+    function onDeleteClick() {
+
+        require(['deleteHelper'], function (deleteHelper) {
+
+            deleteHelper.deleteItem({
+                item: currentItem,
+                navigate: true
+            });
+        });
+    }
+
+    function onCancelSeriesTimerClick() {
+
+        require(['recordingHelper'], function (recordingHelper) {
+
+            recordingHelper.cancelSeriesTimerWithConfirmation(currentItem.Id, currentItem.ServerId).then(function () {
+                Dashboard.navigate('livetv.html');
+            });
+        });
+    }
+
     return function (view, params) {
-
-        function resetSyncStatus() {
-            updateSyncStatus(view, currentItem);
-        }
-
-        function onSyncLocalClick() {
-
-            if (this.checked) {
-                require(['syncDialog'], function (syncDialog) {
-                    syncDialog.showMenu({
-                        items: [currentItem],
-                        isLocalSync: true,
-                        serverId: ApiClient.serverId()
-
-                    }).then(function () {
-                        reload(view, params);
-                    }, resetSyncStatus);
-                });
-            } else {
-
-                require(['confirm'], function (confirm) {
-
-                    confirm(globalize.translate('ConfirmRemoveDownload')).then(function () {
-                        ApiClient.cancelSyncItems([currentItem.Id]);
-                    }, resetSyncStatus);
-                });
-            }
-        }
 
         function onPlayTrailerClick() {
 			//myproduction-change-start
@@ -2139,21 +2294,6 @@
             piwikTracker.trackEvent("MediaAccess", "PlayedTrailer", currentItem.Name);
 			//myproduction-change-end
             playTrailer(view);
-        }
-
-        function onRecordClick() {
-            var id = params.id;
-            Dashboard.showLoadingMsg();
-
-            require(['recordingCreator'], function (recordingCreator) {
-                recordingCreator.show(id, currentItem.ServerId).then(function () {
-                    reload(view, params);
-                });
-            });
-        }
-
-        function onCancelRecordingClick() {
-            deleteTimer(view, params, currentItem.TimerId);
         }
 
         function onMoreCommandsClick() {
@@ -2181,15 +2321,20 @@
             elems[i].addEventListener('click', onPlayTrailerClick);
         }
 
+        elems = view.querySelectorAll('.btnCancelSeriesTimer');
+        for (i = 0, length = elems.length; i < length; i++) {
+            elems[i].addEventListener('click', onCancelSeriesTimerClick);
+        }
+
+        elems = view.querySelectorAll('.btnDeleteItem');
+        for (i = 0, length = elems.length; i < length; i++) {
+            elems[i].addEventListener('click', onDeleteClick);
+        }
+
         view.querySelector('.btnSplitVersions').addEventListener('click', function () {
 
             splitVersions(view, params);
         });
-
-        elems = view.querySelectorAll('.chkOffline');
-        for (i = 0, length = elems.length; i < length; i++) {
-            elems[i].addEventListener('change', onSyncLocalClick);
-        }
 
         elems = view.querySelectorAll('.btnMoreCommands');
         for (i = 0, length = elems.length; i < length; i++) {
@@ -2278,7 +2423,7 @@
             var page = this;
             reload(page, params);
 
-            Events.on(ApiClient, 'websocketmessage', onWebSocketMessage);
+            events.on(ApiClient, 'websocketmessage', onWebSocketMessage);
         });
 
         view.addEventListener('viewbeforehide', function () {
@@ -2286,8 +2431,16 @@
             currentItem = null;
             currentRecordingFields = null;
 
-            Events.off(ApiClient, 'websocketmessage', onWebSocketMessage);
+            events.off(ApiClient, 'websocketmessage', onWebSocketMessage);
             libraryMenu.setTransparentMenu(false);
+        });
+
+        view.addEventListener('viewdestroy', function () {
+
+            if (view.syncToggleInstance) {
+                view.syncToggleInstance.destroy();
+                view.syncToggleInstance = null;
+            }
         });
     };
 });

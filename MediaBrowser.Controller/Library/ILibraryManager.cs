@@ -62,6 +62,8 @@ namespace MediaBrowser.Controller.Library
         /// <returns>BaseItem.</returns>
         BaseItem FindByPath(string path, bool? isFolder);
 
+        Guid? FindIdByPath(string path, bool? isFolder);
+
         /// <summary>
         /// Gets the artist.
         /// </summary>
@@ -571,6 +573,7 @@ namespace MediaBrowser.Controller.Library
 
         void RegisterIgnoredPath(string path);
         void UnRegisterIgnoredPath(string path);
+        int GetCount(InternalItemsQuery query);
 		
 		//myproduction-change-start
         //Added LibraryStatistics

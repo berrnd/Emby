@@ -273,7 +273,8 @@
                 }, {
                     playFromHere: true,
                     action: 'playallfromhere',
-                    smallIcon: true
+                    smallIcon: true,
+                    artist: true
                 });
                 break;
 
@@ -330,6 +331,10 @@
 
         if (item.Type == 'MusicArtist') {
             return 'secondaryitems.html?type=' + type + '&artistId=' + item.Id;
+        }
+
+        if (item.Type == 'Person') {
+            return 'secondaryitems.html?type=' + type + '&personId=' + item.Id;
         }
 
         return 'secondaryitems.html?type=' + type + '&parentId=' + item.Id;

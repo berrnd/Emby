@@ -100,7 +100,7 @@ define(['appSettings', 'dom', 'browser', 'scrollStyles', 'jQuery'], function (ap
                     }
 
                     if (elem.classList) {
-                        return !elem.classList.contains('hiddenScrollX') && !elem.classList.contains('smoothScrollX') && !elem.classList.contains('libraryViewNav');
+                        return !elem.classList.contains('hiddenScrollX') && !elem.classList.contains('smoothScrollX') && !elem.classList.contains('animatedScrollX');
                     }
 
                     return true;
@@ -255,7 +255,8 @@ define(['appSettings', 'dom', 'browser', 'scrollStyles', 'jQuery'], function (ap
                 var id = item.Id || item.ItemId;
 
                 if (item.Type == "SeriesTimer") {
-                    return "livetvseriestimer.html?id=" + id;
+                    //return "livetvseriestimer.html?id=" + id;
+                    return "itemdetails.html?seriesTimerId=" + id;
                 }
 
                 if (item.CollectionType == 'livetv') {
@@ -736,6 +737,10 @@ define(['appSettings', 'dom', 'browser', 'scrollStyles', 'jQuery'], function (ap
 
             renderDetailImage: function (elem, item, editable, preferThumb, imageLoader, indicators) {
 
+                if (item.Type === 'SeriesTimer') {
+                    editable = false;
+                }
+
                 var imageTags = item.ImageTags || {};
 
                 if (item.PrimaryImageTag) {
@@ -803,6 +808,22 @@ define(['appSettings', 'dom', 'browser', 'scrollStyles', 'jQuery'], function (ap
                         tag: item.AlbumPrimaryImageTag
                     });
                     shape = 'square';
+                }
+                else if (item.SeriesId && item.SeriesPrimaryImageTag) {
+
+                    url = ApiClient.getScaledImageUrl(item.SeriesId, {
+                        type: "Primary",
+                        maxHeight: imageHeight,
+                        tag: item.SeriesPrimaryImageTag
+                    });
+                }
+                else if (item.ParentPrimaryImageItemId && item.ParentPrimaryImageTag) {
+
+                    url = ApiClient.getScaledImageUrl(item.ParentPrimaryImageItemId, {
+                        type: "Primary",
+                        maxHeight: imageHeight,
+                        tag: item.ParentPrimaryImageTag
+                    });
                 }
 
                 html += '<div style="position:relative;">';

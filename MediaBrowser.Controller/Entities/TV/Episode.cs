@@ -3,6 +3,7 @@ using MediaBrowser.Model.Configuration;
 using MediaBrowser.Model.Entities;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using MediaBrowser.Model.Serialization;
 
@@ -168,15 +169,34 @@ namespace MediaBrowser.Controller.Entities.TV
         }
 
         [IgnoreDataMember]
+        public string SeriesPresentationUniqueKey { get; set; }
+
+        [IgnoreDataMember]
         public string SeriesName { get; set; }
 
         [IgnoreDataMember]
         public string SeasonName { get; set; }
 
+        public string FindSeriesPresentationUniqueKey()
+        {
+            var series = Series;
+            return series == null ? null : series.PresentationUniqueKey;
+        }
+
         public string FindSeasonName()
         {
             var season = Season;
-            return season == null ? SeasonName : season.Name;
+
+            if (season == null)
+            {
+                if (ParentIndexNumber.HasValue)
+                {
+                    return "Season " + ParentIndexNumber.Value.ToString(CultureInfo.InvariantCulture);
+                }
+                return "Season Unknown";
+            }
+
+            return season.Name;
         }
 
         public string FindSeriesName()

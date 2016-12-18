@@ -33,18 +33,25 @@ namespace Emby.Common.Implementations.Net
 
         public ISocket CreateSocket(IpAddressFamily family, MediaBrowser.Model.Net.SocketType socketType, MediaBrowser.Model.Net.ProtocolType protocolType, bool dualMode)
         {
-            var addressFamily = family == IpAddressFamily.InterNetwork
-                ? AddressFamily.InterNetwork
-                : AddressFamily.InterNetworkV6;
-
-            var socket = new Socket(addressFamily, System.Net.Sockets.SocketType.Stream, System.Net.Sockets.ProtocolType.Tcp);
-
-            if (dualMode)
+            try
             {
-                socket.DualMode = true;
-            }
+                var addressFamily = family == IpAddressFamily.InterNetwork
+                    ? AddressFamily.InterNetwork
+                    : AddressFamily.InterNetworkV6;
 
-            return new NetSocket(socket, _logger);
+                var socket = new Socket(addressFamily, System.Net.Sockets.SocketType.Stream, System.Net.Sockets.ProtocolType.Tcp);
+
+                if (dualMode)
+                {
+                    socket.DualMode = true;
+                }
+
+                return new NetSocket(socket, _logger, dualMode);
+            }
+            catch (SocketException ex)
+            {
+                throw new SocketCreateException(ex.SocketErrorCode.ToString(), ex);
+            }
         }
 
         #region ISocketFactory Members
@@ -118,15 +125,15 @@ namespace Emby.Common.Implementations.Net
 
             try
             {
-#if NETSTANDARD1_3
-				// The ExclusiveAddressUse socket option is a Windows-specific option that, when set to "true," tells Windows not to allow another socket to use the same local address as this socket
-				// See https://github.com/dotnet/corefx/pull/11509 for more details
-				if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows))
+#if NET46
+				retVal.ExclusiveAddressUse = false;
+#else
+                // The ExclusiveAddressUse socket option is a Windows-specific option that, when set to "true," tells Windows not to allow another socket to use the same local address as this socket
+                // See https://github.com/dotnet/corefx/pull/11509 for more details
+                if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows))
 				{
 					retVal.ExclusiveAddressUse = false;
 				}
-#else
-                retVal.ExclusiveAddressUse = false;
 #endif
                 //retVal.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, true);
                 retVal.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
