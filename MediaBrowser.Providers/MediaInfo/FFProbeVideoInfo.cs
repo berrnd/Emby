@@ -410,7 +410,13 @@ namespace MediaBrowser.Providers.MediaInfo
                     video.ParentIndexNumber = data.ParentIndexNumber;
                 }
             }
-            if (!string.IsNullOrWhiteSpace(data.Name))
+
+			//myproduction-change-start
+			//Never use the embedded (in file metadata) title
+			data.Name = null;
+			//myproduction-change-end
+
+			if (!string.IsNullOrWhiteSpace(data.Name))
             {
                 if (string.IsNullOrWhiteSpace(video.Name) || string.Equals(video.Name, Path.GetFileNameWithoutExtension(video.Path), StringComparison.OrdinalIgnoreCase))
                 {
