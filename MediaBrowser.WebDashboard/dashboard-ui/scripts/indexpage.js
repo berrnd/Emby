@@ -1,4 +1,4 @@
-﻿define(['libraryBrowser', 'emby-tabs', 'emby-button'], function (libraryBrowser) {
+﻿define(['libraryBrowser', 'playbackManager', 'emby-tabs', 'emby-button'], function (libraryBrowser, playbackManager) {
     'use strict';
 
     var defaultFirstSection = 'smalllibrarytiles';
@@ -74,10 +74,7 @@
 
             elem.innerHTML = '';
 
-            return new Promise(function (resolve, reject) {
-
-                resolve();
-            });
+            return Promise.resolve();
         }
     }
 
@@ -88,7 +85,7 @@
 
         var elem = page.querySelector('.sections');
 
-        if (!elem.innerHTML.length) {
+        //if (!elem.innerHTML.length) {
             var html = '';
             for (i = 0, length = sectionCount; i < length; i++) {
 
@@ -96,7 +93,7 @@
             }
 
             elem.innerHTML = html;
-        }
+        //}
 
         var promises = [];
 
@@ -422,12 +419,12 @@
         }
 
         view.addEventListener('viewshow', function (e) {
-            Events.on(MediaController, 'playbackstop', onPlaybackStop);
+            Events.on(playbackManager, 'playbackstop', onPlaybackStop);
             Events.on(ApiClient, "websocketmessage", onWebSocketMessage);
         });
 
         view.addEventListener('viewbeforehide', function (e) {
-            Events.off(MediaController, 'playbackstop', onPlaybackStop);
+            Events.off(playbackManager, 'playbackstop', onPlaybackStop);
             Events.off(ApiClient, "websocketmessage", onWebSocketMessage);
         });
 

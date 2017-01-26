@@ -62,7 +62,6 @@ namespace Emby.Server.Implementations.Library
                     Recursive = true,
                     IsMissing = false,
                     Limit = 1,
-                    ExcludeLocationTypes = new[] { LocationType.Virtual },
                     SourceTypes = new[] { SourceType.Library }
                 };
                 _libraryManager.Statistics.NewestItemDate = _libraryManager.GetItemsResult(newestItemQuery).Items.First().DateCreated;
@@ -78,7 +77,6 @@ namespace Emby.Server.Implementations.Library
                 var totalFileSizeQuery = new InternalItemsQuery()
                 {
                     Recursive = true,
-                    ExcludeLocationTypes = new[] { LocationType.Virtual },
                     SourceTypes = new[] { SourceType.Library },
                     IsMissing = false
                 };
@@ -104,7 +102,6 @@ namespace Emby.Server.Implementations.Library
                 var totalRunTimeTicksQuery = new InternalItemsQuery()
                 {
                     Recursive = true,
-                    ExcludeLocationTypes = new[] { LocationType.Virtual },
                     SourceTypes = new[] { SourceType.Library },
                     IsMissing = false
                 };
