@@ -1,6 +1,6 @@
 ﻿//myproduction-change-start
 //Added jQuery
-define(['appSettings', 'dom', 'browser', 'scrollStyles', 'jQuery'], function (appSettings, dom, browser, scrollStyles, jQuery) {
+define(['appSettings', 'dom', 'browser', 'datetime', 'scrollStyles', 'jQuery'], function (appSettings, dom, browser, datetime, scrollStyles, jQuery) {
 //myproduction-change-end
     'use strict';
 
@@ -233,13 +233,6 @@ define(['appSettings', 'dom', 'browser', 'scrollStyles', 'jQuery'], function (ap
                 return html;
             },
 
-            playInExternalPlayer: function (id) {
-
-                Dashboard.loadExternalPlayer().then(function () {
-                    ExternalPlayer.showMenu(id);
-                });
-            },
-
             getHref: function (item, context, topParentId) {
 
                 if (!item) {
@@ -442,7 +435,7 @@ define(['appSettings', 'dom', 'browser', 'scrollStyles', 'jQuery'], function (ap
                 weekday[6] = Globalize.translate('OptionSaturday');
 
                 var day = weekday[date.getDay()];
-                date = date.toLocaleDateString();
+                date = datetime.toLocaleDateString(date);
 
                 if (date.toLowerCase().indexOf(day.toLowerCase()) == -1) {
                     return day + " " + date;

@@ -13,7 +13,7 @@ define(['apphost'], function (appHost) {
             item = item.ProgramInfo || item;
         }
 
-        var name = ((item.Type === 'Program' || item.Type === 'Recording') && item.IsSeries ? item.EpisodeTitle : item.Name) || '';
+        var name = ((item.Type === 'Program' || item.Type === 'Recording') && (item.IsSeries || item.EpisodeTitle) ? item.EpisodeTitle : item.Name) || '';
 
         if (item.Type === "TvChannel") {
 
@@ -111,10 +111,20 @@ define(['apphost'], function (appHost) {
         return user.Policy.IsAdministrator;
     }
 
+    function isLocalItem(item) {
+
+        if (item && item.Id && item.Id.indexOf('local') === 0) {
+            return true;
+        }
+
+        return false;
+    }
+
     return {
         getDisplayName: getDisplayName,
         supportsAddingToCollection: supportsAddingToCollection,
         supportsAddingToPlaylist: supportsAddingToPlaylist,
+        isLocalItem: isLocalItem,
 
         canIdentify: function (user, itemType) {
 

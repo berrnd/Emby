@@ -35,6 +35,18 @@
         });
     }
 
+    function getServerItemTypes(serverId, userId) {
+        return dbPromise.then(function (db) {
+            return db.transaction(dbName).objectStore(dbName).getAll(null, 10000).then(function (all) {
+                return all.filter(function (item) {
+                    return item.ServerId === serverId && (item.UserIdsWithAccess == null || item.UserIdsWithAccess.contains(userId));
+                }).map(function (item2) {
+                    return (item2.Item.Type || '').toLowerCase();
+                }).filter(filterDistinct);
+            });
+        });
+    }
+
     function getServerIds(serverId) {
         return dbPromise.then(function (db) {
             return db.transaction(dbName).objectStore(dbName).getAll(null, 10000).then(function (all) {
@@ -78,9 +90,13 @@
     function clear() {
         return dbPromise.then(function (db) {
             var tx = db.transaction(dbName, 'readwrite');
-            tx.objectStore(dbName).clear(key);
+            tx.objectStore(dbName).clear();
             return tx.complete;
         });
+    }
+
+    function filterDistinct(value, index, self) {
+        return self.indexOf(value) === index;
     }
 
     setup();
@@ -92,6 +108,7 @@
         clear: clear,
         getAll: getAll,
         getServerItemIds: getServerItemIds,
-        getServerIds: getServerIds
+        getServerIds: getServerIds,
+        getServerItemTypes: getServerItemTypes
     };
 });

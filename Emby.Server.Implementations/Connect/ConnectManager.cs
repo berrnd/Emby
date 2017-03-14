@@ -582,9 +582,9 @@ namespace Emby.Server.Implementations.Connect
             }
             catch (HttpException ex)
             {
-                if (!ex.StatusCode.HasValue)
+                if (!ex.StatusCode.HasValue || ex.IsTimedOut)
                 {
-                    throw;
+                    throw new Exception("Unable to invite guest, " + ex.Message, ex);
                 }
 
                 // If they entered a username, then whatever the error is just throw it, for example, user not found
@@ -937,7 +937,11 @@ namespace Emby.Server.Implementations.Connect
             }
 
             _data.PendingAuthorizations = newPendingList;
-            CacheData();
+
+            if (!newPendingList.Select(i => i.Id).SequenceEqual(currentPendingList.Select(i => i.Id), StringComparer.Ordinal))
+            {
+                CacheData();
+            }
 
             await RefreshGuestNames(list, refreshImages).ConfigureAwait(false);
         }
@@ -1130,7 +1134,7 @@ namespace Emby.Server.Implementations.Connect
             }
         }
 
-        public async Task Authenticate(string username, string passwordMd5)
+        public async Task<ConnectAuthenticationResult> Authenticate(string username, string passwordMd5)
         {
             if (string.IsNullOrWhiteSpace(username))
             {
@@ -1159,6 +1163,7 @@ namespace Emby.Server.Implementations.Connect
             // No need to examine the response
             using (var response = (await _httpClient.SendAsync(options, "POST").ConfigureAwait(false)).Content)
             {
+                return _json.DeserializeFromStream<ConnectAuthenticationResult>(response);
             }
         }
 

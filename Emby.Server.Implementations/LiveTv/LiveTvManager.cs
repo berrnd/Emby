@@ -459,15 +459,7 @@ namespace Emby.Server.Implementations.LiveTv
             }
 
             // Set the total bitrate if not already supplied
-            if (!mediaSource.Bitrate.HasValue)
-            {
-                var total = mediaSource.MediaStreams.Select(i => i.BitRate ?? 0).Sum();
-
-                if (total > 0)
-                {
-                    mediaSource.Bitrate = total;
-                }
-            }
+            mediaSource.InferTotalBitrate();
 
             if (!(service is EmbyTV.EmbyTV))
             {
@@ -1602,7 +1594,7 @@ namespace Emby.Server.Implementations.LiveTv
                 Recursive = true,
                 AncestorIds = folders.Select(i => i.Id.ToString("N")).ToArray(),
                 IsFolder = false,
-                ExcludeLocationTypes = new[] { LocationType.Virtual },
+                IsVirtualItem = false,
                 Limit = query.Limit,
                 SortBy = new[] { ItemSortBy.DateCreated },
                 SortOrder = SortOrder.Descending,
@@ -1681,7 +1673,7 @@ namespace Emby.Server.Implementations.LiveTv
                 return new QueryResult<BaseItem>();
             }
 
-            if (_services.Count == 1 && !(query.IsInProgress ?? false))
+            if (_services.Count == 1 && !(query.IsInProgress ?? false) && (!query.IsLibraryItem.HasValue || query.IsLibraryItem.Value))
             {
                 return GetEmbyRecordings(query, new DtoOptions(), user);
             }
@@ -2647,7 +2639,7 @@ namespace Emby.Server.Implementations.LiveTv
         public GuideInfo GetGuideInfo()
         {
             var startDate = DateTime.UtcNow;
-            var endDate = startDate.AddDays(14);
+            var endDate = startDate.AddDays(GetGuideDays());
 
             return new GuideInfo
             {

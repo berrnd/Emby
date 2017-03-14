@@ -99,7 +99,7 @@ namespace MediaBrowser.Server.Mac
 			// Allow all https requests
 			ServicePointManager.ServerCertificateValidationCallback = new RemoteCertificateValidationCallback(delegate { return true; });
 
-			var fileSystem = new MonoFileSystem(logManager.GetLogger("FileSystem"), false, false);
+			var fileSystem = new MonoFileSystem(logManager.GetLogger("FileSystem"), false, false, appPaths.TempDirectory);
             fileSystem.AddShortcutHandler(new MbLinkShortcutHandler(fileSystem));
 
 			var environmentInfo = GetEnvironmentInfo();
@@ -142,7 +142,10 @@ namespace MediaBrowser.Server.Mac
 
         private static EnvironmentInfo GetEnvironmentInfo()
         {
-            var info = new EnvironmentInfo();
+            var info = new EnvironmentInfo()
+            {
+                CustomOperatingSystem = MediaBrowser.Model.System.OperatingSystem.OSX
+            };
 
             var uname = GetUnixName();
 

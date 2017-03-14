@@ -150,7 +150,7 @@ namespace Emby.Server.Implementations.LiveTv.EmbyTV
             foreach (var recordingFolder in recordingFolders)
             {
                 var pathsToCreate = recordingFolder.Locations
-                    .Where(i => !allExistingPaths.Contains(i, StringComparer.OrdinalIgnoreCase))
+                    .Where(i => !allExistingPaths.Any(p => _fileSystem.AreEqual(p, i)))
                     .ToList();
 
                 if (pathsToCreate.Count == 0)
@@ -326,7 +326,7 @@ namespace Emby.Server.Implementations.LiveTv.EmbyTV
                 {
                     epgData = GetEpgDataForChannel(timer.ChannelId);
                 }
-                await UpdateTimersForSeriesTimer(epgData, timer, true).ConfigureAwait(false);
+                await UpdateTimersForSeriesTimer(epgData, timer, false, true).ConfigureAwait(false);
             }
         }
 
@@ -573,7 +573,7 @@ namespace Emby.Server.Implementations.LiveTv.EmbyTV
             }
 
             _seriesTimerProvider.Add(info);
-            await UpdateTimersForSeriesTimer(epgData, info, false).ConfigureAwait(false);
+            await UpdateTimersForSeriesTimer(epgData, info, true, false).ConfigureAwait(false);
 
             return info.Id;
         }
@@ -614,7 +614,7 @@ namespace Emby.Server.Implementations.LiveTv.EmbyTV
                     epgData = GetEpgDataForChannel(instance.ChannelId);
                 }
 
-                await UpdateTimersForSeriesTimer(epgData, instance, true).ConfigureAwait(false);
+                await UpdateTimersForSeriesTimer(epgData, instance, true, true).ConfigureAwait(false);
             }
         }
 
@@ -1370,13 +1370,14 @@ namespace Emby.Server.Implementations.LiveTv.EmbyTV
             ActiveRecordingInfo removed;
             _activeRecordings.TryRemove(timer.Id, out removed);
 
-            if (recordingStatus != RecordingStatus.Completed && DateTime.UtcNow < timer.EndDate)
+            if (recordingStatus != RecordingStatus.Completed && DateTime.UtcNow < timer.EndDate && timer.RetryCount < 10)
             {
                 const int retryIntervalSeconds = 60;
                 _logger.Info("Retrying recording in {0} seconds.", retryIntervalSeconds);
 
                 timer.Status = RecordingStatus.New;
                 timer.StartDate = DateTime.UtcNow.AddSeconds(retryIntervalSeconds);
+                timer.RetryCount++;
                 _timerProvider.AddOrUpdate(timer);
             }
             else if (_fileSystem.FileExists(recordPath))
@@ -2106,12 +2107,12 @@ namespace Emby.Server.Implementations.LiveTv.EmbyTV
                 {
                     return true;
                 }
-
-                if (!seriesTimer.Days.Contains(timer.StartDate.ToLocalTime().DayOfWeek))
-                {
-                    return true;
-                }
             }
+
+            //if (!seriesTimer.Days.Contains(timer.StartDate.ToLocalTime().DayOfWeek))
+            //{
+            //    return true;
+            //}
 
             if (seriesTimer.RecordNewOnly && timer.IsRepeat)
             {
@@ -2159,7 +2160,7 @@ namespace Emby.Server.Implementations.LiveTv.EmbyTV
             }
         }
 
-        private async Task UpdateTimersForSeriesTimer(List<ProgramInfo> epgData, SeriesTimerInfo seriesTimer, bool deleteInvalidTimers)
+        private async Task UpdateTimersForSeriesTimer(List<ProgramInfo> epgData, SeriesTimerInfo seriesTimer, bool updateTimerSettings, bool deleteInvalidTimers)
         {
             var allTimers = GetTimersForSeries(seriesTimer, epgData)
                 .ToList();
@@ -2204,12 +2205,15 @@ namespace Emby.Server.Implementations.LiveTv.EmbyTV
                                 enabledTimersForSeries.Add(existingTimer);
                             }
 
-                            existingTimer.KeepUntil = seriesTimer.KeepUntil;
-                            existingTimer.IsPostPaddingRequired = seriesTimer.IsPostPaddingRequired;
-                            existingTimer.IsPrePaddingRequired = seriesTimer.IsPrePaddingRequired;
-                            existingTimer.PostPaddingSeconds = seriesTimer.PostPaddingSeconds;
-                            existingTimer.PrePaddingSeconds = seriesTimer.PrePaddingSeconds;
-                            existingTimer.Priority = seriesTimer.Priority;
+                            if (updateTimerSettings)
+                            {
+                                existingTimer.KeepUntil = seriesTimer.KeepUntil;
+                                existingTimer.IsPostPaddingRequired = seriesTimer.IsPostPaddingRequired;
+                                existingTimer.IsPrePaddingRequired = seriesTimer.IsPrePaddingRequired;
+                                existingTimer.PostPaddingSeconds = seriesTimer.PostPaddingSeconds;
+                                existingTimer.PrePaddingSeconds = seriesTimer.PrePaddingSeconds;
+                                existingTimer.Priority = seriesTimer.Priority;
+                            }
 
                             existingTimer.SeriesTimerId = seriesTimer.Id;
                             _timerProvider.Update(existingTimer);

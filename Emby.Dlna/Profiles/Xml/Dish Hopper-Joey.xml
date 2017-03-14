@@ -5,7 +5,7 @@
     <Manufacturer>Echostar Technologies LLC</Manufacturer>
     <ManufacturerUrl>http://www.echostar.com</ManufacturerUrl>
     <Headers>
-      <HttpHeaderInfo name="User-Agent" value="XiP" match="Substring" />
+      <HttpHeaderInfo name="User-Agent" value="Zip_" match="Substring" />
     </Headers>
   </Identification>
   <Manufacturer>Emby</Manufacturer>
@@ -37,15 +37,13 @@
   <XmlRootAttributes />
   <DirectPlayProfiles>
     <DirectPlayProfile container="mp4,mkv,mpeg,ts" audioCodec="mp3,ac3,aac,he-aac,pcm" videoCodec="h264,mpeg2video" type="Video" />
-    <DirectPlayProfile container="mp3" audioCodec="mp3" type="Audio" />
-    <DirectPlayProfile container="alac" audioCodec="alac" type="Audio" />
-    <DirectPlayProfile container="flac" audioCodec="flac" type="Audio" />
+    <DirectPlayProfile container="mp3,alac,flac" type="Audio" />
     <DirectPlayProfile container="jpeg" type="Photo" />
   </DirectPlayProfiles>
   <TranscodingProfiles>
-    <TranscodingProfile container="mp3" type="Audio" audioCodec="mp3" estimateContentLength="false" enableMpegtsM2TsMode="false" transcodeSeekInfo="Auto" copyTimestamps="false" context="Streaming" enableSubtitlesInManifest="false" enableSplittingOnNonKeyFrames="false" />
-    <TranscodingProfile container="mp4" type="Video" videoCodec="h264" audioCodec="aac" estimateContentLength="false" enableMpegtsM2TsMode="false" transcodeSeekInfo="Auto" copyTimestamps="false" context="Streaming" enableSubtitlesInManifest="false" enableSplittingOnNonKeyFrames="false" />
-    <TranscodingProfile container="jpeg" type="Photo" estimateContentLength="false" enableMpegtsM2TsMode="false" transcodeSeekInfo="Auto" copyTimestamps="false" context="Streaming" enableSubtitlesInManifest="false" enableSplittingOnNonKeyFrames="false" />
+    <TranscodingProfile container="mp3" type="Audio" audioCodec="mp3" estimateContentLength="false" enableMpegtsM2TsMode="false" transcodeSeekInfo="Auto" copyTimestamps="false" context="Streaming" enableSubtitlesInManifest="false" />
+    <TranscodingProfile container="mp4" type="Video" videoCodec="h264" audioCodec="aac" estimateContentLength="false" enableMpegtsM2TsMode="false" transcodeSeekInfo="Auto" copyTimestamps="false" context="Streaming" enableSubtitlesInManifest="false" />
+    <TranscodingProfile container="jpeg" type="Photo" estimateContentLength="false" enableMpegtsM2TsMode="false" transcodeSeekInfo="Auto" copyTimestamps="false" context="Streaming" enableSubtitlesInManifest="false" />
   </TranscodingProfiles>
   <ContainerProfiles />
   <CodecProfiles>
@@ -77,6 +75,12 @@
     <CodecProfile type="VideoAudio" codec="aac">
       <Conditions>
         <ProfileCondition condition="LessThanEqual" property="AudioChannels" value="2" isRequired="true" />
+      </Conditions>
+      <ApplyConditions />
+    </CodecProfile>
+    <CodecProfile type="VideoAudio">
+      <Conditions>
+        <ProfileCondition condition="Equals" property="IsSecondaryAudio" value="false" isRequired="true" />
       </Conditions>
       <ApplyConditions />
     </CodecProfile>

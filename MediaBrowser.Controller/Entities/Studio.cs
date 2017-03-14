@@ -40,6 +40,15 @@ namespace MediaBrowser.Controller.Entities
         }
 
         [IgnoreDataMember]
+        public override bool IsDisplayedAsFolder
+        {
+            get
+            {
+                return true;
+            }
+        }
+
+        [IgnoreDataMember]
         public override bool SupportsAncestors
         {
             get
@@ -83,7 +92,7 @@ namespace MediaBrowser.Controller.Entities
 
         public IEnumerable<BaseItem> GetTaggedItems(InternalItemsQuery query)
         {
-            query.Studios = new[] { Name };
+            query.StudioIds = new[] { Id.ToString("N") };
 
             return LibraryManager.GetItemList(query);
         }

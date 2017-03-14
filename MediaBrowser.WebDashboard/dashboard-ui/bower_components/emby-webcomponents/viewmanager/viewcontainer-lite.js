@@ -7,10 +7,15 @@ define(['browser', 'dom', 'css!./viewcontainer-lite'], function (browser, dom) {
     var pageContainerCount = 3;
     var selectedPageIndex = -1;
 
+    var forceDisableAnimation = navigator.userAgent.toLowerCase().indexOf('embytheaterpi') !== -1;
+
     function enableAnimation() {
 
         // too slow
         if (browser.tv) {
+            return false;
+        }
+        if (forceDisableAnimation) {
             return false;
         }
 
@@ -38,6 +43,16 @@ define(['browser', 'dom', 'css!./viewcontainer-lite'], function (browser, dom) {
         if (options.type) {
             view.setAttribute('data-type', options.type);
         }
+
+        var properties = [];
+        if (options.fullscreen) {
+            properties.push('fullscreen');
+        }
+
+        if (properties.length) {
+            view.setAttribute('data-properties', properties.join(','));
+        }
+
         view.innerHTML = options.view;
 
         var currentPage = allPages[pageIndex];

@@ -56,7 +56,7 @@
     }
 
     function enableScrollX() {
-        return browserInfo.mobile && AppInfo.enableAppLayouts;
+        return browserInfo.mobile;
     }
 
     function renderRecordings(elem, recordings, cardOptions) {
@@ -132,7 +132,9 @@
         promise.then(function (result) {
 
             renderRecordings(context.querySelector('#latestRecordings'), result.Items, {
-                shape: (enableScrollX() ? 'overflowBackdrop' : 'backdrop')
+                shape: (enableScrollX() ? 'overflowBackdrop' : 'backdrop'),
+                showYear: true,
+                lines: 2
             });
 
             Dashboard.hideLoadingMsg();

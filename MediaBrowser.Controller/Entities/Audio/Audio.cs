@@ -206,7 +206,7 @@ namespace MediaBrowser.Controller.Entities.Audio
         {
             if (SourceType == SourceType.Channel)
             {
-                var sources = ChannelManager.GetStaticMediaSources(this, false, CancellationToken.None)
+                var sources = ChannelManager.GetStaticMediaSources(this, CancellationToken.None)
                            .Result.ToList();
 
                 if (sources.Count > 0)
@@ -267,15 +267,8 @@ namespace MediaBrowser.Controller.Entities.Audio
                 }
             }
 
-            var bitrate = i.TotalBitrate ??
-                info.MediaStreams.Where(m => m.Type == MediaStreamType.Audio)
-                .Select(m => m.BitRate ?? 0)
-                .Sum();
-
-            if (bitrate > 0)
-            {
-                info.Bitrate = bitrate;
-            }
+            info.Bitrate = i.TotalBitrate;
+            info.InferTotalBitrate();
 
             return info;
         }

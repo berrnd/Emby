@@ -209,7 +209,6 @@ namespace MediaBrowser.Api.Reports
                 OfficialRatings = request.GetOfficialRatings(),
                 Genres = request.GetGenres(),
                 GenreIds = request.GetGenreIds(),
-                Studios = request.GetStudios(),
                 StudioIds = request.GetStudioIds(),
                 Person = request.Person,
                 PersonIds = request.GetPersonIds(),
@@ -294,7 +293,11 @@ namespace MediaBrowser.Api.Reports
             // ExcludeLocationTypes
             if (!string.IsNullOrEmpty(request.ExcludeLocationTypes))
             {
-                query.ExcludeLocationTypes = request.ExcludeLocationTypes.Split(',').Select(d => (LocationType)Enum.Parse(typeof(LocationType), d, true)).ToArray();
+                var excludeLocationTypes = request.ExcludeLocationTypes.Split(',').Select(d => (LocationType)Enum.Parse(typeof(LocationType), d, true)).ToArray();
+                if (excludeLocationTypes.Contains(LocationType.Virtual))
+                {
+                    query.IsVirtualItem = false;
+                }
             }
 
             if (!string.IsNullOrEmpty(request.LocationTypes))
@@ -312,21 +315,6 @@ namespace MediaBrowser.Api.Reports
             if (!string.IsNullOrWhiteSpace(request.MaxOfficialRating))
             {
                 query.MaxParentalRating = _localization.GetRatingLevel(request.MaxOfficialRating);
-            }
-
-            // Artists
-            if (!string.IsNullOrEmpty(request.ArtistIds))
-            {
-                var artistIds = request.ArtistIds.Split(new[] { '|', ',' });
-
-                var artistItems = artistIds.Select(_libraryManager.GetItemById).Where(i => i != null).ToList();
-                query.ArtistNames = artistItems.Select(i => i.Name).ToArray();
-            }
-
-            // Artists
-            if (!string.IsNullOrEmpty(request.Artists))
-            {
-                query.ArtistNames = request.Artists.Split('|');
             }
 
             // Albums
