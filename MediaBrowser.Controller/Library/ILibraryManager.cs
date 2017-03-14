@@ -255,18 +255,25 @@ namespace MediaBrowser.Controller.Library
         /// </summary>
         event EventHandler<ItemChangeEventArgs> ItemRemoved;
 
-        /// <summary>
-        /// Reports the item removed.
-        /// </summary>
-        /// <param name="item">The item.</param>
-        void ReportItemRemoved(BaseItem item);
+		/// <summary>
+		/// Reports the item removed.
+		/// </summary>
+		/// <param name="item">The item.</param>
+		void ReportItemRemoved(BaseItem item);
 
-        /// <summary>
-        /// Finds the type of the collection.
-        /// </summary>
-        /// <param name="item">The item.</param>
-        /// <returns>System.String.</returns>
-        string GetContentType(BaseItem item);
+		//myproduction-change-start
+		event EventHandler<PlaybackProgressEventArgs> ItemDownloaded;
+		event EventHandler<PlaybackProgressEventArgs> ItemStreamedInExternalPlayer;
+		void ReportItemDownloaded(BaseItem item, User user, String clientName, String deviceName);
+		void ReportItemStreamedInExternalPlayer(BaseItem item, User user, String clientName, String deviceName);
+		//myproduction-change-end
+
+		/// <summary>
+		/// Finds the type of the collection.
+		/// </summary>
+		/// <param name="item">The item.</param>
+		/// <returns>System.String.</returns>
+		string GetContentType(BaseItem item);
 
         /// <summary>
         /// Gets the type of the inherited content.

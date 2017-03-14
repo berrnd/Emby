@@ -27,6 +27,7 @@ using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Controller.IO;
 using MediaBrowser.Model.Globalization;
 using MediaBrowser.Model.Services;
+using MediaBrowser.Common.Events;
 
 namespace MediaBrowser.Api.Library
 {
@@ -577,7 +578,11 @@ namespace MediaBrowser.Api.Library
                     UserId = auth.UserId
 
                 }).ConfigureAwait(false);
-            }
+				
+				//myproduction-change-start
+				this._libraryManager.ReportItemStreamedInExternalPlayer(item, user, auth.Client, auth.Device);
+				//myproduction-change-end
+			}
             catch
             {
                 // Logged at lower levels
@@ -597,8 +602,12 @@ namespace MediaBrowser.Api.Library
                     UserId = auth.UserId
 
                 }).ConfigureAwait(false);
-            }
-            catch
+
+				//myproduction-change-start
+				this._libraryManager.ReportItemDownloaded(item, user, auth.Client, auth.Device);
+				//myproduction-change-end
+			}
+			catch
             {
                 // Logged at lower levels
             }

@@ -108,10 +108,15 @@ namespace Emby.Server.Implementations.Library
         /// </summary>
         public event EventHandler<ItemChangeEventArgs> ItemRemoved;
 
-        /// <summary>
-        /// The _logger
-        /// </summary>
-        private readonly ILogger _logger;
+		//myproduction-change-start
+		public event EventHandler<PlaybackProgressEventArgs> ItemDownloaded;
+		public event EventHandler<PlaybackProgressEventArgs> ItemStreamedInExternalPlayer;
+		//myproduction-change-end
+
+		/// <summary>
+		/// The _logger
+		/// </summary>
+		private readonly ILogger _logger;
 
         /// <summary>
         /// The _task manager
@@ -1939,12 +1944,54 @@ namespace Emby.Server.Implementations.Library
             }
         }
 
-        /// <summary>
-        /// Retrieves the item.
-        /// </summary>
-        /// <param name="id">The id.</param>
-        /// <returns>BaseItem.</returns>
-        public BaseItem RetrieveItem(Guid id)
+		//myproduction-change-start
+		public void ReportItemDownloaded(BaseItem item, User user, String clientName, String deviceName)
+		{
+			if (ItemDownloaded != null)
+			{
+				try
+				{
+					PlaybackProgressEventArgs args = new PlaybackProgressEventArgs();
+					args.Item = item;
+					args.Users.Add(user);
+					args.ClientName = clientName;
+					args.DeviceName = deviceName;
+					ItemDownloaded(this, args);
+				}
+				catch (Exception ex)
+				{
+					_logger.ErrorException("Error in ItemDownloaded event handler", ex);
+				}
+			}
+		}
+
+		public void ReportItemStreamedInExternalPlayer(BaseItem item, User user, String clientName, String deviceName)
+		{
+			if (ItemStreamedInExternalPlayer != null)
+			{
+				try
+				{
+					PlaybackProgressEventArgs args = new PlaybackProgressEventArgs();
+					args.Item = item;
+					args.Users.Add(user);
+					args.ClientName = clientName;
+					args.DeviceName = deviceName;
+					ItemStreamedInExternalPlayer(this, args);
+				}
+				catch (Exception ex)
+				{
+					_logger.ErrorException("Error in ItemStreamedInExternalPlayer event handler", ex);
+				}
+			}
+		}
+		//myproduction-change-end
+
+		/// <summary>
+		/// Retrieves the item.
+		/// </summary>
+		/// <param name="id">The id.</param>
+		/// <returns>BaseItem.</returns>
+		public BaseItem RetrieveItem(Guid id)
         {
             return ItemRepository.RetrieveItem(id);
         }
