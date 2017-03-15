@@ -16,8 +16,8 @@ if "%errorlevel%"=="0" (
 	goto ServiceDownWaitLoop
 )
 
-echo Backing up current System folder to SystemOLD
-robocopy "%productionSystemPath%" "%productionBackupSystemPath%" /MIR
+rem echo Backing up current System folder to SystemOLD
+rem robocopy "%productionSystemPath%" "%productionBackupSystemPath%" /MIR
 
 echo Deploying new System folder
 pushd "%~dp0"
