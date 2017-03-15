@@ -239,8 +239,8 @@
                 var enableInstantMix = ['Audio', 'MusicAlbum', 'MusicGenre', 'MusicArtist'].indexOf(item.Type) !== -1;
                 hideAll(page, 'btnInstantMix', enableInstantMix);
 
-                var enableShuffle = item.IsFolder || ['MusicAlbum', 'MusicGenre', 'MusicArtist'].indexOf(item.Type) !== -1;
-                hideAll(page, 'btnShuffle', enableShuffle);
+                //var enableShuffle = item.IsFolder || ['MusicAlbum', 'MusicGenre', 'MusicArtist'].indexOf(item.Type) !== -1;
+                //hideAll(page, 'btnShuffle', enableShuffle);
 
                 canPlay = true;
 
@@ -2351,9 +2351,9 @@
             elems[i].addEventListener('click', onPlayClick);
         }
 
-        view.querySelector('.btnResume').addEventListener('click', onPlayClick);
-        view.querySelector('.btnInstantMix').addEventListener('click', onInstantMixClick);
-        view.querySelector('.btnShuffle').addEventListener('click', onShuffleClick);
+        //view.querySelector('.btnResume').addEventListener('click', onPlayClick);
+        //view.querySelector('.btnInstantMix').addEventListener('click', onInstantMixClick);
+        //view.querySelector('.btnShuffle').addEventListener('click', onShuffleClick);
 
         elems = view.querySelectorAll('.btnPlayTrailer');
         for (i = 0, length = elems.length; i < length; i++) {

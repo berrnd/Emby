@@ -154,21 +154,21 @@ define(['apphost', 'globalize', 'connectionManager', 'itemHelper', 'embyRouter',
                 }
             }
 
-            if (canPlay) {
-                if (options.play !== false) {
-                    commands.push({
-                        name: globalize.translate('sharedcomponents#Play'),
-                        id: 'resume'
-                    });
-                }
-
-                if (options.playAllFromHere && item.Type !== 'Program' && item.Type !== 'TvChannel') {
-                    commands.push({
-                        name: globalize.translate('sharedcomponents#PlayAllFromHere'),
-                        id: 'playallfromhere'
-                    });
-                }
-            }
+            //if (canPlay) {
+            //    if (options.play !== false) {
+            //        commands.push({
+            //            name: globalize.translate('sharedcomponents#Play'),
+            //            id: 'resume'
+            //        });
+            //    }
+            //
+            //    if (options.playAllFromHere && item.Type !== 'Program' && item.Type !== 'TvChannel') {
+            //        commands.push({
+            //            name: globalize.translate('sharedcomponents#PlayAllFromHere'),
+            //            id: 'playallfromhere'
+            //        });
+            //    }
+            //}
 
             if (item.Type === 'Program' && options.record !== false) {
 

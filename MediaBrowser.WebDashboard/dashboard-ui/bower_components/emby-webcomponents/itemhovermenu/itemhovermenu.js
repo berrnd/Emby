@@ -126,11 +126,11 @@
 
         var buttonCount = 0;
 
-        if (playbackManager.canPlay(item)) {
-
-            html += '<button is="emby-button" class="itemAction autoSize fab cardOverlayFab mini" data-action="resume"><i class="md-icon cardOverlayFab-md-icon">&#xE037;</i></button>';
-            buttonCount++;
-        }
+        //if (playbackManager.canPlay(item)) {
+        //
+        //    html += '<button is="emby-button" class="itemAction autoSize fab cardOverlayFab mini" data-action="resume"><i class="md-icon cardOverlayFab-md-icon">&#xE037;</i></button>';
+        //    buttonCount++;
+        //}
 
         if (item.LocalTrailerCount) {
             html += '<button title="' + globalize.translate('sharedcomponents#Trailer') + '" is="emby-button" class="itemAction autoSize fab cardOverlayFab mini" data-action="playtrailer"><i class="md-icon cardOverlayFab-md-icon">&#xE04B;</i></button>';
