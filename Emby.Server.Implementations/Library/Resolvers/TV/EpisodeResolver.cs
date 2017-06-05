@@ -64,7 +64,12 @@ namespace Emby.Server.Implementations.Library.Resolvers.TV
                         episode.SeasonId = season.Id;
                         episode.SeasonName = season.Name;
                     }
-                }
+
+					if (series.Tags.Contains("OV"))
+					{
+						episode.Tags.Add("OV");
+					}
+				}
 
                 return episode;
             }

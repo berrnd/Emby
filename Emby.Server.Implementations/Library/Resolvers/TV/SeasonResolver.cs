@@ -48,6 +48,11 @@ namespace Emby.Server.Implementations.Library.Resolvers.TV
                     SeriesName = series.Name
                 };
 
+				if (series.Tags.Contains("OV"))
+				{
+					season.Tags.Add("OV");
+				}
+
                 if (season.IndexNumber.HasValue && season.IndexNumber.Value == 0)
                 {
                     season.Name = _config.Configuration.SeasonZeroDisplayName;

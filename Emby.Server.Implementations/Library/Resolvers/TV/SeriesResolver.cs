@@ -75,23 +75,18 @@ namespace Emby.Server.Implementations.Library.Resolvers.TV
                     var configuredContentType = _libraryManager.GetConfiguredContentType(args.Path);
                     if (!string.Equals(configuredContentType, CollectionType.TvShows, StringComparison.OrdinalIgnoreCase))
                     {
-						if (args.Path.Contains("(OV)"))
+                        Series series = new Series
+                        {
+                            Path = args.Path,
+                            Name = Path.GetFileName(args.Path)
+                        };
+
+						if (args.Path.Contains("SerienOV"))
 						{
-							return new Series
-							{
-								Path = args.Path,
-								OriginalTitle = Path.GetFileName(args.Path.Replace(" (OV)", "")),
-								Name = Path.GetFileName(args.Path)
-							};
+							series.Tags.Add("OV");
 						}
-                        else
-						{
-							return new Series
-							{
-								Path = args.Path,
-								Name = Path.GetFileName(args.Path)
-							};
-						}
+
+						return series;
                     }
                 }
                 else if (string.IsNullOrWhiteSpace(collectionType))
