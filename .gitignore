@@ -237,3 +237,7 @@ MediaBrowser.WebDashboard/dashboard-ui/.idea/
 #myproduction-change-start
 .deploy/
 #myproduction-change-end
+/.vs/restore.dg
+/Emby.Dlna/*.targets
+/Emby.Drawing/*.targets
+/MediaBrowser.Server.Implementations/*.targets
