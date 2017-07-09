@@ -17,11 +17,12 @@ using System.Threading;
 using System.Threading.Tasks;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Api.Playback.Progressive;
-using MediaBrowser.Common.IO;
+
 using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.IO;
 using MediaBrowser.Model.Services;
+using MediaBrowser.Model.System;
 
 namespace MediaBrowser.Api.LiveTv
 {
@@ -98,7 +99,7 @@ namespace MediaBrowser.Api.LiveTv
         /// Fields to return within the items, in addition to basic information
         /// </summary>
         /// <value>The fields.</value>
-        [ApiMember(Name = "Fields", Description = "Optional. Specify additional fields of information to return in the output. This allows multiple, comma delimeted. Options: Budget, Chapters, CriticRatingSummary, DateCreated, Genres, HomePageUrl, IndexOptions, MediaStreams, Overview, ParentId, Path, People, ProviderIds, PrimaryImageAspectRatio, Revenue, SortName, Studios, Taglines", IsRequired = false, DataType = "string", ParameterType = "query", Verb = "GET", AllowMultiple = true)]
+        [ApiMember(Name = "Fields", Description = "Optional. Specify additional fields of information to return in the output. This allows multiple, comma delimeted. Options: Budget, Chapters, DateCreated, Genres, HomePageUrl, IndexOptions, MediaStreams, Overview, ParentId, Path, People, ProviderIds, PrimaryImageAspectRatio, Revenue, SortName, Studios, Taglines", IsRequired = false, DataType = "string", ParameterType = "query", Verb = "GET", AllowMultiple = true)]
         public string Fields { get; set; }
 
         [ApiMember(Name = "AddCurrentProgram", Description = "Optional. Adds current program info to each channel", IsRequired = false, DataType = "string", ParameterType = "query", Verb = "GET")]
@@ -189,7 +190,7 @@ namespace MediaBrowser.Api.LiveTv
         /// Fields to return within the items, in addition to basic information
         /// </summary>
         /// <value>The fields.</value>
-        [ApiMember(Name = "Fields", Description = "Optional. Specify additional fields of information to return in the output. This allows multiple, comma delimeted. Options: Budget, Chapters, CriticRatingSummary, DateCreated, Genres, HomePageUrl, IndexOptions, MediaStreams, Overview, ParentId, Path, People, ProviderIds, PrimaryImageAspectRatio, Revenue, SortName, Studios, Taglines", IsRequired = false, DataType = "string", ParameterType = "query", Verb = "GET", AllowMultiple = true)]
+        [ApiMember(Name = "Fields", Description = "Optional. Specify additional fields of information to return in the output. This allows multiple, comma delimeted. Options: Budget, Chapters, DateCreated, Genres, HomePageUrl, IndexOptions, MediaStreams, Overview, ParentId, Path, People, ProviderIds, PrimaryImageAspectRatio, Revenue, SortName, Studios, Taglines", IsRequired = false, DataType = "string", ParameterType = "query", Verb = "GET", AllowMultiple = true)]
         public string Fields { get; set; }
 
         public bool EnableTotalRecordCount { get; set; }
@@ -251,7 +252,7 @@ namespace MediaBrowser.Api.LiveTv
         /// Fields to return within the items, in addition to basic information
         /// </summary>
         /// <value>The fields.</value>
-        [ApiMember(Name = "Fields", Description = "Optional. Specify additional fields of information to return in the output. This allows multiple, comma delimeted. Options: Budget, Chapters, CriticRatingSummary, DateCreated, Genres, HomePageUrl, IndexOptions, MediaStreams, Overview, ParentId, Path, People, ProviderIds, PrimaryImageAspectRatio, Revenue, SortName, Studios, Taglines", IsRequired = false, DataType = "string", ParameterType = "query", Verb = "GET", AllowMultiple = true)]
+        [ApiMember(Name = "Fields", Description = "Optional. Specify additional fields of information to return in the output. This allows multiple, comma delimeted. Options: Budget, Chapters, DateCreated, Genres, HomePageUrl, IndexOptions, MediaStreams, Overview, ParentId, Path, People, ProviderIds, PrimaryImageAspectRatio, Revenue, SortName, Studios, Taglines", IsRequired = false, DataType = "string", ParameterType = "query", Verb = "GET", AllowMultiple = true)]
         public string Fields { get; set; }
 
         public bool EnableTotalRecordCount { get; set; }
@@ -399,7 +400,7 @@ namespace MediaBrowser.Api.LiveTv
         /// Fields to return within the items, in addition to basic information
         /// </summary>
         /// <value>The fields.</value>
-        [ApiMember(Name = "Fields", Description = "Optional. Specify additional fields of information to return in the output. This allows multiple, comma delimeted. Options: Budget, Chapters, CriticRatingSummary, DateCreated, Genres, HomePageUrl, IndexOptions, MediaStreams, Overview, ParentId, Path, People, ProviderIds, PrimaryImageAspectRatio, Revenue, SortName, Studios, Taglines", IsRequired = false, DataType = "string", ParameterType = "query", Verb = "GET", AllowMultiple = true)]
+        [ApiMember(Name = "Fields", Description = "Optional. Specify additional fields of information to return in the output. This allows multiple, comma delimeted. Options: Budget, Chapters, DateCreated, Genres, HomePageUrl, IndexOptions, MediaStreams, Overview, ParentId, Path, People, ProviderIds, PrimaryImageAspectRatio, Revenue, SortName, Studios, Taglines", IsRequired = false, DataType = "string", ParameterType = "query", Verb = "GET", AllowMultiple = true)]
         public string Fields { get; set; }
 
         public GetPrograms()
@@ -459,7 +460,7 @@ namespace MediaBrowser.Api.LiveTv
         /// Fields to return within the items, in addition to basic information
         /// </summary>
         /// <value>The fields.</value>
-        [ApiMember(Name = "Fields", Description = "Optional. Specify additional fields of information to return in the output. This allows multiple, comma delimeted. Options: Budget, Chapters, CriticRatingSummary, DateCreated, Genres, HomePageUrl, IndexOptions, MediaStreams, Overview, ParentId, Path, People, ProviderIds, PrimaryImageAspectRatio, Revenue, SortName, Studios, Taglines", IsRequired = false, DataType = "string", ParameterType = "query", Verb = "GET", AllowMultiple = true)]
+        [ApiMember(Name = "Fields", Description = "Optional. Specify additional fields of information to return in the output. This allows multiple, comma delimeted. Options: Budget, Chapters, DateCreated, Genres, HomePageUrl, IndexOptions, MediaStreams, Overview, ParentId, Path, People, ProviderIds, PrimaryImageAspectRatio, Revenue, SortName, Studios, Taglines", IsRequired = false, DataType = "string", ParameterType = "query", Verb = "GET", AllowMultiple = true)]
         public string Fields { get; set; }
 
         [ApiMember(Name = "EnableUserData", Description = "Optional, include user data", IsRequired = false, DataType = "boolean", ParameterType = "query", Verb = "GET")]
@@ -582,13 +583,13 @@ namespace MediaBrowser.Api.LiveTv
     }
 
     [Route("/LiveTv/ListingProviders/Default", "GET")]
-    [Authenticated(AllowBeforeStartupWizard = true)]
+    [Authenticated]
     public class GetDefaultListingProvider : ListingsProviderInfo, IReturn<ListingsProviderInfo>
     {
     }
 
     [Route("/LiveTv/ListingProviders", "POST", Summary = "Adds a listing provider")]
-    [Authenticated(AllowBeforeStartupWizard = true)]
+    [Authenticated]
     public class AddListingProvider : ListingsProviderInfo, IReturn<ListingsProviderInfo>
     {
         public bool ValidateLogin { get; set; }
@@ -596,7 +597,7 @@ namespace MediaBrowser.Api.LiveTv
     }
 
     [Route("/LiveTv/ListingProviders", "DELETE", Summary = "Deletes a listing provider")]
-    [Authenticated(AllowBeforeStartupWizard = true)]
+    [Authenticated]
     public class DeleteListingProvider : IReturnVoid
     {
         [ApiMember(Name = "Id", Description = "Provider id", IsRequired = false, DataType = "string", ParameterType = "query", Verb = "DELETE")]
@@ -604,7 +605,7 @@ namespace MediaBrowser.Api.LiveTv
     }
 
     [Route("/LiveTv/ListingProviders/Lineups", "GET", Summary = "Gets available lineups")]
-    [Authenticated(AllowBeforeStartupWizard = true)]
+    [Authenticated]
     public class GetLineups : IReturn<List<NameIdPair>>
     {
         [ApiMember(Name = "Id", Description = "Provider id", IsRequired = false, DataType = "string", ParameterType = "query", Verb = "GET")]
@@ -621,13 +622,13 @@ namespace MediaBrowser.Api.LiveTv
     }
 
     [Route("/LiveTv/ListingProviders/SchedulesDirect/Countries", "GET", Summary = "Gets available lineups")]
-    [Authenticated(AllowBeforeStartupWizard = true)]
+    [Authenticated]
     public class GetSchedulesDirectCountries
     {
     }
 
     [Route("/LiveTv/ChannelMappingOptions")]
-    [Authenticated(AllowBeforeStartupWizard = true)]
+    [Authenticated]
     public class GetChannelMappingOptions
     {
         [ApiMember(Name = "Id", Description = "Provider id", IsRequired = true, DataType = "string", ParameterType = "query", Verb = "GET")]
@@ -635,13 +636,13 @@ namespace MediaBrowser.Api.LiveTv
     }
 
     [Route("/LiveTv/ChannelMappings")]
-    [Authenticated(AllowBeforeStartupWizard = true)]
+    [Authenticated]
     public class SetChannelMapping
     {
         [ApiMember(Name = "Id", Description = "Provider id", IsRequired = true, DataType = "string", ParameterType = "query", Verb = "GET")]
         public string ProviderId { get; set; }
-        public string TunerChannelNumber { get; set; }
-        public string ProviderChannelNumber { get; set; }
+        public string TunerChannelId { get; set; }
+        public string ProviderChannelId { get; set; }
     }
 
     public class ChannelMappingOptions
@@ -660,20 +661,6 @@ namespace MediaBrowser.Api.LiveTv
         public string Feature { get; set; }
     }
 
-    [Route("/LiveTv/TunerHosts/Satip/IniMappings", "GET", Summary = "Gets available mappings")]
-    [Authenticated(AllowBeforeStartupWizard = true)]
-    public class GetSatIniMappings : IReturn<List<NameValuePair>>
-    {
-
-    }
-
-    [Route("/LiveTv/TunerHosts/Satip/ChannelScan", "GET", Summary = "Scans for available channels")]
-    [Authenticated(AllowBeforeStartupWizard = true)]
-    public class GetSatChannnelScanResult : TunerHostInfo
-    {
-
-    }
-
     [Route("/LiveTv/LiveStreamFiles/{Id}/stream.{Container}", "GET", Summary = "Gets a live tv channel")]
     public class GetLiveStreamFile
     {
@@ -687,6 +674,20 @@ namespace MediaBrowser.Api.LiveTv
         public string Id { get; set; }
     }
 
+    [Route("/LiveTv/TunerHosts/Types", "GET")]
+    [Authenticated]
+    public class GetTunerHostTypes : IReturn<List<NameIdPair>>
+    {
+
+    }
+
+    [Route("/LiveTv/Tuners/Discvover", "GET")]
+    [Authenticated]
+    public class DiscoverTuners : IReturn<List<TunerHostInfo>>
+    {
+        public bool NewDevicesOnly { get; set; }
+    }
+
     public class LiveTvService : BaseApiService
     {
         private readonly ILiveTvManager _liveTvManager;
@@ -698,8 +699,9 @@ namespace MediaBrowser.Api.LiveTv
         private readonly IFileSystem _fileSystem;
         private readonly IAuthorizationContext _authContext;
         private readonly ISessionContext _sessionContext;
+        private readonly IEnvironmentInfo _environment;
 
-        public LiveTvService(ILiveTvManager liveTvManager, IUserManager userManager, IServerConfigurationManager config, IHttpClient httpClient, ILibraryManager libraryManager, IDtoService dtoService, IFileSystem fileSystem, IAuthorizationContext authContext, ISessionContext sessionContext)
+        public LiveTvService(ILiveTvManager liveTvManager, IUserManager userManager, IServerConfigurationManager config, IHttpClient httpClient, ILibraryManager libraryManager, IDtoService dtoService, IFileSystem fileSystem, IAuthorizationContext authContext, ISessionContext sessionContext, IEnvironmentInfo environment)
         {
             _liveTvManager = liveTvManager;
             _userManager = userManager;
@@ -710,6 +712,13 @@ namespace MediaBrowser.Api.LiveTv
             _fileSystem = fileSystem;
             _authContext = authContext;
             _sessionContext = sessionContext;
+            _environment = environment;
+        }
+
+        public object Get(GetTunerHostTypes request)
+        {
+            var list = _liveTvManager.GetTunerHostTypes();
+            return ToOptimizedResult(list);
         }
 
         public object Get(GetLiveRecordingFile request)
@@ -725,10 +734,16 @@ namespace MediaBrowser.Api.LiveTv
 
             outputHeaders["Content-Type"] = Model.Net.MimeTypes.GetMimeType(path);
 
-            return new ProgressiveFileCopier(_fileSystem, path, outputHeaders, null, Logger, CancellationToken.None)
+            return new ProgressiveFileCopier(_fileSystem, path, outputHeaders, null, Logger, _environment, CancellationToken.None)
             {
                 AllowEndOfFile = false
             };
+        }
+
+        public async Task<object> Get(DiscoverTuners request)
+        {
+            var result = await _liveTvManager.DiscoverTuners(request.NewDevicesOnly, CancellationToken.None).ConfigureAwait(false);
+            return ToOptimizedResult(result);
         }
 
         public async Task<object> Get(GetLiveStreamFile request)
@@ -738,7 +753,7 @@ namespace MediaBrowser.Api.LiveTv
 
             outputHeaders["Content-Type"] = Model.Net.MimeTypes.GetMimeType("file." + request.Container);
 
-            return new ProgressiveFileCopier(directStreamProvider, outputHeaders, null, Logger, CancellationToken.None)
+            return new ProgressiveFileCopier(directStreamProvider, outputHeaders, null, Logger, _environment, CancellationToken.None)
             {
                 AllowEndOfFile = false
             };
@@ -747,13 +762,6 @@ namespace MediaBrowser.Api.LiveTv
         public object Get(GetDefaultListingProvider request)
         {
             return ToOptimizedResult(new ListingsProviderInfo());
-        }
-
-        public async Task<object> Get(GetSatChannnelScanResult request)
-        {
-            var result = await _liveTvManager.GetSatChannelScanResult(request, CancellationToken.None).ConfigureAwait(false);
-
-            return ToOptimizedResult(result);
         }
 
         public async Task<object> Get(GetLiveTvRegistrationInfo request)
@@ -765,7 +773,7 @@ namespace MediaBrowser.Api.LiveTv
 
         public async Task<object> Post(SetChannelMapping request)
         {
-            return await _liveTvManager.SetChannelMapping(request.ProviderId, request.TunerChannelNumber, request.ProviderChannelNumber).ConfigureAwait(false);
+            return await _liveTvManager.SetChannelMapping(request.ProviderId, request.TunerChannelId, request.ProviderChannelId).ConfigureAwait(false);
         }
 
         public async Task<object> Get(GetChannelMappingOptions request)
@@ -791,7 +799,7 @@ namespace MediaBrowser.Api.LiveTv
                 ProviderChannels = providerChannels.Select(i => new NameIdPair
                 {
                     Name = i.Name,
-                    Id = i.Number
+                    Id = i.Id
 
                 }).ToList(),
 
@@ -801,11 +809,6 @@ namespace MediaBrowser.Api.LiveTv
             };
 
             return ToOptimizedResult(result);
-        }
-
-        public object Get(GetSatIniMappings request)
-        {
-            return ToOptimizedResult(_liveTvManager.GetSatIniMappings());
         }
 
         public async Task<object> Get(GetSchedulesDirectCountries request)
@@ -889,6 +892,8 @@ namespace MediaBrowser.Api.LiveTv
 
         public async Task<object> Get(GetChannels request)
         {
+            var options = GetDtoOptions(_authContext, request);
+
             var channelResult = await _liveTvManager.GetInternalChannels(new LiveTvChannelQuery
             {
                 ChannelType = request.Type,
@@ -908,11 +913,10 @@ namespace MediaBrowser.Api.LiveTv
                 SortOrder = request.SortOrder ?? SortOrder.Ascending,
                 AddCurrentProgram = request.AddCurrentProgram
 
-            }, CancellationToken.None).ConfigureAwait(false);
+            }, options, CancellationToken.None).ConfigureAwait(false);
 
             var user = string.IsNullOrEmpty(request.UserId) ? null : _userManager.GetUserById(request.UserId);
 
-            var options = GetDtoOptions(_authContext, request);
             RemoveFields(options);
 
             options.AddCurrentProgram = request.AddCurrentProgram;

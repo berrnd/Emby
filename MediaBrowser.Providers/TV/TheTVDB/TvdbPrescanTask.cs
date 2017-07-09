@@ -14,7 +14,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
-using MediaBrowser.Common.IO;
+using MediaBrowser.Controller.Dto;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.IO;
@@ -114,7 +114,11 @@ namespace MediaBrowser.Providers.TV
             {
                 IncludeItemTypes = new[] { typeof(Series).Name },
                 Recursive = true,
-                GroupByPresentationUniqueKey = false
+                GroupByPresentationUniqueKey = false,
+                DtoOptions = new DtoOptions(false)
+                {
+                    EnableImages = false
+                }
 
             }).Cast<Series>()
             .ToList();
@@ -143,7 +147,6 @@ namespace MediaBrowser.Providers.TV
                     Url = ServerTimeUrl,
                     CancellationToken = cancellationToken,
                     EnableHttpCompression = true,
-                    ResourcePool = TvdbSeriesProvider.Current.TvDbResourcePool,
                     BufferContent = false
 
                 }).ConfigureAwait(false))
@@ -240,7 +243,6 @@ namespace MediaBrowser.Providers.TV
                 Url = string.Format(UpdatesUrl, lastUpdateTime),
                 CancellationToken = cancellationToken,
                 EnableHttpCompression = true,
-                ResourcePool = TvdbSeriesProvider.Current.TvDbResourcePool,
                 BufferContent = false
 
             }).ConfigureAwait(false))
@@ -327,7 +329,11 @@ namespace MediaBrowser.Providers.TV
             {
                 IncludeItemTypes = new[] { typeof(Series).Name },
                 Recursive = true,
-                GroupByPresentationUniqueKey = false
+                GroupByPresentationUniqueKey = false,
+                DtoOptions = new DtoOptions(false)
+                {
+                    EnableImages = false
+                }
 
             }).Cast<Series>();
 
@@ -389,7 +395,7 @@ namespace MediaBrowser.Providers.TV
 
             _fileSystem.CreateDirectory(seriesDataPath);
 
-            return TvdbSeriesProvider.Current.DownloadSeriesZip(id, MetadataProviders.Tvdb.ToString(), seriesDataPath, lastTvDbUpdateTime, preferredMetadataLanguage, cancellationToken);
+            return TvdbSeriesProvider.Current.DownloadSeriesZip(id, MetadataProviders.Tvdb.ToString(), null, null, seriesDataPath, lastTvDbUpdateTime, preferredMetadataLanguage, cancellationToken);
         }
     }
 }

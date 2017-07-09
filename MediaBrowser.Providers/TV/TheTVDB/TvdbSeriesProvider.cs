@@ -27,10 +27,6 @@ namespace MediaBrowser.Providers.TV
 {
     public class TvdbSeriesProvider : IRemoteMetadataProvider<Series, SeriesInfo>, IHasOrder
     {
-        private const string TvdbSeriesOffset = "TvdbSeriesOffset";
-        private const string TvdbSeriesOffsetFormat = "{0}-{1}";
-
-        internal readonly SemaphoreSlim TvDbResourcePool = new SemaphoreSlim(2, 2);
         internal static TvdbSeriesProvider Current { get; private set; }
         private readonly IZipClient _zipClient;
         private readonly IHttpClient _httpClient;
@@ -112,7 +108,7 @@ namespace MediaBrowser.Providers.TV
 
             if (IsValidSeries(itemId.ProviderIds))
             {
-                await EnsureSeriesInfo(itemId.ProviderIds, itemId.MetadataLanguage, cancellationToken).ConfigureAwait(false);
+                await EnsureSeriesInfo(itemId.ProviderIds, itemId.Name, itemId.Year, itemId.MetadataLanguage, cancellationToken).ConfigureAwait(false);
 
                 result.Item = new Series();
                 result.HasMetadata = true;
@@ -121,23 +117,6 @@ namespace MediaBrowser.Providers.TV
             }
 
             return result;
-        }
-
-        internal static int? GetSeriesOffset(Dictionary<string, string> seriesProviderIds)
-        {
-            string idString;
-            if (!seriesProviderIds.TryGetValue(TvdbSeriesOffset, out idString))
-                return null;
-
-            var parts = idString.Split('-');
-            if (parts.Length < 2)
-                return null;
-
-            int offset;
-            if (int.TryParse(parts[1], out offset))
-                return offset;
-
-            return null;
         }
 
         /// <summary>
@@ -180,24 +159,11 @@ namespace MediaBrowser.Providers.TV
         /// <summary>
         /// Downloads the series zip.
         /// </summary>
-        /// <param name="seriesId">The series id.</param>
-        /// <param name="idType">Type of the identifier.</param>
-        /// <param name="seriesDataPath">The series data path.</param>
-        /// <param name="lastTvDbUpdateTime">The last tv database update time.</param>
-        /// <param name="preferredMetadataLanguage">The preferred metadata language.</param>
-        /// <param name="cancellationToken">The cancellation token.</param>
-        /// <returns>Task.</returns>
-        /// <exception cref="System.ArgumentNullException">seriesId</exception>
-        internal async Task DownloadSeriesZip(string seriesId, string idType, string seriesDataPath, long? lastTvDbUpdateTime, string preferredMetadataLanguage, CancellationToken cancellationToken)
+        internal async Task DownloadSeriesZip(string seriesId, string idType, string seriesName, int? seriesYear, string seriesDataPath, long? lastTvDbUpdateTime, string preferredMetadataLanguage, CancellationToken cancellationToken)
         {
-            if (string.IsNullOrWhiteSpace(seriesId))
-            {
-                throw new ArgumentNullException("seriesId");
-            }
-
             try
             {
-                await DownloadSeriesZip(seriesId, idType, seriesDataPath, lastTvDbUpdateTime, preferredMetadataLanguage, preferredMetadataLanguage, cancellationToken).ConfigureAwait(false);
+                await DownloadSeriesZip(seriesId, idType, seriesName, seriesYear, seriesDataPath, lastTvDbUpdateTime, preferredMetadataLanguage, preferredMetadataLanguage, cancellationToken).ConfigureAwait(false);
                 return;
             }
             catch (HttpException ex)
@@ -210,11 +176,11 @@ namespace MediaBrowser.Providers.TV
 
             if (!string.Equals(preferredMetadataLanguage, "en", StringComparison.OrdinalIgnoreCase))
             {
-                await DownloadSeriesZip(seriesId, idType, seriesDataPath, lastTvDbUpdateTime, "en", preferredMetadataLanguage, cancellationToken).ConfigureAwait(false);
+                await DownloadSeriesZip(seriesId, idType, seriesName, seriesYear, seriesDataPath, lastTvDbUpdateTime, "en", preferredMetadataLanguage, cancellationToken).ConfigureAwait(false);
             }
         }
 
-        private async Task DownloadSeriesZip(string seriesId, string idType, string seriesDataPath, long? lastTvDbUpdateTime, string preferredMetadataLanguage, string saveAsMetadataLanguage, CancellationToken cancellationToken)
+        private async Task DownloadSeriesZip(string seriesId, string idType, string seriesName, int? seriesYear, string seriesDataPath, long? lastTvDbUpdateTime, string preferredMetadataLanguage, string saveAsMetadataLanguage, CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(seriesId))
             {
@@ -224,6 +190,23 @@ namespace MediaBrowser.Providers.TV
             if (!string.Equals(idType, "tvdb", StringComparison.OrdinalIgnoreCase))
             {
                 seriesId = await GetSeriesByRemoteId(seriesId, idType, preferredMetadataLanguage, cancellationToken).ConfigureAwait(false);
+            }
+
+            // If searching by remote id came up empty, then do a regular search
+            if (string.IsNullOrWhiteSpace(seriesId) && !string.IsNullOrWhiteSpace(seriesName))
+            {
+                var searchInfo = new SeriesInfo
+                {
+                    Name = seriesName,
+                    Year = seriesYear,
+                    MetadataLanguage = preferredMetadataLanguage
+                };
+                var results = await GetSearchResults(searchInfo, cancellationToken).ConfigureAwait(false);
+                var result = results.FirstOrDefault();
+                if (result != null)
+                {
+                    seriesId = result.GetProviderId(MetadataProviders.Tvdb);
+                }
             }
 
             if (string.IsNullOrWhiteSpace(seriesId))
@@ -236,7 +219,6 @@ namespace MediaBrowser.Providers.TV
             using (var zipStream = await _httpClient.Get(new HttpRequestOptions
             {
                 Url = url,
-                ResourcePool = TvDbResourcePool,
                 CancellationToken = cancellationToken,
                 BufferContent = false
 
@@ -281,7 +263,6 @@ namespace MediaBrowser.Providers.TV
             using (var result = await _httpClient.Get(new HttpRequestOptions
             {
                 Url = url,
-                ResourcePool = TvDbResourcePool,
                 CancellationToken = cancellationToken,
                 BufferContent = false
 
@@ -405,7 +386,7 @@ namespace MediaBrowser.Providers.TV
         }
 
         private SemaphoreSlim _ensureSemaphore = new SemaphoreSlim(1, 1);
-        internal async Task<string> EnsureSeriesInfo(Dictionary<string, string> seriesProviderIds, string preferredMetadataLanguage, CancellationToken cancellationToken)
+        internal async Task<string> EnsureSeriesInfo(Dictionary<string, string> seriesProviderIds, string seriesName, int? seriesYear, string preferredMetadataLanguage, CancellationToken cancellationToken)
         {
             await _ensureSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
 
@@ -420,7 +401,7 @@ namespace MediaBrowser.Providers.TV
                     // The post-scan task will take care of updates so we don't need to re-download here
                     if (!IsCacheValid(seriesDataPath, preferredMetadataLanguage))
                     {
-                        await DownloadSeriesZip(seriesId, MetadataProviders.Tvdb.ToString(), seriesDataPath, null, preferredMetadataLanguage, cancellationToken).ConfigureAwait(false);
+                        await DownloadSeriesZip(seriesId, MetadataProviders.Tvdb.ToString(), seriesName, seriesYear, seriesDataPath, null, preferredMetadataLanguage, cancellationToken).ConfigureAwait(false);
                     }
 
                     return seriesDataPath;
@@ -434,7 +415,7 @@ namespace MediaBrowser.Providers.TV
                     // The post-scan task will take care of updates so we don't need to re-download here
                     if (!IsCacheValid(seriesDataPath, preferredMetadataLanguage))
                     {
-                        await DownloadSeriesZip(seriesId, MetadataProviders.Imdb.ToString(), seriesDataPath, null, preferredMetadataLanguage, cancellationToken).ConfigureAwait(false);
+                        await DownloadSeriesZip(seriesId, MetadataProviders.Imdb.ToString(), seriesName, seriesYear, seriesDataPath, null, preferredMetadataLanguage, cancellationToken).ConfigureAwait(false);
                     }
 
                     return seriesDataPath;
@@ -452,7 +433,7 @@ namespace MediaBrowser.Providers.TV
         {
             try
             {
-                var files = _fileSystem.GetFiles(seriesDataPath)
+                var files = _fileSystem.GetFiles(seriesDataPath, new[] { ".xml" }, true, false)
                     .ToList();
 
                 var seriesXmlFilename = preferredMetadataLanguage + ".xml";
@@ -536,7 +517,6 @@ namespace MediaBrowser.Providers.TV
             using (var stream = await _httpClient.Get(new HttpRequestOptions
             {
                 Url = url,
-                ResourcePool = TvDbResourcePool,
                 CancellationToken = cancellationToken,
                 BufferContent = false
 
@@ -1170,7 +1150,7 @@ namespace MediaBrowser.Providers.TV
                                     // int.TryParse is local aware, so it can be probamatic, force us culture
                                     if (int.TryParse(val, NumberStyles.Integer, _usCulture, out rval))
                                     {
-                                        item.VoteCount = rval;
+                                        //item.VoteCount = rval;
                                     }
                                 }
 
@@ -1667,7 +1647,6 @@ namespace MediaBrowser.Providers.TV
             {
                 CancellationToken = cancellationToken,
                 Url = url,
-                ResourcePool = TvDbResourcePool,
                 BufferContent = false
             });
         }

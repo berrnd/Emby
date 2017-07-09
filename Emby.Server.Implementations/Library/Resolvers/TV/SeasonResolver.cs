@@ -44,16 +44,18 @@ namespace Emby.Server.Implementations.Library.Resolvers.TV
                 {
                     IndexNumber = new SeasonPathParser(namingOptions, new RegexProvider()).Parse(args.Path, true, true).SeasonNumber,
                     SeriesId = series.Id,
-                    SeriesSortName = series.SortName,
                     SeriesName = series.Name
                 };
 
+				//myproduction-change-start
+				//OV series handling
 				if (series.Tags.Contains("OV"))
 				{
 					season.Tags.Add("OV");
 				}
+				//myproduction-change-end
 
-                if (season.IndexNumber.HasValue && season.IndexNumber.Value == 0)
+				if (season.IndexNumber.HasValue && season.IndexNumber.Value == 0)
                 {
                     season.Name = _config.Configuration.SeasonZeroDisplayName;
                 }

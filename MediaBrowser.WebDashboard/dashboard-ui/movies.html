@@ -1,66 +1,6 @@
-﻿<!--myproduction-change-start-->
-<!--Added data-default-tab-index-override attribute-->
-<div id="moviesPage" data-role="page" data-dom-cache="true" class="page libraryPage backdropPage pageWithAbsoluteTabs collectionEditorPage" data-backdroptype="movie" data-default-tab-index-override="1">
-<!--myproduction-change-end-->
+﻿<div id="moviesPage" data-role="page" data-dom-cache="true" class="page libraryPage backdropPage collectionEditorPage pageWithAbsoluteTabs withTabs" data-backdroptype="movie">
 
-    <div is="emby-tabs" class="libraryViewNav">
-        <div class="emby-tabs-slider">
-            <button is="emby-button" class="emby-tab-button emby-tab-button-active" data-index="0">
-                <div class="emby-button-foreground">${TabSuggestions}</div>
-            </button>
-            <button is="emby-button" class="emby-tab-button" data-index="1">
-                <div class="emby-button-foreground">${TabMovies}</div>
-            </button>
-			<!--myproduction-change-start-->
-			<!--Hided buttons-->
-            <button is="emby-button" class="emby-tab-button hide" data-index="2">
-                <div class="emby-button-foreground">${TabTrailers}</div>
-            </button>
-            <button is="emby-button" class="emby-tab-button hide" data-index="3">
-                <div class="emby-button-foreground">${TabCollections}</div>
-            </button>
-			<!--myproduction-change-end-->
-            <button is="emby-button" class="emby-tab-button" data-index="4">
-                <div class="emby-button-foreground">${TabGenres}</div>
-            </button>
-            <button is="emby-button" class="emby-tab-button" data-index="5">
-                <div class="emby-button-foreground">${TabStudios}</div>
-            </button>
-        </div>
-    </div>
-    <div class="is-active pageTabContent ehsContent fullWidth" id="suggestionsTab" data-index="0">
-        <div id="resumableSection" class="homePageSection hide">
-            <div>
-                <h1 class="listHeader" style="display:inline-block;vertical-align:middle;">${HeaderContinueWatching}</h1>
-                <button is="emby-button" type="button" class="raised submit mini categorySyncButton button-accent" data-category="Resume">
-                    <span>${ButtonSync}</span>
-                </button>
-            </div>
-
-            <div is="emby-itemscontainer" id="resumableItems" class="itemsContainer">
-            </div>
-        </div>
-
-        <div class="homePageSection">
-            <div>
-                <h1 class="listHeader" style="display:inline-block;vertical-align:middle;">${HeaderLatestMovies}</h1>
-                <button is="emby-button" type="button" class="raised submit mini categorySyncButton button-accent" data-category="Latest">
-                    <span>${ButtonSync}</span>
-                </button>
-            </div>
-
-            <div is="emby-itemscontainer" id="recentlyAddedItems" class="itemsContainer">
-            </div>
-        </div>
-
-        <div class="recommendations homePageSection">
-        </div>
-        <div class="noItemsMessage hide">
-            <br />
-            <p>${MessageNoMovieSuggestionsAvailable}</p>
-        </div>
-    </div>
-    <div class="pageTabContent ehsContent" id="moviesTab" data-index="1">
+    <div class="pageTabContent" data-index="0">
         <div style="text-align: center; display: flex; flex-wrap: wrap; align-items: center; justify-content: center;padding:0 .5em 1em;">
             <div class="paging"></div>
             <button is="paper-icon-button-light" class="btnSelectView autoSize" title="${ButtonSelectView}"><i class="md-icon">view_comfy</i></button>
@@ -71,13 +11,45 @@
         <div class="alphaPicker alphabetPicker alphaPicker-vertical">
         </div>
 
-        <div is="emby-itemscontainer" class="itemsContainer itemsContainerWithAlphaPicker">
+        <div is="emby-itemscontainer" class="itemsContainer padded-left padded-left-withalphapicker padded-right">
         </div>
-        <div style="text-align: center; display: flex; flex-wrap: wrap; align-items: center; justify-content: center;padding:.7em .5em;">
+        <div style="text-align: center; display: flex; flex-wrap: wrap; align-items: center; justify-content: center;padding:0 .5em;">
             <div class="paging"></div>
         </div>
     </div>
-    <div class="pageTabContent ehsContent" id="trailersTab" data-index="2">
+    <div class="pageTabContent" data-index="1">
+        <div id="resumableSection" class="verticalSection hide">
+            <div class="sectionTitleContainer">
+                <h2 class="sectionTitle sectionTitle-cards padded-left">${HeaderContinueWatching}</h2>
+                <button is="emby-button" type="button" class="raised submit raised-mini categorySyncButton button-accent sectionTitleButton" data-category="Resume">
+                    <span>${ButtonDownload}</span>
+                </button>
+            </div>
+
+            <div is="emby-itemscontainer" id="resumableItems" class="itemsContainer padded-left padded-right">
+            </div>
+        </div>
+
+        <div class="verticalSection">
+            <div class="sectionTitleContainer">
+                <h2 class="sectionTitle sectionTitle-cards padded-left">${HeaderLatestMovies}</h2>
+                <button is="emby-button" type="button" class="raised submit raised-mini categorySyncButton button-accent sectionTitleButton" data-category="Latest">
+                    <span>${ButtonDownload}</span>
+                </button>
+            </div>
+
+            <div is="emby-itemscontainer" id="recentlyAddedItems" class="itemsContainer padded-left padded-right">
+            </div>
+        </div>
+
+        <div class="recommendations">
+        </div>
+        <div class="noItemsMessage hide padded-left padded-right">
+            <br />
+            <p>${MessageNoMovieSuggestionsAvailable}</p>
+        </div>
+    </div>
+    <div class="pageTabContent" data-index="2">
         <div style="text-align: center; display: flex; flex-wrap: wrap; align-items: center; justify-content: center;padding:0 .5em 1em;">
             <div class="paging"></div>
             <button is="paper-icon-button-light" class="btnSort autoSize" title="${ButtonSort}"><i class="md-icon">sort_by_alpha</i></button>
@@ -87,13 +59,25 @@
         <div class="alphaPicker alphabetPicker alphaPicker-vertical">
         </div>
 
-        <div is="emby-itemscontainer" class="itemsContainer itemsContainerWithAlphaPicker vertical-wrap">
+        <div is="emby-itemscontainer" class="itemsContainer vertical-wrap padded-left padded-left-withalphapicker padded-right">
         </div>
         <div style="text-align: center; display: flex; flex-wrap: wrap; align-items: center; justify-content: center;padding:.7em .5em;">
             <div class="paging"></div>
         </div>
     </div>
-    <div class="pageTabContent ehsContent" id="collectionsTab" data-index="3">
+    <div class="pageTabContent" data-index="3">
+        <div style="text-align: center; display: flex; flex-wrap: wrap; align-items: center; justify-content: center;padding:0 .5em 1em;">
+            <div class="paging"></div>
+            <button is="paper-icon-button-light" class="btnSelectView autoSize" title="${ButtonSelectView}"><i class="md-icon">view_comfy</i></button>
+        </div>
+
+        <div is="emby-itemscontainer" class="itemsContainer padded-left padded-right">
+        </div>
+        <div style="text-align: center; display: flex; flex-wrap: wrap; align-items: center; justify-content: center;padding:0 .5em;">
+            <div class="paging"></div>
+        </div>
+    </div>
+    <div class="pageTabContent" data-index="4">
         <div style="text-align: center; display: flex; flex-wrap: wrap; align-items: center; justify-content: center;padding:0 .5em 1em;">
             <div class="paging"></div>
             <button is="paper-icon-button-light" class="btnSelectView autoSize" title="${ButtonSelectView}"><i class="md-icon">view_comfy</i></button>
@@ -101,24 +85,15 @@
             <button type="button" is="paper-icon-button-light" class="btnNewCollection autoSize"><i class="md-icon">add</i></button>
         </div>
 
-        <div is="emby-itemscontainer" class="itemsContainer vertical-wrap centered" style="text-align:center;">
+        <div is="emby-itemscontainer" class="itemsContainer vertical-wrap centered padded-left padded-right" style="text-align:center;">
         </div>
         <div style="text-align: center; display: flex; flex-wrap: wrap; align-items: center; justify-content: center;padding:.7em .5em;">
             <div class="paging"></div>
         </div>
     </div>
-    <div class="pageTabContent ehsContent fullWidth" id="genresTab" data-index="4">
+    <div class="pageTabContent" data-index="5">
         <div id="items"></div>
     </div>
-    <div class="pageTabContent ehsContent" id="studiosTab" data-index="5">
-        <div class="viewSettings">
-            <div class="listTopPaging">
-            </div>
-        </div>
-        <div is="emby-itemscontainer" id="items" class="itemsContainer paddedItemsContainer vertical-wrap" style="text-align: center;"></div>
-    </div>
-
-    <div data-role="content">
-
+    <div class="pageTabContent" data-index="6" style="padding-top:1em;">
     </div>
 </div>

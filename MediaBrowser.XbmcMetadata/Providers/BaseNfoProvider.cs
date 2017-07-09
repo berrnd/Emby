@@ -4,8 +4,6 @@ using MediaBrowser.XbmcMetadata.Savers;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using MediaBrowser.Common.IO;
-using MediaBrowser.Controller.IO;
 using MediaBrowser.Model.IO;
 
 namespace MediaBrowser.XbmcMetadata.Providers
@@ -77,10 +75,5 @@ namespace MediaBrowser.XbmcMetadata.Providers
                 return BaseNfoSaver.SaverName;
             }
         }
-    }
-
-    static class XmlProviderUtils
-    {
-        internal static readonly SemaphoreSlim XmlParsingResourcePool = new SemaphoreSlim(4, 4);
     }
 }

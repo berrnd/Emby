@@ -12,7 +12,7 @@ using System.Collections.Specialized;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using MediaBrowser.Common.IO;
+
 using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Services;
 using MediaBrowser.Model.Text;
@@ -303,6 +303,7 @@ namespace Emby.Server.Implementations.ServerManager
         /// </summary>
         private void DisposeHttpServer()
         {
+            _logger.Info("Disposing web socket connections");
             foreach (var socket in _webSocketConnections)
             {
                 // Dispose the connection
@@ -314,6 +315,9 @@ namespace Emby.Server.Implementations.ServerManager
             if (HttpServer != null)
             {
                 HttpServer.WebSocketConnected -= HttpServer_WebSocketConnected;
+
+                _logger.Info("Disposing http server");
+
                 HttpServer.Dispose();
             }
         }

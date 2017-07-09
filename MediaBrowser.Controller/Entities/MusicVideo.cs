@@ -6,19 +6,8 @@ using MediaBrowser.Model.Serialization;
 
 namespace MediaBrowser.Controller.Entities
 {
-    public class MusicVideo : Video, IHasArtist, IHasMusicGenres, IHasBudget, IHasLookupInfo<MusicVideoInfo>
+    public class MusicVideo : Video, IHasArtist, IHasMusicGenres, IHasLookupInfo<MusicVideoInfo>
     {
-        /// <summary>
-        /// Gets or sets the budget.
-        /// </summary>
-        /// <value>The budget.</value>
-        public double? Budget { get; set; }
-
-        /// <summary>
-        /// Gets or sets the revenue.
-        /// </summary>
-        /// <value>The revenue.</value>
-        public double? Revenue { get; set; }
         public List<string> Artists { get; set; }
 
         public MusicVideo()
@@ -40,7 +29,7 @@ namespace MediaBrowser.Controller.Entities
         {
             get
             {
-                return true;
+                return false;
             }
         }
 

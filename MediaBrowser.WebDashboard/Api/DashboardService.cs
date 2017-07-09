@@ -76,6 +76,11 @@ namespace MediaBrowser.WebDashboard.Api
         public string V { get; set; }
     }
 
+    [Route("/favicon.ico", "GET")]
+    public class GetFavIcon
+    {
+    }
+
     /// <summary>
     /// Class DashboardService
     /// </summary>
@@ -135,6 +140,31 @@ namespace MediaBrowser.WebDashboard.Api
         }
 
         /// <summary>
+        /// Gets the dashboard UI path.
+        /// </summary>
+        /// <value>The dashboard UI path.</value>
+        public string DashboardUIPath
+        {
+            get
+            {
+                if (!string.IsNullOrEmpty(_serverConfigurationManager.Configuration.DashboardSourcePath))
+                {
+                    return _serverConfigurationManager.Configuration.DashboardSourcePath;
+                }
+
+                return Path.Combine(_serverConfigurationManager.ApplicationPaths.ApplicationResourcesPath, "dashboard-ui");
+            }
+        }
+
+        public object Get(GetFavIcon request)
+        {
+            return Get(new GetDashboardResource
+            {
+                ResourceName = "favicon.ico"
+            });
+        }
+
+        /// <summary>
         /// Gets the specified request.
         /// </summary>
         /// <param name="request">The request.</param>
@@ -163,7 +193,7 @@ namespace MediaBrowser.WebDashboard.Api
 
             if (plugin != null && stream != null)
             {
-                return _resultFactory.GetStaticResult(Request, plugin.Version.ToString().GetMD5(), null, null, MimeTypes.GetMimeType("page.html"), () => GetPackageCreator().ModifyHtml("dummy.html", stream, null, _appHost.ApplicationVersion.ToString(), null));
+                return _resultFactory.GetStaticResult(Request, plugin.Version.ToString().GetMD5(), null, null, MimeTypes.GetMimeType("page.html"), () => GetPackageCreator(DashboardUIPath).ModifyHtml("dummy.html", stream, null, _appHost.ApplicationVersion.ToString(), null));
             }
 
             throw new ResourceNotFoundException();
@@ -261,9 +291,11 @@ namespace MediaBrowser.WebDashboard.Api
             path = path.Replace("bower_components" + _appHost.ApplicationVersion, "bower_components", StringComparison.OrdinalIgnoreCase);
 
             var contentType = MimeTypes.GetMimeType(path);
+            var basePath = DashboardUIPath;
 
             // Bounce them to the startup wizard if it hasn't been completed yet
-            if (!_serverConfigurationManager.Configuration.IsStartupWizardCompleted && path.IndexOf("wizard", StringComparison.OrdinalIgnoreCase) == -1 && GetPackageCreator().IsCoreHtml(path))
+            if (!_serverConfigurationManager.Configuration.IsStartupWizardCompleted &&
+                path.IndexOf("wizard", StringComparison.OrdinalIgnoreCase) == -1 && GetPackageCreator(basePath).IsCoreHtml(path))
             {
                 // But don't redirect if an html import is being requested.
                 if (path.IndexOf("bower_components", StringComparison.OrdinalIgnoreCase) == -1)
@@ -273,8 +305,6 @@ namespace MediaBrowser.WebDashboard.Api
                 }
             }
 
-            path = path.Replace("scripts/jquery.mobile-1.4.5.min.map", "thirdparty/jquerymobile-1.4.5/jquery.mobile-1.4.5.min.map", StringComparison.OrdinalIgnoreCase);
-
             var localizationCulture = GetLocalizationCulture();
 
             // Don't cache if not configured to do so
@@ -283,7 +313,7 @@ namespace MediaBrowser.WebDashboard.Api
                 !contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) &&
                 !contentType.StartsWith("font/", StringComparison.OrdinalIgnoreCase))
             {
-                var stream = await GetResourceStream(path, localizationCulture).ConfigureAwait(false);
+                var stream = await GetResourceStream(basePath, path, localizationCulture).ConfigureAwait(false);
                 return _resultFactory.GetResult(stream, contentType);
             }
 
@@ -298,7 +328,13 @@ namespace MediaBrowser.WebDashboard.Api
 
             var cacheKey = (_appHost.ApplicationVersion + (localizationCulture ?? string.Empty) + path).GetMD5();
 
-            return await _resultFactory.GetStaticResult(Request, cacheKey, null, cacheDuration, contentType, () => GetResourceStream(path, localizationCulture)).ConfigureAwait(false);
+            // html gets modified on the fly
+            if (contentType.StartsWith("text/html", StringComparison.OrdinalIgnoreCase))
+            {
+                return await _resultFactory.GetStaticResult(Request, cacheKey, null, cacheDuration, contentType, () => GetResourceStream(basePath, path, localizationCulture)).ConfigureAwait(false);
+            }
+
+            return await _resultFactory.GetStaticFileResult(Request, GetPackageCreator(basePath).GetResourcePath(path));
         }
 
         private string GetLocalizationCulture()
@@ -309,205 +345,72 @@ namespace MediaBrowser.WebDashboard.Api
         /// <summary>
         /// Gets the resource stream.
         /// </summary>
-        /// <param name="path">The path.</param>
-        /// <param name="localizationCulture">The localization culture.</param>
-        /// <returns>Task{Stream}.</returns>
-        private Task<Stream> GetResourceStream(string path, string localizationCulture)
+        private Task<Stream> GetResourceStream(string basePath, string virtualPath, string localizationCulture)
         {
-            return GetPackageCreator()
-                .GetResource(path, null, localizationCulture, _appHost.ApplicationVersion.ToString());
+            return GetPackageCreator(basePath)
+                .GetResource(virtualPath, null, localizationCulture, _appHost.ApplicationVersion.ToString());
         }
 
-        private PackageCreator GetPackageCreator()
+        private PackageCreator GetPackageCreator(string basePath)
         {
-            return new PackageCreator(_fileSystem, _logger, _serverConfigurationManager, _memoryStreamFactory);
-        }
-
-        private List<string> GetDeployIgnoreExtensions()
-        {
-            var list = new List<string>();
-
-            list.Add(".log");
-            list.Add(".txt");
-            list.Add(".map");
-            list.Add(".md");
-            list.Add(".gz");
-            list.Add(".bat");
-            list.Add(".sh");
-
-            return list;
-        }
-
-        private List<Tuple<string, bool>> GetDeployIgnoreFilenames()
-        {
-            var list = new List<Tuple<string, bool>>();
-
-            list.Add(new Tuple<string, bool>("copying", true));
-            list.Add(new Tuple<string, bool>("license", true));
-            list.Add(new Tuple<string, bool>("license-mit", true));
-            list.Add(new Tuple<string, bool>("gitignore", false));
-            list.Add(new Tuple<string, bool>("npmignore", false));
-            list.Add(new Tuple<string, bool>("jshintrc", false));
-            list.Add(new Tuple<string, bool>("gruntfile", false));
-            list.Add(new Tuple<string, bool>("bowerrc", false));
-            list.Add(new Tuple<string, bool>("jscsrc", false));
-            list.Add(new Tuple<string, bool>("hero.svg", false));
-            list.Add(new Tuple<string, bool>("travis.yml", false));
-            list.Add(new Tuple<string, bool>("build.js", false));
-            list.Add(new Tuple<string, bool>("editorconfig", false));
-            list.Add(new Tuple<string, bool>("gitattributes", false));
-
-            return list;
+            return new PackageCreator(basePath, _fileSystem, _logger, _serverConfigurationManager, _memoryStreamFactory);
         }
 
         public async Task<object> Get(GetDashboardPackage request)
         {
             var mode = request.Mode;
 
-            var path = string.Equals(mode, "cordova", StringComparison.OrdinalIgnoreCase) ?
-                Path.Combine(_serverConfigurationManager.ApplicationPaths.ProgramDataPath, "webclient-dump")
+            var inputPath = string.IsNullOrWhiteSpace(mode) ?
+                DashboardUIPath
+                : "C:\\dev\\emby-web-mobile-master\\dist";
+
+            var targetPath = !string.IsNullOrWhiteSpace(mode) ?
+                inputPath
                 : "C:\\dev\\emby-web-mobile\\src";
 
-            try
+            var packageCreator = GetPackageCreator(inputPath);
+
+            if (!string.Equals(inputPath, targetPath, StringComparison.OrdinalIgnoreCase))
             {
-                _fileSystem.DeleteDirectory(path, true);
+                try
+                {
+                    _fileSystem.DeleteDirectory(targetPath, true);
+                }
+                catch (IOException)
+                {
+
+                }
+
+                CopyDirectory(inputPath, targetPath);
             }
-            catch (IOException)
-            {
-
-            }
-
-            var creator = GetPackageCreator();
-
-            CopyDirectory(creator.DashboardUIPath, path);
 
             string culture = null;
 
             var appVersion = _appHost.ApplicationVersion.ToString();
 
-            // Try to trim the output size a bit
-            var bowerPath = Path.Combine(path, "bower_components");
-
-            foreach (var ext in GetDeployIgnoreExtensions())
-            {
-                DeleteFilesByExtension(bowerPath, ext);
-            }
-
-            DeleteFilesByExtension(bowerPath, ".json", "strings\\");
-
-            foreach (var ignore in GetDeployIgnoreFilenames())
-            {
-                DeleteFilesByName(bowerPath, ignore.Item1, ignore.Item2);
-            }
-
-            DeleteFoldersByName(bowerPath, "demo");
-            DeleteFoldersByName(bowerPath, "test");
-            DeleteFoldersByName(bowerPath, "guides");
-            DeleteFoldersByName(bowerPath, "grunt");
-            DeleteFoldersByName(bowerPath, "rollups");
-
-            if (string.Equals(mode, "cordova", StringComparison.OrdinalIgnoreCase))
-            {
-                DeleteFoldersByName(Path.Combine(bowerPath, "emby-webcomponents", "fonts"), "montserrat");
-                DeleteFoldersByName(Path.Combine(bowerPath, "emby-webcomponents", "fonts"), "opensans");
-                DeleteFoldersByName(Path.Combine(bowerPath, "emby-webcomponents", "fonts"), "roboto");
-            }
-
-            _fileSystem.DeleteDirectory(Path.Combine(bowerPath, "jquery", "src"), true);
-
-            DeleteCryptoFiles(Path.Combine(bowerPath, "cryptojslib", "components"));
-
-            DeleteFoldersByName(Path.Combine(bowerPath, "jquery"), "src");
-            DeleteFoldersByName(Path.Combine(bowerPath, "jstree"), "src");
-            //DeleteFoldersByName(Path.Combine(bowerPath, "Sortable"), "meteor");
-            //DeleteFoldersByName(Path.Combine(bowerPath, "Sortable"), "st");
-            //DeleteFoldersByName(Path.Combine(bowerPath, "Swiper"), "src");
-
-            if (string.Equals(mode, "cordova", StringComparison.OrdinalIgnoreCase))
-            {
-                // Delete things that are unneeded in an attempt to keep the output as trim as possible
-                _fileSystem.DeleteDirectory(Path.Combine(path, "css", "images", "tour"), true);
-            }
-
-            await DumpHtml(creator.DashboardUIPath, path, mode, culture, appVersion);
-
-            await DumpFile("css/all.css", Path.Combine(path, "css", "all.css"), mode, culture, appVersion).ConfigureAwait(false);
+            await DumpHtml(packageCreator, inputPath, targetPath, mode, culture, appVersion);
 
             return "";
         }
 
-        private void DeleteCryptoFiles(string path)
-        {
-            var files = _fileSystem.GetFiles(path)
-                .ToList();
-
-            var keepFiles = new[] { "core-min.js", "md5-min.js", "sha1-min.js" };
-
-            foreach (var file in files)
-            {
-                if (!keepFiles.Contains(file.Name, StringComparer.OrdinalIgnoreCase))
-                {
-                    _fileSystem.DeleteFile(file.FullName);
-                }
-            }
-        }
-
-        private void DeleteFilesByExtension(string path, string extension, string exclude = null)
-        {
-            var files = _fileSystem.GetFiles(path, true)
-                .Where(i => string.Equals(i.Extension, extension, StringComparison.OrdinalIgnoreCase))
-                .ToList();
-
-            foreach (var file in files)
-            {
-                if (!string.IsNullOrWhiteSpace(exclude))
-                {
-                    if (file.FullName.IndexOf(exclude, StringComparison.OrdinalIgnoreCase) != -1)
-                    {
-                        continue;
-                    }
-                }
-                _fileSystem.DeleteFile(file.FullName);
-            }
-        }
-
-        private void DeleteFilesByName(string path, string name, bool exact = false)
-        {
-            var files = _fileSystem.GetFiles(path, true)
-                .Where(i => string.Equals(i.Name, name, StringComparison.OrdinalIgnoreCase) || (!exact && i.Name.IndexOf(name, StringComparison.OrdinalIgnoreCase) != -1))
-                .ToList();
-
-            foreach (var file in files)
-            {
-                _fileSystem.DeleteFile(file.FullName);
-            }
-        }
-
-        private void DeleteFoldersByName(string path, string name)
-        {
-            var directories = _fileSystem.GetDirectories(path, true)
-                .Where(i => string.Equals(i.Name, name, StringComparison.OrdinalIgnoreCase))
-                .ToList();
-
-            foreach (var directory in directories)
-            {
-                _fileSystem.DeleteDirectory(directory.FullName, true);
-            }
-        }
-
-        private async Task DumpHtml(string source, string destination, string mode, string culture, string appVersion)
+        private async Task DumpHtml(PackageCreator packageCreator, string source, string destination, string mode, string culture, string appVersion)
         {
             foreach (var file in _fileSystem.GetFiles(source))
             {
                 var filename = file.Name;
 
-                await DumpFile(filename, Path.Combine(destination, filename), mode, culture, appVersion).ConfigureAwait(false);
+                if (!string.Equals(file.Extension, ".html", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                await DumpFile(packageCreator, filename, Path.Combine(destination, filename), mode, culture, appVersion).ConfigureAwait(false);
             }
         }
 
-        private async Task DumpFile(string resourceVirtualPath, string destinationFilePath, string mode, string culture, string appVersion)
+        private async Task DumpFile(PackageCreator packageCreator, string resourceVirtualPath, string destinationFilePath, string mode, string culture, string appVersion)
         {
-            using (var stream = await GetPackageCreator().GetResource(resourceVirtualPath, mode, culture, appVersion).ConfigureAwait(false))
+            using (var stream = await packageCreator.GetResource(resourceVirtualPath, mode, culture, appVersion).ConfigureAwait(false))
             {
                 using (var fs = _fileSystem.GetFileStream(destinationFilePath, FileOpenMode.Create, FileAccessMode.Write, FileShareMode.Read))
                 {

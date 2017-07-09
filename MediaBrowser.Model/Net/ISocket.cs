@@ -1,28 +1,32 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace MediaBrowser.Model.Net
 {
+    /// <summary>
+    /// Provides a common interface across platforms for UDP sockets used by this SSDP implementation.
+    /// </summary>
     public interface ISocket : IDisposable
     {
-        bool DualMode { get; }
-        IpEndPointInfo LocalEndPoint { get; }
-        IpEndPointInfo RemoteEndPoint { get; }
-        void Close();
-        void Shutdown(bool both);
-        void Listen(int backlog);
-        void Bind(IpEndPointInfo endpoint);
+        IpAddressInfo LocalIPAddress { get; }
 
-        void StartAccept(Action<ISocket> onAccept, Func<bool> isClosed);
-    }
+        Task<SocketReceiveResult> ReceiveAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken);
 
-    public class SocketCreateException : Exception
-    {
-        public SocketCreateException(string errorCode, Exception originalException)
-            : base(errorCode, originalException)
-        {
-            ErrorCode = errorCode;
-        }
+        int Receive(byte[] buffer, int offset, int count);
 
-        public string ErrorCode { get; private set; }
+        IAsyncResult BeginReceive(byte[] buffer, int offset, int count, AsyncCallback callback);
+        SocketReceiveResult EndReceive(IAsyncResult result);
+
+        /// <summary>
+        /// Sends a UDP message to a particular end point (uni or multicast).
+        /// </summary>
+        Task SendToAsync(byte[] buffer, int offset, int bytes, IpEndPointInfo endPoint, CancellationToken cancellationToken);
+
+        IAsyncResult BeginSendTo(byte[] buffer, int offset, int size, IpEndPointInfo endPoint, AsyncCallback callback, object state);
+        int EndSendTo(IAsyncResult result);
     }
 }

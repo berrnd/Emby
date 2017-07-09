@@ -17,7 +17,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using MediaBrowser.Common.IO;
+
 using MediaBrowser.Controller.IO;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Globalization;
@@ -198,7 +198,7 @@ namespace MediaBrowser.Providers.TV
             tmdbId = seriesInfo.id.ToString(_usCulture);
 
             dataFilePath = GetDataFilePath(tmdbId, language);
-            _fileSystem.CreateDirectory(Path.GetDirectoryName(dataFilePath));
+            _fileSystem.CreateDirectory(_fileSystem.GetDirectoryName(dataFilePath));
             _jsonSerializer.SerializeToFile(seriesInfo, dataFilePath);
 
             await EnsureSeriesInfo(tmdbId, language, cancellationToken).ConfigureAwait(false);
@@ -217,7 +217,7 @@ namespace MediaBrowser.Providers.TV
             series.Name = seriesInfo.name;
             series.SetProviderId(MetadataProviders.Tmdb, seriesInfo.id.ToString(_usCulture));
 
-            series.VoteCount = seriesInfo.vote_count;
+            //series.VoteCount = seriesInfo.vote_count;
 
             string voteAvg = seriesInfo.vote_average.ToString(CultureInfo.InvariantCulture);
             float rating;
@@ -330,7 +330,7 @@ namespace MediaBrowser.Providers.TV
 
             var dataFilePath = GetDataFilePath(id, preferredMetadataLanguage);
 
-            _fileSystem.CreateDirectory(Path.GetDirectoryName(dataFilePath));
+            _fileSystem.CreateDirectory(_fileSystem.GetDirectoryName(dataFilePath));
 
             _jsonSerializer.SerializeToFile(mainResult, dataFilePath);
         }
@@ -443,7 +443,7 @@ namespace MediaBrowser.Providers.TV
 
         private async Task<RemoteSearchResult> FindByExternalId(string id, string externalSource, CancellationToken cancellationToken)
         {
-            var url = string.Format("https://api.themoviedb.org/3/tv/find/{0}?api_key={1}&external_source={2}",
+            var url = string.Format("https://api.themoviedb.org/3/find/{0}?api_key={1}&external_source={2}",
                 id,
                 MovieDbProvider.ApiKey,
                 externalSource);

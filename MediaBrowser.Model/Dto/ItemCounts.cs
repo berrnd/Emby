@@ -67,9 +67,9 @@ namespace MediaBrowser.Model.Dto
         public int BookCount { get; set; }
         public int ItemCount { get; set; }
 
-        //myproduction-change-start
-        //Added LibraryStatistics
-        public LibraryStatistics LibraryStatistics { get; set; }
-        //myproduction-change-end
-    }
+		//myproduction-change-start
+		//Added LibraryStatistics
+		public LibraryStatistics LibraryStatistics { get; set; }
+		//myproduction-change-end
+	}
 }

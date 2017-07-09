@@ -3,7 +3,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Logging;
+using MediaBrowser.Model.Services;
 using SocketHttpListener.Net;
 using HttpListenerResponse = SocketHttpListener.Net.HttpListenerResponse;
 using IHttpResponse = MediaBrowser.Model.Services.IHttpResponse;
@@ -63,6 +67,14 @@ namespace Emby.Server.Implementations.HttpServer.SocketSharp
             _response.AddHeader(name, value);
         }
 
+        public QueryParamCollection Headers
+        {
+            get
+            {
+                return _response.Headers;
+            }
+        }
+
         public string GetHeader(string name)
         {
             return _response.Headers[name];
@@ -102,15 +114,9 @@ namespace Emby.Server.Implementations.HttpServer.SocketSharp
                 var outputStream = response.OutputStream;
 
                 // This is needed with compression
-                if (outputStream is ResponseStream)
-                {
-                    //if (!string.IsNullOrWhiteSpace(GetHeader("Content-Encoding")))
-                    {
-                        outputStream.Flush();
-                    }
+                outputStream.Flush();
+                outputStream.Dispose();
 
-                    outputStream.Dispose();
-                }
                 response.Close();
             }
             catch (Exception ex)
@@ -188,6 +194,11 @@ namespace Emby.Server.Implementations.HttpServer.SocketSharp
 
         public void ClearCookies()
         {
+        }
+
+        public Task TransmitFile(string path, long offset, long count, FileShareMode fileShareMode, CancellationToken cancellationToken)
+        {
+            return _response.TransmitFile(path, offset, count, fileShareMode, cancellationToken);
         }
     }
 }

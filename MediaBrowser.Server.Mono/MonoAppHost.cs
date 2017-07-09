@@ -1,19 +1,25 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
+using Emby.Server.CinemaMode;
+using Emby.Server.Connect;
 using Emby.Server.Core;
 using Emby.Server.Implementations;
-using Emby.Server.Implementations.FFMpeg;
+using Emby.Server.Sync;
+using MediaBrowser.Controller.Connect;
+using MediaBrowser.Controller.Sync;
 using MediaBrowser.IsoMounter;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Logging;
 using MediaBrowser.Model.System;
+using MediaBrowser.Model.Updates;
+using MediaBrowser.Server.Startup.Common;
 
 namespace MediaBrowser.Server.Mono
 {
     public class MonoAppHost : ApplicationHost
     {
-        public MonoAppHost(ServerApplicationPaths applicationPaths, ILogManager logManager, StartupOptions options, IFileSystem fileSystem, IPowerManagement powerManagement, string releaseAssetFilename, IEnvironmentInfo environmentInfo, MediaBrowser.Controller.Drawing.IImageEncoder imageEncoder, ISystemEvents systemEvents, IMemoryStreamFactory memoryStreamFactory, MediaBrowser.Common.Net.INetworkManager networkManager, Action<string, string> certificateGenerator, Func<string> defaultUsernameFactory) : base(applicationPaths, logManager, options, fileSystem, powerManagement, releaseAssetFilename, environmentInfo, imageEncoder, systemEvents, memoryStreamFactory, networkManager, certificateGenerator, defaultUsernameFactory)
+        public MonoAppHost(ServerApplicationPaths applicationPaths, ILogManager logManager, StartupOptions options, IFileSystem fileSystem, IPowerManagement powerManagement, string releaseAssetFilename, IEnvironmentInfo environmentInfo, MediaBrowser.Controller.Drawing.IImageEncoder imageEncoder, ISystemEvents systemEvents, IMemoryStreamFactory memoryStreamFactory, MediaBrowser.Common.Net.INetworkManager networkManager, Action<string, string, string> certificateGenerator, Func<string> defaultUsernameFactory) : base(applicationPaths, logManager, options, fileSystem, powerManagement, releaseAssetFilename, environmentInfo, imageEncoder, systemEvents, memoryStreamFactory, networkManager, certificateGenerator, defaultUsernameFactory)
         {
         }
 
@@ -26,61 +32,14 @@ namespace MediaBrowser.Server.Mono
             }
         }
 
-        public override bool CanSelfUpdate
+        protected override IConnectManager CreateConnectManager()
         {
-            get
-            {
-                return false;
-            }
+            return new ConnectManager();
         }
 
-        protected override FFMpegInstallInfo GetFfmpegInstallInfo()
+        protected override ISyncManager CreateSyncManager()
         {
-            var info = new FFMpegInstallInfo();
-
-            // Windows builds: http://ffmpeg.zeranoe.com/builds/
-            // Linux builds: http://johnvansickle.com/ffmpeg/
-            // OS X builds: http://ffmpegmac.net/
-            // OS X x64: http://www.evermeet.cx/ffmpeg/
-
-            var environment = (MonoEnvironmentInfo) EnvironmentInfo;
-
-            if (environment.IsBsd)
-            {
-
-            }
-            else if (environment.OperatingSystem == Model.System.OperatingSystem.Linux)
-            {
-                info.FFMpegFilename = "ffmpeg";
-                info.FFProbeFilename = "ffprobe";
-                info.ArchiveType = "7z";
-                info.Version = "20160215";
-                info.DownloadUrls = GetDownloadUrls();
-            }
-
-            // No version available - user requirement
-            info.DownloadUrls = new string[] { };
-
-            return info;
-        }
-
-        private string[] GetDownloadUrls()
-        {
-            switch (EnvironmentInfo.SystemArchitecture)
-            {
-                case Architecture.X64:
-                    return new[]
-                    {
-                                "https://github.com/MediaBrowser/Emby.Resources/raw/master/ffmpeg/linux/ffmpeg-git-20160215-64bit-static.7z"
-                    };
-                case Architecture.X86:
-                    return new[]
-                    {
-                                "https://github.com/MediaBrowser/Emby.Resources/raw/master/ffmpeg/linux/ffmpeg-git-20160215-32bit-static.7z"
-                    };
-            }
-
-            return new string[] { };
+            return new SyncManager();
         }
 
         protected override void RestartInternal()
@@ -102,7 +61,10 @@ namespace MediaBrowser.Server.Mono
         {
             var list = new List<Assembly>();
 
+            list.Add(typeof(DefaultIntroProvider).Assembly);
             list.Add(typeof(LinuxIsoManager).Assembly);
+            list.Add(typeof(ConnectManager).Assembly);
+            list.Add(typeof(SyncManager).Assembly);
 
             return list;
         }
@@ -136,41 +98,6 @@ namespace MediaBrowser.Server.Mono
             }
 
             return new Version(1, 0);
-        }
-
-        protected override void AuthorizeServer()
-        {
-            throw new NotImplementedException();
-        }
-
-        protected override void ConfigureAutoRunInternal(bool autorun)
-        {
-            throw new NotImplementedException();
-        }
-
-        protected override void EnableLoopbackInternal(string appName)
-        {
-        }
-
-        public override bool SupportsRunningAsService
-        {
-            get
-            {
-                return false;
-            }
-        }
-
-        public override bool SupportsAutoRunAtStartup
-        {
-            get { return false; }
-        }
-
-        public override bool IsRunningAsService
-        {
-            get
-            {
-                return false;
-            }
         }
     }
 }

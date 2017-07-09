@@ -261,7 +261,7 @@ namespace MediaBrowser.Api
         {
             var result = new PluginSecurityInfo
             {
-                IsMBSupporter = _securityManager.IsMBSupporter,
+                IsMBSupporter = true, //_securityManager.IsMBSupporter,
                 SupporterKey = _securityManager.SupporterKey
             };
 

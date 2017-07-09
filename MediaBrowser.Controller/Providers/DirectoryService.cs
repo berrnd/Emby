@@ -4,7 +4,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using MediaBrowser.Common.IO;
+
 using MediaBrowser.Controller.IO;
 using MediaBrowser.Model.IO;
 
@@ -63,11 +63,11 @@ namespace MediaBrowser.Controller.Providers
                 //_logger.Debug("Getting files for " + path);
 
                 entries = new Dictionary<string, FileSystemMetadata>(StringComparer.OrdinalIgnoreCase);
-                
+
                 try
                 {
                     // using EnumerateFileSystemInfos doesn't handle reparse points (symlinks)
-					var list = _fileSystem.GetFileSystemEntries(path)
+                    var list = _fileSystem.GetFileSystemEntries(path)
                         .ToList();
 
                     // Seeing dupes on some users file system for some reason
@@ -80,7 +80,7 @@ namespace MediaBrowser.Controller.Providers
                 {
                 }
 
-                //var group = entries.ToLookup(i => Path.GetDirectoryName(i.FullName)).ToList();
+                //var group = entries.ToLookup(i => _fileSystem.GetDirectoryName(i.FullName)).ToList();
 
                 _cache.TryAdd(path, entries);
             }
@@ -101,6 +101,16 @@ namespace MediaBrowser.Controller.Providers
         public IEnumerable<FileSystemMetadata> GetFiles(string path, bool clearCache)
         {
             return GetFileSystemEntries(path, clearCache).Where(i => !i.IsDirectory);
+        }
+
+        public IEnumerable<string> GetFilePaths(string path)
+        {
+            return _fileSystem.GetFilePaths(path);
+        }
+
+        public IEnumerable<string> GetFilePaths(string path, bool clearCache)
+        {
+            return _fileSystem.GetFilePaths(path);
         }
 
         public FileSystemMetadata GetFile(string path)

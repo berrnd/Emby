@@ -48,11 +48,23 @@ namespace MediaBrowser.Controller.LiveTv
             return list;
         }
 
+        public override double? GetDefaultPrimaryImageAspectRatio()
+        {
+            if (IsMovie)
+            {
+                double value = 2;
+                value /= 3;
+
+                return value;
+            }
+
+            return null;
+        }
+
         [IgnoreDataMember]
         public override SourceType SourceType
         {
             get { return SourceType.LiveTV; }
-            set { }
         }
 
         /// <summary>

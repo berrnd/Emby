@@ -16,16 +16,6 @@
         AlternateEpisodeNumbers,
 
         /// <summary>
-        /// The awards summary
-        /// </summary>
-        AwardSummary,
-
-        /// <summary>
-        /// The budget
-        /// </summary>
-        Budget,
-
-        /// <summary>
         /// The can delete
         /// </summary>
         CanDelete,
@@ -46,11 +36,6 @@
         Chapters,
 
         ChildCount,
-
-        /// <summary>
-        /// The critic rating summary
-        /// </summary>
-        CriticRatingSummary,
 
         /// <summary>
         /// The cumulative run time ticks
@@ -127,13 +112,6 @@
         /// </summary>
         MediaSources,
 
-        /// <summary>
-        /// The metascore
-        /// </summary>
-        Metascore,
-
-        OfficialRatingDescription,
-
         OriginalTitle,
 
         /// <summary>
@@ -156,6 +134,8 @@
         /// </summary>
         People,
 
+        PlayAccess,
+
         /// <summary>
         /// The production locations
         /// </summary>
@@ -174,24 +154,9 @@
         RecursiveItemCount,
 
         /// <summary>
-        /// The revenue
-        /// </summary>
-        Revenue,
-
-        /// <summary>
-        /// The season name
-        /// </summary>
-        SeasonName,
-
-        /// <summary>
         /// The settings
         /// </summary>
         Settings,
-
-        /// <summary>
-        /// The short overview
-        /// </summary>
-        ShortOverview,
 
         /// <summary>
         /// The screenshot image tags
@@ -242,11 +207,6 @@
         Tags,
 
         /// <summary>
-        /// The vote count
-        /// </summary>
-        VoteCount,
-
-        /// <summary>
         /// The trailer url of the item
         /// </summary>
         RemoteTrailers,
@@ -266,6 +226,13 @@
         /// </summary>
         ServiceName,
         ThemeSongIds,
-        ThemeVideoIds
+        ThemeVideoIds,
+        ExternalEtag,
+        PresentationUniqueKey,
+        InheritedParentalRatingValue,
+        ExternalSeriesId,
+        SeriesPresentationUniqueKey,
+        DateLastRefreshed,
+        DateLastSaved
     }
 }

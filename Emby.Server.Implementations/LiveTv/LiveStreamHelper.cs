@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using MediaBrowser.Controller.MediaEncoding;
 using MediaBrowser.Model.Dlna;
 using MediaBrowser.Model.Dto;
+using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Logging;
 
 namespace Emby.Server.Implementations.LiveTv
@@ -14,6 +15,8 @@ namespace Emby.Server.Implementations.LiveTv
     {
         private readonly IMediaEncoder _mediaEncoder;
         private readonly ILogger _logger;
+
+        const int AnalyzeDurationMs = 1000;
 
         public LiveStreamHelper(IMediaEncoder mediaEncoder, ILogger logger)
         {
@@ -33,7 +36,7 @@ namespace Emby.Server.Implementations.LiveTv
                 Protocol = mediaSource.Protocol,
                 MediaType = isAudio ? DlnaProfileType.Audio : DlnaProfileType.Video,
                 ExtractChapters = false,
-                AnalyzeDurationSections = 2
+                AnalyzeDurationMs = AnalyzeDurationMs
 
             }, cancellationToken).ConfigureAwait(false);
 
@@ -75,19 +78,24 @@ namespace Emby.Server.Implementations.LiveTv
                 {
                     var width = videoStream.Width ?? 1920;
 
-                    if (width >= 1900)
+                    if (width >= 3000)
+                    {
+                        videoStream.BitRate = 30000000;
+                    }
+
+                    else if (width >= 1900)
+                    {
+                        videoStream.BitRate = 20000000;
+                    }
+
+                    else if (width >= 1200)
                     {
                         videoStream.BitRate = 8000000;
                     }
 
-                    else if (width >= 1260)
-                    {
-                        videoStream.BitRate = 3000000;
-                    }
-
                     else if (width >= 700)
                     {
-                        videoStream.BitRate = 1000000;
+                        videoStream.BitRate = 2000000;
                     }
                 }
 
@@ -97,6 +105,8 @@ namespace Emby.Server.Implementations.LiveTv
 
             // Try to estimate this
             mediaSource.InferTotalBitrate(true);
+
+            mediaSource.AnalyzeDurationMs = AnalyzeDurationMs;
         }
     }
 }

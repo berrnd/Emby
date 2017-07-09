@@ -318,8 +318,7 @@ namespace Emby.Dlna.PlayTo
 
                 CanSeek = info.MediaSource == null ? _device.Duration.HasValue : info.MediaSource.RunTimeTicks.HasValue,
 
-                PlayMethod = info.IsDirectStream ? PlayMethod.DirectStream : PlayMethod.Transcode,
-                QueueableMediaTypes = new List<string> { mediaInfo.MediaType }
+                PlayMethod = info.IsDirectStream ? PlayMethod.DirectStream : PlayMethod.Transcode
             };
         }
 
@@ -542,7 +541,7 @@ namespace Emby.Dlna.PlayTo
             {
                 var list = new ContentFeatureBuilder(profile)
                     .BuildVideoHeader(streamInfo.Container,
-                    streamInfo.VideoCodec,
+                    streamInfo.TargetVideoCodec,
                     streamInfo.TargetAudioCodec,
                     streamInfo.TargetWidth,
                     streamInfo.TargetHeight,
@@ -557,6 +556,7 @@ namespace Emby.Dlna.PlayTo
                     streamInfo.TargetPacketLength,
                     streamInfo.TranscodeSeekInfo,
                     streamInfo.IsTargetAnamorphic,
+                    streamInfo.IsTargetInterlaced,
                     streamInfo.TargetRefFrames,
                     streamInfo.TargetVideoStreamCount,
                     streamInfo.TargetAudioStreamCount,

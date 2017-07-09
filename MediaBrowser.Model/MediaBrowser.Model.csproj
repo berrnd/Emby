@@ -34,10 +34,6 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <None Include="project.json" />
-    <!-- A reference to the entire .NET Framework is automatically included -->
-  </ItemGroup>
-  <ItemGroup>
     <Compile Include="..\SharedVersion.cs">
       <Link>Properties\SharedVersion.cs</Link>
     </Compile>
@@ -135,10 +131,12 @@
     <Compile Include="Dto\MetadataEditorInfo.cs" />
     <Compile Include="Dto\NameIdPair.cs" />
     <Compile Include="Dto\NameValuePair.cs" />
+    <Compile Include="Library\LibraryStatistics.cs" />
+    <Compile Include="Logging\IConsoleLogger.cs" />
     <Compile Include="Net\IpEndPointInfo.cs" />
-    <Compile Include="Net\ISocket.cs" />
+    <Compile Include="Net\IAcceptSocket.cs" />
     <Compile Include="Net\ISocketFactory.cs" />
-    <Compile Include="Net\IUdpSocket.cs" />
+    <Compile Include="Net\ISocket.cs" />
     <Compile Include="Net\SocketReceiveResult.cs" />
     <Compile Include="Services\IHttpResult.cs" />
     <Compile Include="Social\ISharingRepository.cs" />
@@ -147,9 +145,6 @@
     <Compile Include="Text\ITextEncoding.cs" />
     <Compile Include="Extensions\LinqExtensions.cs" />
     <Compile Include="FileOrganization\SmartMatchInfo.cs" />
-	<!--myproduction-change-start-->
-    <Compile Include="Library\LibraryStatistics.cs" />
-	<!--myproduction-change-end-->
     <Compile Include="Health\IHealthMonitor.cs" />
     <Compile Include="IO\FileSystemMetadata.cs" />
     <Compile Include="IO\IFileSystem.cs" />
@@ -201,7 +196,6 @@
     <Compile Include="Notifications\NotificationOption.cs" />
     <Compile Include="Notifications\NotificationOptions.cs" />
     <Compile Include="Notifications\NotificationType.cs" />
-    <Compile Include="Configuration\PathSubstitution.cs" />
     <Compile Include="Notifications\SendToUserType.cs" />
     <Compile Include="Configuration\ServerConfiguration.cs" />
     <Compile Include="Playlists\PlaylistCreationRequest.cs" />
@@ -329,7 +323,6 @@
     <Compile Include="Querying\EpisodeQuery.cs" />
     <Compile Include="Querying\ItemCountsQuery.cs" />
     <Compile Include="Querying\ItemsByNameQuery.cs" />
-    <Compile Include="Entities\BaseItemInfo.cs" />
     <Compile Include="Querying\LatestItemsQuery.cs" />
     <Compile Include="Querying\MovieRecommendationQuery.cs" />
     <Compile Include="Querying\NextUpQuery.cs" />

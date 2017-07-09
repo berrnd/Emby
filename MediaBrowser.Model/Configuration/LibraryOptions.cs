@@ -14,6 +14,9 @@
         public bool EnableInternetProviders { get; set; }
         public bool ImportMissingEpisodes { get; set; }
         public bool EnableAutomaticSeriesGrouping { get; set; }
+        public bool EnableEmbeddedTitles { get; set; }
+
+        public int AutomaticRefreshIntervalDays { get; set; }
 
         /// <summary>
         /// Gets or sets the preferred metadata language.

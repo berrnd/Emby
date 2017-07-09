@@ -499,9 +499,6 @@ function Get-MsBuildPath([switch] $Use32BitMsBuild)
 
 	# Get the path to the MsBuild executable.
 	$msBuildPath = (Join-Path -Path $msBuildDirectoryPath -ChildPath 'msbuild.exe')
-	
-	# Overwrite path for VS 2017
-	$msBuildPath = "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\MSBuild\15.0\Bin\MSBuild.exe"
 
 	if(!(Test-Path $msBuildPath -PathType Leaf))
 	{

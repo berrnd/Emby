@@ -6,7 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using MediaBrowser.Common.IO;
+
 using MediaBrowser.Controller.IO;
 using MediaBrowser.Model.IO;
 
@@ -38,28 +38,14 @@ namespace MediaBrowser.LocalMetadata.Images
 
         public List<LocalImageInfo> GetImages(IHasImages item, IDirectoryService directoryService)
         {
-            var parentPath = Path.GetDirectoryName(item.Path);
+            var parentPath = _fileSystem.GetDirectoryName(item.Path);
 
-            var parentPathFiles = directoryService.GetFileSystemEntries(parentPath)
+            var parentPathFiles = directoryService.GetFiles(parentPath)
                 .ToList();
 
             var nameWithoutExtension = _fileSystem.GetFileNameWithoutExtension(item.Path);
 
-            var files = GetFilesFromParentFolder(nameWithoutExtension, parentPathFiles);
-
-            if (files.Count > 0)
-            {
-                return files;
-            }
-
-            var metadataPath = Path.Combine(parentPath, "metadata");
-
-            if (parentPathFiles.Any(i => string.Equals(i.FullName, metadataPath, StringComparison.OrdinalIgnoreCase)))
-            {
-                return GetFilesFromParentFolder(nameWithoutExtension, directoryService.GetFiles(metadataPath));
-            }
-
-            return new List<LocalImageInfo>();
+            return GetFilesFromParentFolder(nameWithoutExtension, parentPathFiles);
         }
 
         private List<LocalImageInfo> GetFilesFromParentFolder(string filenameWithoutExtension, IEnumerable<FileSystemMetadata> parentPathFiles)

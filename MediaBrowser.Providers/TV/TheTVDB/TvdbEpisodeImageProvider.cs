@@ -12,8 +12,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
-using MediaBrowser.Common.IO;
-using MediaBrowser.Controller.IO;
 using MediaBrowser.Model.IO;
 
 namespace MediaBrowser.Providers.TV
@@ -59,7 +57,6 @@ namespace MediaBrowser.Providers.TV
             {
                 // Process images
                 var seriesDataPath = TvdbSeriesProvider.GetSeriesDataPath(_config.ApplicationPaths, series.ProviderIds);
-                var indexOffset = TvdbSeriesProvider.GetSeriesOffset(series.ProviderIds) ?? 0;
 
 				var nodes = TvdbEpisodeProvider.Current.GetEpisodeXmlNodes(seriesDataPath, episode.GetLookupInfo());
 
@@ -176,8 +173,7 @@ namespace MediaBrowser.Providers.TV
             return _httpClient.GetResponse(new HttpRequestOptions
             {
                 CancellationToken = cancellationToken,
-                Url = url,
-                ResourcePool = TvdbSeriesProvider.Current.TvDbResourcePool
+                Url = url
             });
         }
     }

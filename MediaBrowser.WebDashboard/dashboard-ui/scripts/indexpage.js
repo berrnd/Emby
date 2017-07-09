@@ -1,442 +1,278 @@
-﻿define(['libraryBrowser', 'playbackManager', 'emby-tabs', 'emby-button'], function (libraryBrowser, playbackManager) {
-    'use strict';
+define(["loading", "libraryBrowser", "libraryMenu", "playbackManager", "mainTabsManager", "homeSections", "globalize", "apphost", "serverNotifications", "events", "emby-button"], function (loading, libraryBrowser, libraryMenu, playbackManager, mainTabsManager, homeSections, globalize, appHost, serverNotifications, events) {
+	"use strict";
 
-    var defaultFirstSection = 'smalllibrarytiles';
+	function displayPreferencesKey() {
+		return AppInfo.isNativeApp ? "Emby Mobile" : "webclient"
+	}
 
-    function getDefaultSection(index) {
-		
-		//myproduction-change-start
-		//Changed default sections
-        switch (index) {
+	function dismissWelcome(page, userId) {
+		var apiClient = ApiClient;
+		getDisplayPreferences(apiClient, "home", userId).then(function (result) {
+			result.CustomPrefs[homePageTourKey] = homePageDismissValue, apiClient.updateDisplayPreferences("home", result, userId, displayPreferencesKey())
+		})
+	}
 
-            case 0:
-                return 'librarybuttons';
-            case 1:
-                return 'latestmedia';
-            case 2:
-                return 'none';
-            case 3:
-                return 'none';
-            case 4:
-                return 'none';
-            default:
-                return '';
-        }
-		//myproduction-change-end
-    }
+	function showWelcomeIfNeeded(page, displayPreferences) {
+		if (displayPreferences.CustomPrefs[homePageTourKey] == homePageDismissValue) page.querySelector(".welcomeMessage").classList.add("hide");
+		else {
+			loading.hide();
+			var elem = page.querySelector(".welcomeMessage");
+			elem.classList.remove("hide"), displayPreferences.CustomPrefs[homePageTourKey] ? (elem.querySelector(".tourHeader").innerHTML = globalize.translate("HeaderWelcomeBack"), elem.querySelector(".tourButtonText").innerHTML = globalize.translate("ButtonTakeTheTourToSeeWhatsNew")) : (elem.querySelector(".tourHeader").innerHTML = globalize.translate("HeaderWelcomeToProjectWebClient"), elem.querySelector(".tourButtonText").innerHTML = globalize.translate("ButtonTakeTheTour"))
+		}
+	}
 
-    function loadSection(page, user, userSettings, index) {
-
-        var userId = user.Id;
-
-        //myproduction-change-start
-		//Only use settings provided by getDefaultSection
-        var section = getDefaultSection(index);
-		//myproduction-change-end
-
-        if (section == 'folders') {
-            section = defaultFirstSection;
-        }
-
-        var elem = page.querySelector('.section' + index);
-
-        if (section == 'latestmedia') {
-            return Sections.loadRecentlyAdded(elem, user);
-        }
-        else if (section == 'librarytiles') {
-            return Sections.loadLibraryTiles(elem, user, 'backdrop', index);
-        }
-        else if (section == 'smalllibrarytiles') {
-            return Sections.loadLibraryTiles(elem, user, 'smallBackdrop', index);
-        }
-        else if (section == 'smalllibrarytiles-automobile') {
-            return Sections.loadLibraryTiles(elem, user, 'smallBackdrop', index);
-        }
-        else if (section == 'librarytiles-automobile') {
-            return Sections.loadLibraryTiles(elem, user, 'backdrop', index);
-        }
-        else if (section == 'librarybuttons') {
-            return Sections.loadlibraryButtons(elem, userId, index);
-        }
-        else if (section == 'resume') {
-            return Sections.loadResume(elem, userId);
-        }
-        else if (section == 'nextup') {
-            return Sections.loadNextUp(elem, userId);
-        }
-        else if (section == 'latesttvrecordings') {
-            return Sections.loadLatestLiveTvRecordings(elem, userId);
-        }
-        else if (section == 'latestchannelmedia') {
-            return Sections.loadLatestChannelMedia(elem, userId);
-
-        } else {
-
-            elem.innerHTML = '';
-
-            return Promise.resolve();
-        }
-    }
-
-    function loadSections(page, user, userSettings) {
-
-        var i, length;
-        var sectionCount = 5;
-
-        var elem = page.querySelector('.sections');
-
-        //if (!elem.innerHTML.length) {
-            var html = '';
-            for (i = 0, length = sectionCount; i < length; i++) {
-
-                html += '<div class="homePageSection section' + i + '"></div>';
-            }
-
-            elem.innerHTML = html;
-        //}
-
-        var promises = [];
-
-        for (i = 0, length = sectionCount; i < length; i++) {
-
-            promises.push(loadSection(page, user, userSettings, i));
-        }
-
-        return Promise.all(promises);
-    }
-
-    var homePageDismissValue = '14';
-    var homePageTourKey = 'homePageTour';
-
-    function displayPreferencesKey() {
-        if (AppInfo.isNativeApp) {
-            return 'Emby Mobile';
-        }
-
-        return 'webclient';
-    }
-
-    function dismissWelcome(page, userId) {
-
-        getDisplayPreferences('home', userId).then(function (result) {
-
-            result.CustomPrefs[homePageTourKey] = homePageDismissValue;
-            ApiClient.updateDisplayPreferences('home', result, userId, displayPreferencesKey());
-        });
-    }
-
-    function showWelcomeIfNeeded(page, displayPreferences) {
-
-        if (displayPreferences.CustomPrefs[homePageTourKey] == homePageDismissValue) {
-            page.querySelector('.welcomeMessage').classList.add('hide');
-        } else {
-
-            Dashboard.hideLoadingMsg();
-
-            var elem = page.querySelector('.welcomeMessage');
-            elem.classList.remove('hide');
-
-            if (displayPreferences.CustomPrefs[homePageTourKey]) {
-
-                elem.querySelector('.tourHeader').innerHTML = Globalize.translate('HeaderWelcomeBack');
-                elem.querySelector('.tourButtonText').innerHTML = Globalize.translate('ButtonTakeTheTourToSeeWhatsNew');
-
-            } else {
-
-                elem.querySelector('.tourHeader').innerHTML = Globalize.translate('HeaderWelcomeToProjectWebClient');
-                elem.querySelector('.tourButtonText').innerHTML = Globalize.translate('ButtonTakeTheTour');
-            }
-        }
-    }
-
-    function takeTour(page, userId) {
-
-        require(['slideshow'], function () {
-
-            var slides = [
-                    { imageUrl: 'css/images/tour/web/tourcontent.jpg', title: Globalize.translate('WebClientTourContent') },
-                    { imageUrl: 'css/images/tour/web/tourmovies.jpg', title: Globalize.translate('WebClientTourMovies') },
-                    { imageUrl: 'css/images/tour/web/tourmouseover.jpg', title: Globalize.translate('WebClientTourMouseOver') },
-                    { imageUrl: 'css/images/tour/web/tourtaphold.jpg', title: Globalize.translate('WebClientTourTapHold') },
-                    { imageUrl: 'css/images/tour/web/tourmysync.png', title: Globalize.translate('WebClientTourMySync') },
-                    { imageUrl: 'css/images/tour/web/toureditor.png', title: Globalize.translate('WebClientTourMetadataManager') },
-                    { imageUrl: 'css/images/tour/web/tourplaylist.png', title: Globalize.translate('WebClientTourPlaylists') },
-                    { imageUrl: 'css/images/tour/web/tourcollections.jpg', title: Globalize.translate('WebClientTourCollections') },
-                    { imageUrl: 'css/images/tour/web/tourusersettings1.png', title: Globalize.translate('WebClientTourUserPreferences1') },
-                    { imageUrl: 'css/images/tour/web/tourusersettings2.png', title: Globalize.translate('WebClientTourUserPreferences2') },
-                    { imageUrl: 'css/images/tour/web/tourusersettings3.png', title: Globalize.translate('WebClientTourUserPreferences3') },
-                    { imageUrl: 'css/images/tour/web/tourusersettings4.png', title: Globalize.translate('WebClientTourUserPreferences4') },
-                    { imageUrl: 'css/images/tour/web/tourmobile1.jpg', title: Globalize.translate('WebClientTourMobile1') },
-                    { imageUrl: 'css/images/tour/web/tourmobile2.png', title: Globalize.translate('WebClientTourMobile2') },
-                    { imageUrl: 'css/images/tour/enjoy.jpg', title: Globalize.translate('MessageEnjoyYourStay') }
-            ];
-
-            require(['slideshow'], function (slideshow) {
-
-                var newSlideShow = new slideshow({
-                    slides: slides,
-                    interactive: true,
-                    loop: false
-                });
-
-                newSlideShow.show();
-
-                dismissWelcome(page, userId);
-                page.querySelector('.welcomeMessage').classList.add('hide');
-            });
-        });
-    }
-
-    function getRequirePromise(deps) {
-
-        return new Promise(function (resolve, reject) {
-
-            require(deps, resolve);
-        });
-    }
-
-    function loadHomeTab(page, tabContent) {
-
-        if (window.ApiClient) {
-            var userId = Dashboard.getCurrentUserId();
-            Dashboard.showLoadingMsg();
-
-            var promises = [
-                getDisplayPreferences('home', userId),
-                Dashboard.getCurrentUser(),
-                getRequirePromise(['userSettings'])
-            ];
-
-            Promise.all(promises).then(function(responses) {
-                var displayPreferences = responses[0];
-                var user = responses[1];
-                var userSettings = responses[2];
-
-                loadSections(tabContent, user, userSettings).then(function () {
-
-                    if (!AppInfo.isNativeApp) {
-                        showWelcomeIfNeeded(page, displayPreferences);
-                    }
-                    Dashboard.hideLoadingMsg();
-                });
-				
-				//myproduction-change-start
-				//Added statistics overview
-				ApiClient.getItemCounts().then(function (itemCounts)
-				{
-					document.getElementById("statisticsMovieCount").textContent = itemCounts.MovieCount;
-					document.getElementById("statisticsSeriesCount").textContent = itemCounts.SeriesCount;
-					document.getElementById("statisticsEpisodesCount").textContent = itemCounts.EpisodeCount;
-					
-					document.getElementById("statisticsTotalRunTime").textContent = germanDuration(itemCounts.LibraryStatistics.TotalRunTimeTicks);
-					document.getElementById("statisticsTotalFileSize").textContent = humanFileSize(itemCounts.LibraryStatistics.TotalFileSize);
+	function takeTour(page, userId) {
+		require(["slideshow"], function () {
+			var slides = [{
+				imageUrl: "css/images/tour/web/tourcontent.jpg",
+				title: globalize.translate("WebClientTourContent")
+			}, {
+				imageUrl: "css/images/tour/web/tourmovies.jpg",
+				title: globalize.translate("WebClientTourMovies")
+			}, {
+				imageUrl: "css/images/tour/web/tourmouseover.jpg",
+				title: globalize.translate("WebClientTourMouseOver")
+			}, {
+				imageUrl: "css/images/tour/web/tourtaphold.jpg",
+				title: globalize.translate("WebClientTourTapHold")
+			}, {
+				imageUrl: "css/images/tour/web/tourmysync.png",
+				title: globalize.translate("WebClientTourMySync")
+			}, {
+				imageUrl: "css/images/tour/web/toureditor.png",
+				title: globalize.translate("WebClientTourMetadataManager")
+			}, {
+				imageUrl: "css/images/tour/web/tourplaylist.png",
+				title: globalize.translate("WebClientTourPlaylists")
+			}, {
+				imageUrl: "css/images/tour/web/tourcollections.jpg",
+				title: globalize.translate("WebClientTourCollections")
+			}, {
+				imageUrl: "css/images/tour/web/tourusersettings1.png",
+				title: globalize.translate("WebClientTourUserPreferences1")
+			}, {
+				imageUrl: "css/images/tour/web/tourusersettings2.png",
+				title: globalize.translate("WebClientTourUserPreferences2")
+			}, {
+				imageUrl: "css/images/tour/web/tourusersettings3.png",
+				title: globalize.translate("WebClientTourUserPreferences3")
+			}, {
+				imageUrl: "css/images/tour/web/tourusersettings4.png",
+				title: globalize.translate("WebClientTourUserPreferences4")
+			}, {
+				imageUrl: "css/images/tour/web/tourmobile1.jpg",
+				title: globalize.translate("WebClientTourMobile1")
+			}, {
+				imageUrl: "css/images/tour/web/tourmobile2.png",
+				title: globalize.translate("WebClientTourMobile2")
+			}, {
+				imageUrl: "css/images/tour/enjoy.jpg",
+				title: globalize.translate("MessageEnjoyYourStay")
+			}];
+			require(["slideshow"], function (slideshow) {
+				var newSlideShow = new slideshow({
+					slides: slides,
+					interactive: !0,
+					loop: !1
 				});
+				newSlideShow.show(), dismissWelcome(page, userId), page.querySelector(".welcomeMessage").classList.add("hide")
+			})
+		})
+	}
+
+	function getRequirePromise(deps) {
+		return new Promise(function (resolve, reject) {
+			require(deps, resolve)
+		})
+	}
+
+	function loadHomeTab(page, tabContent) {
+		var apiClient = ApiClient;
+		if (apiClient) {
+			var userId = Dashboard.getCurrentUserId();
+			loading.show();
+			var promises = [Dashboard.getCurrentUser(), getRequirePromise(["userSettings"])];
+			Promise.all(promises).then(function (responses) {
+				var user = responses[0],
+					userSettings = responses[1];
+				homeSections.loadSections(tabContent.querySelector(".sections"), apiClient, user, userSettings).then(function () {
+					loading.hide()
+
+					//myproduction-change-start
+					//Added statistics overview
+					ApiClient.getItemCounts().then(function (itemCounts) {
+						document.getElementById("statisticsMovieCount").textContent = itemCounts.MovieCount;
+						document.getElementById("statisticsSeriesCount").textContent = itemCounts.SeriesCount;
+						document.getElementById("statisticsEpisodesCount").textContent = itemCounts.EpisodeCount;
+
+						document.getElementById("statisticsTotalRunTime").textContent = germanDuration(itemCounts.LibraryStatistics.TotalRunTimeTicks);
+						document.getElementById("statisticsTotalFileSize").textContent = humanFileSize(itemCounts.LibraryStatistics.TotalFileSize);
+					});
 				//myproduction-change-end
-            });
-        }
-    }
-	
+				})
+			}), AppInfo.isNativeApp || getDisplayPreferences(apiClient, "home", userId).then(function (displayPreferences) {
+				showWelcomeIfNeeded(page, displayPreferences)
+			})
+		}
+	}
+
 	//myproduction-change-start
 	//Added statistics overview
-	function germanDate(dateObject)
-	{
+	function germanDate(dateObject) {
 		return ("0" + dateObject.getDate().toString()).substr(-2) + "." + ("0" + (dateObject.getMonth() + 1).toString()).substr(-2) + "." + dateObject.getFullYear().toString();
 	}
-			
-	function germanTime(dateObject)
-	{
+
+	function germanTime(dateObject) {
 		return ("0" + dateObject.getHours().toString()).substr(-2) + ":" + ("0" + dateObject.getMinutes().toString()).substr(-2);
 	}
-	
-	function germanDuration(ticks)
-	{
+
+	function germanDuration(ticks) {
 		var totalSeconds = ticks / 1000 / 1000;
 		var years = Math.floor(totalSeconds / 31536000);
 		var days = Math.floor((totalSeconds % 31536000) / 86400);
 		var hours = Math.floor(((totalSeconds % 31536000) % 86400) / 3600);
 		//var minutes = Math.floor((((totalSeconds % 31536000) % 86400) % 3600) / 60);
-		
+
 		var yearTxt = "Jahre";
-		if (years == 1)
-		{
+		if (years == 1) {
 			yearTxt = "Jahr";
 		}
-		
+
 		var dayTxt = "Tage";
-		if (days == 1)
-		{
+		if (days == 1) {
 			dayTxt = "Tag";
 		}
-		
+
 		var hourTxt = "Stunden";
-		if (hours == 1)
-		{
+		if (hours == 1) {
 			hourTxt = "Stunde";
 		}
-		
+
 		//var minuteTxt = "Minuten";
 		//if (minutes == 1)
 		//{
 		//	hourTxt = "Minute";
 		//}
-		
+
 		return years.toString() + " " + yearTxt + ", " + days.toString() + " " + dayTxt + ", " + hours.toString() + " " + hourTxt + "";
 	}
 
-	function humanFileSize(size)
-	{
+	function humanFileSize(size) {
 		var i = Math.floor(Math.log(size) / Math.log(1024));
 		var sizeString = (size / Math.pow(1024, i)).toFixed(2) * 1 + " " + ["B", "kB", "MB", "GB", "TB"][i];
 		return sizeString.replace(".", ",");
 	}
 	//myproduction-change-end
 
-    function getDisplayPreferences(key, userId) {
+	function getDisplayPreferences(apiClient, key, userId) {
+		return apiClient.getDisplayPreferences(key, userId, displayPreferencesKey())
+	}
 
-        return ApiClient.getDisplayPreferences(key, userId, displayPreferencesKey());
-    }
+	function getTabs() {
+		return [{
+			name: globalize.translate("TabHome")
+		}, {
+			name: globalize.translate("Downloads"),
+			enabled: appHost.supports("sync")
+		}, {
+			name: globalize.translate("TabFavorites")
+		}, {
+			name: globalize.translate("TabUpcoming")
+		}, {
+			name: globalize.translate("ButtonSearch")
+		}]
+	}
+	var homePageDismissValue = "14",
+		homePageTourKey = "homePageTour";
+	return function (view, params) {
+		function onBeforeTabChange(e) {
+			preLoadTab(view, parseInt(e.detail.selectedTabIndex))
+		}
 
-    return function (view, params) {
+		function onTabChange(e) {
+			loadTab(view, parseInt(e.detail.selectedTabIndex))
+		}
 
-        var self = this;
+		function initTabs() {
+			var tabsReplaced = mainTabsManager.setTabs(view, currentTabIndex, getTabs);
+			if (tabsReplaced) {
+				var viewTabs = document.querySelector(".tabs-viewmenubar");
+				viewTabs.addEventListener("beforetabchange", onBeforeTabChange), viewTabs.addEventListener("tabchange", onTabChange), libraryBrowser.configurePaperLibraryTabs(view, viewTabs, view.querySelectorAll(".pageTabContent"), [0, 1, 2, 3], !0), viewTabs.triggerBeforeTabChange || viewTabs.addEventListener("ready", function () {
+					viewTabs.triggerBeforeTabChange()
+				})
+			}
+		}
 
-        self.renderTab = function () {
-            var tabContent = view.querySelector('.pageTabContent[data-index=\'' + 0 + '\']');
-            loadHomeTab(view, tabContent);
-        };
+		function getTabController(page, index, callback) {
+			var depends = [];
+			switch (index) {
+				case 0:
+					break;
+				case 1:
+					break;
+				case 2:
+					depends.push("scripts/homefavorites");
+					break;
+				case 3:
+					depends.push("scripts/tvupcoming");
+					break;
+				case 4:
+					depends.push("scripts/searchtab");
+					break;
+				default:
+					return
+			}
+			require(depends, function (controllerFactory) {
+				var tabContent;
+				0 == index && (tabContent = view.querySelector(".pageTabContent[data-index='" + index + "']"), self.tabContent = tabContent);
+				var controller = tabControllers[index];
+				controller || (tabContent = view.querySelector(".pageTabContent[data-index='" + index + "']"), controller = 0 === index ? self : 4 === index ? new controllerFactory(view, tabContent, {}) : new controllerFactory(view, params, tabContent), tabControllers[index] = controller, controller.initTab && controller.initTab()), callback(controller)
+			})
+		}
 
-        var viewTabs = view.querySelector('.libraryViewNav');
+		function preLoadTab(page, index) {
+			getTabController(page, index, function (controller) {
+				renderedTabs.indexOf(index) == -1 && controller.preRender && controller.preRender()
+			})
+		}
 
-        libraryBrowser.configurePaperLibraryTabs(view, viewTabs, view.querySelectorAll('.pageTabContent'), [0, 1, 2, 3], AppInfo.enableHomeTabs);
+		function loadTab(page, index) {
+			currentTabIndex = index, getTabController(page, index, function (controller) {
+				renderedTabs.indexOf(index) == -1 && (renderedTabs.push(index), controller.renderTab())
+			})
+		}
 
-        var tabControllers = [];
-        var renderedTabs = [];
+		function onPlaybackStop(e, state) {
+			state.NowPlayingItem && "Video" == state.NowPlayingItem.MediaType && (renderedTabs = [], mainTabsManager.getTabsElement().triggerBeforeTabChange(), mainTabsManager.getTabsElement().triggerTabChange())
+		}
 
-        function getTabController(page, index, callback) {
-
-            var depends = [];
-
-            switch (index) {
-
-                case 0:
-                    depends.push('scripts/sections');
-                    break;
-                case 1:
-                    depends.push('scripts/homenextup');
-                    break;
-                case 2:
-                    depends.push('scripts/homefavorites');
-                    break;
-                case 3:
-                    depends.push('scripts/homeupcoming');
-                    break;
-                default:
-                    return;
-            }
-
-            require(depends, function (controllerFactory) {
-                var tabContent;
-                if (index == 0) {
-                    tabContent = view.querySelector('.pageTabContent[data-index=\'' + index + '\']');
-                    self.tabContent = tabContent;
-                }
-                var controller = tabControllers[index];
-                if (!controller) {
-                    tabContent = view.querySelector('.pageTabContent[data-index=\'' + index + '\']');
-                    controller = index ? new controllerFactory(view, params, tabContent) : self;
-                    tabControllers[index] = controller;
-
-                    if (controller.initTab) {
-                        controller.initTab();
-                    }
-                }
-
-                callback(controller);
-            });
-        }
-
-        function preLoadTab(page, index) {
-
-            getTabController(page, index, function (controller) {
-                if (renderedTabs.indexOf(index) == -1) {
-                    if (controller.preRender) {
-                        controller.preRender();
-                    }
-                }
-            });
-        }
-
-        function loadTab(page, index) {
-
-            getTabController(page, index, function (controller) {
-                if (renderedTabs.indexOf(index) == -1) {
-                    renderedTabs.push(index);
-                    controller.renderTab();
-                }
-            });
-        }
-
-        viewTabs.addEventListener('beforetabchange', function (e) {
-            preLoadTab(view, parseInt(e.detail.selectedTabIndex));
-        });
-
-        viewTabs.addEventListener('tabchange', function (e) {
-            loadTab(view, parseInt(e.detail.selectedTabIndex));
-        });
-
-        view.querySelector('.btnTakeTour').addEventListener('click', function () {
-            takeTour(view, Dashboard.getCurrentUserId());
-        });
-
-        if (AppInfo.enableHomeTabs) {
-            view.classList.remove('noSecondaryNavPage');
-            view.querySelector('.libraryViewNav').classList.remove('hide');
-        } else {
-            view.classList.add('noSecondaryNavPage');
-            view.querySelector('.libraryViewNav').classList.add('hide');
-        }
-
-        function onPlaybackStop(e, state) {
-
-            if (state.NowPlayingItem && state.NowPlayingItem.MediaType == 'Video') {
-
-                viewTabs.triggerTabChange();
-            }
-        }
-
-        function onWebSocketMessage(e, data) {
-
-            var msg = data;
-
-            if (msg.MessageType === "UserDataChanged") {
-
-                if (msg.Data.UserId == Dashboard.getCurrentUserId()) {
-
-                    renderedTabs = [];
-                }
-            }
-
-        }
-
-        view.addEventListener('viewshow', function (e) {
-            Events.on(playbackManager, 'playbackstop', onPlaybackStop);
-            Events.on(ApiClient, "websocketmessage", onWebSocketMessage);
-        });
-
-        view.addEventListener('viewbeforehide', function (e) {
-            Events.off(playbackManager, 'playbackstop', onPlaybackStop);
-            Events.off(ApiClient, "websocketmessage", onWebSocketMessage);
-        });
-
-        require(["headroom-window"], function (headroom) {
-            headroom.add(viewTabs);
-            self.headroom = headroom;
-        });
-
-        view.addEventListener('viewdestroy', function (e) {
-            if (self.headroom) {
-                self.headroom.remove(viewTabs);
-            }
-        });
-    };
+		function onUserDataChanged(e, apiClient, userData) {
+			userData.UserId == Dashboard.getCurrentUserId() && (renderedTabs = [])
+		}
+		var self = this,
+			currentTabIndex = parseInt(params.tab || "0");
+		self.renderTab = function () {
+			var tabContent = view.querySelector(".pageTabContent[data-index='0']");
+			loadHomeTab(view, tabContent)
+		};
+		var tabControllers = [],
+			renderedTabs = [];
+		view.querySelector(".btnTakeTour").addEventListener("click", function () {
+			takeTour(view, Dashboard.getCurrentUserId())
+		}), view.querySelector(".sections").addEventListener("settingschange", function () {
+			renderedTabs = [], mainTabsManager.getTabsElement().triggerBeforeTabChange(), mainTabsManager.getTabsElement().triggerTabChange()
+		}), view.addEventListener("viewbeforeshow", function (e) {
+			initTabs(), libraryMenu.setDefaultTitle();
+			var tabs = mainTabsManager.getTabsElement();
+			tabs.triggerBeforeTabChange && tabs.triggerBeforeTabChange()
+		}), view.addEventListener("viewshow", function (e) {
+			mainTabsManager.getTabsElement().triggerTabChange(), events.on(playbackManager, "playbackstop", onPlaybackStop), events.on(serverNotifications, "UserDataChanged", onUserDataChanged)
+		}), view.addEventListener("viewbeforehide", function (e) {
+			events.off(playbackManager, "playbackstop", onPlaybackStop), events.off(serverNotifications, "UserDataChanged", onUserDataChanged)
+		}), view.addEventListener("viewdestroy", function (e) {
+			tabControllers.forEach(function (t) {
+				t.destroy && t.destroy()
+			})
+		})
+	}
 });

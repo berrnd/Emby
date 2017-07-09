@@ -10,8 +10,9 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using MediaBrowser.Common.IO;
+
 using MediaBrowser.Controller.Configuration;
+using MediaBrowser.Controller.Dto;
 using MediaBrowser.Controller.IO;
 using MediaBrowser.Model.Configuration;
 using MediaBrowser.Model.Dto;
@@ -62,26 +63,13 @@ namespace MediaBrowser.Controller.Library
         /// <returns>BaseItem.</returns>
         BaseItem FindByPath(string path, bool? isFolder);
 
-        Guid? FindIdByPath(string path, bool? isFolder);
-
         /// <summary>
         /// Gets the artist.
         /// </summary>
         /// <param name="name">The name.</param>
         /// <returns>Task{Artist}.</returns>
         MusicArtist GetArtist(string name);
-        /// <summary>
-        /// Gets the album artists.
-        /// </summary>
-        /// <param name="items">The items.</param>
-        /// <returns>IEnumerable&lt;MusicArtist&gt;.</returns>
-        IEnumerable<MusicArtist> GetAlbumArtists(IEnumerable<IHasAlbumArtist> items);
-        /// <summary>
-        /// Gets the artists.
-        /// </summary>
-        /// <param name="items">The items.</param>
-        /// <returns>IEnumerable&lt;MusicArtist&gt;.</returns>
-        IEnumerable<MusicArtist> GetArtists(IEnumerable<IHasArtist> items);
+        MusicArtist GetArtist(string name, DtoOptions options);
         /// <summary>
         /// Gets a Studio
         /// </summary>
@@ -255,11 +243,11 @@ namespace MediaBrowser.Controller.Library
         /// </summary>
         event EventHandler<ItemChangeEventArgs> ItemRemoved;
 
-		/// <summary>
-		/// Reports the item removed.
-		/// </summary>
-		/// <param name="item">The item.</param>
-		void ReportItemRemoved(BaseItem item);
+        /// <summary>
+        /// Reports the item removed.
+        /// </summary>
+        /// <param name="item">The item.</param>
+        void ReportItemRemoved(BaseItem item);
 
 		//myproduction-change-start
 		event EventHandler<PlaybackProgressEventArgs> ItemDownloaded;
@@ -463,7 +451,9 @@ namespace MediaBrowser.Controller.Library
         /// </summary>
         /// <param name="item">The item.</param>
         /// <returns>IEnumerable&lt;Folder&gt;.</returns>
-        IEnumerable<Folder> GetCollectionFolders(BaseItem item);
+        List<Folder> GetCollectionFolders(BaseItem item);
+
+        List<Folder> GetCollectionFolders(BaseItem item, List<Folder> allUserRootChildren);
 
         LibraryOptions GetLibraryOptions(BaseItem item);
 
@@ -544,6 +534,8 @@ namespace MediaBrowser.Controller.Library
         /// <returns>QueryResult&lt;BaseItem&gt;.</returns>
         IEnumerable<BaseItem> GetItemList(InternalItemsQuery query);
 
+        IEnumerable<BaseItem> GetItemList(InternalItemsQuery query, bool allowExternalContent);
+
         /// <summary>
         /// Gets the items.
         /// </summary>
@@ -564,6 +556,14 @@ namespace MediaBrowser.Controller.Library
         /// <returns><c>true</c> if XXXX, <c>false</c> otherwise.</returns>
         bool IgnoreFile(FileSystemMetadata file, BaseItem parent);
 
+        Guid GetStudioId(string name);
+
+        Guid GetGenreId(string name);
+
+        Guid GetMusicGenreId(string name);
+
+        Guid GetGameGenreId(string name);
+
         void AddVirtualFolder(string name, string collectionType, LibraryOptions options, bool refreshLibrary);
         void RemoveVirtualFolder(string name, bool refreshLibrary);
         void AddMediaPath(string virtualFolderName, MediaPathInfo path);
@@ -581,10 +581,10 @@ namespace MediaBrowser.Controller.Library
         void RegisterIgnoredPath(string path);
         void UnRegisterIgnoredPath(string path);
         int GetCount(InternalItemsQuery query);
-		
+
 		//myproduction-change-start
-        //Added LibraryStatistics
-        Model.Library.LibraryStatistics Statistics { get; set; }
-        //myproduction-change-end
-    }
+		//Added LibraryStatistics
+		Model.Library.LibraryStatistics Statistics { get; set; }
+		//myproduction-change-end
+	}
 }

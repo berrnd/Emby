@@ -57,7 +57,6 @@ namespace Emby.Server.Implementations.Library.Resolvers.TV
                     {
                         episode.SeriesId = series.Id;
                         episode.SeriesName = series.Name;
-                        episode.SeriesSortName = series.SortName;
                     }
                     if (season != null)
                     {
@@ -65,11 +64,20 @@ namespace Emby.Server.Implementations.Library.Resolvers.TV
                         episode.SeasonName = season.Name;
                     }
 
+					//myproduction-change-start
+					//OV series handling
 					if (series.Tags.Contains("OV"))
 					{
 						episode.Tags.Add("OV");
 					}
-				}
+					//myproduction-change-end
+
+					// Assume season 1 if there's no season folder and a season number could not be determined
+					if (season == null && !episode.ParentIndexNumber.HasValue && (episode.IndexNumber.HasValue || episode.PremiereDate.HasValue))
+                    {
+                        episode.ParentIndexNumber = 1;
+                    }
+                }
 
                 return episode;
             }

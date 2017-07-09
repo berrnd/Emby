@@ -36,18 +36,6 @@
   <PropertyGroup>
     <RunPostBuildEvent>Always</RunPostBuildEvent>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release Mono|AnyCPU' ">
-    <DebugType>none</DebugType>
-    <Optimize>true</Optimize>
-    <OutputPath>bin\Release Mono\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-  </PropertyGroup>
-  <ItemGroup>
-    <None Include="project.json" />
-    <!-- A reference to the entire .NET Framework is automatically included -->
-  </ItemGroup>
   <ItemGroup>
     <Compile Include="..\SharedVersion.cs">
       <Link>Properties\SharedVersion.cs</Link>
@@ -91,6 +79,7 @@
     <Compile Include="Drawing\IImageEncoder.cs" />
     <Compile Include="Drawing\IImageProcessor.cs" />
     <Compile Include="Drawing\ImageCollageOptions.cs" />
+    <Compile Include="Drawing\ImageHelper.cs" />
     <Compile Include="Drawing\ImageProcessingOptions.cs" />
     <Compile Include="Drawing\ImageProcessorExtensions.cs" />
     <Compile Include="Drawing\ImageStream.cs" />
@@ -109,13 +98,11 @@
     <Compile Include="Entities\GameGenre.cs" />
     <Compile Include="Entities\GameSystem.cs" />
     <Compile Include="Entities\IHasAspectRatio.cs" />
-    <Compile Include="Entities\IHasBudget.cs" />
     <Compile Include="Entities\IHasDisplayOrder.cs" />
     <Compile Include="Entities\IHasId.cs" />
     <Compile Include="Entities\IHasImages.cs" />
     <Compile Include="Entities\KeywordExtensions.cs" />
     <Compile Include="Entities\IHasMediaSources.cs" />
-    <Compile Include="Entities\IHasMetascore.cs" />
     <Compile Include="Entities\IHasProgramAttributes.cs" />
     <Compile Include="Entities\IHasScreenshots.cs" />
     <Compile Include="Entities\IHasSeries.cs" />
@@ -133,7 +120,6 @@
     <Compile Include="Entities\ItemImageInfo.cs" />
     <Compile Include="Entities\LinkedChild.cs" />
     <Compile Include="Entities\MusicVideo.cs" />
-    <Compile Include="Entities\IHasAwards.cs" />
     <Compile Include="Entities\PeopleHelper.cs" />
     <Compile Include="Entities\Photo.cs" />
     <Compile Include="Entities\PhotoAlbum.cs" />
@@ -144,6 +130,7 @@
     <Compile Include="Entities\UserViewBuilder.cs" />
     <Compile Include="Extensions\StringExtensions.cs" />
     <Compile Include="FileOrganization\IFileOrganizationService.cs" />
+    <Compile Include="IO\StreamHelper.cs" />
     <Compile Include="Library\DeleteOptions.cs" />
     <Compile Include="Library\ILibraryPostScanTask.cs" />
     <Compile Include="Library\IMediaSourceManager.cs" />
@@ -184,11 +171,14 @@
     <Compile Include="LiveTv\TimerInfo.cs" />
     <Compile Include="LiveTv\TunerChannelMapping.cs" />
     <Compile Include="MediaEncoding\ChapterImageRefreshOptions.cs" />
+    <Compile Include="MediaEncoding\EncodingHelper.cs" />
+    <Compile Include="MediaEncoding\EncodingJobInfo.cs" />
     <Compile Include="MediaEncoding\EncodingJobOptions.cs" />
     <Compile Include="MediaEncoding\IEncodingManager.cs" />
     <Compile Include="MediaEncoding\ImageEncodingOptions.cs" />
     <Compile Include="MediaEncoding\IMediaEncoder.cs" />
     <Compile Include="MediaEncoding\ISubtitleEncoder.cs" />
+    <Compile Include="MediaEncoding\JobLogger.cs" />
     <Compile Include="MediaEncoding\MediaInfoRequest.cs" />
     <Compile Include="MediaEncoding\MediaStreamSelector.cs" />
     <Compile Include="Net\AuthenticatedAttribute.cs" />

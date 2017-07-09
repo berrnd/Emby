@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using MediaBrowser.Controller.Dto;
 using MediaBrowser.Model.Extensions;
 using MediaBrowser.Model.Providers;
 using MediaBrowser.Model.Serialization;
@@ -19,8 +20,6 @@ namespace MediaBrowser.Controller.Entities.TV
     /// </summary>
     public class Series : Folder, IHasTrailers, IHasDisplayOrder, IHasLookupInfo<SeriesInfo>, IMetadataContainer
     {
-        public int? AnimeSeriesIndex { get; set; }
-
         public Series()
         {
             AirDays = new List<DayOfWeek>();
@@ -93,6 +92,14 @@ namespace MediaBrowser.Controller.Entities.TV
             }
         }
 
+        public override double? GetDefaultPrimaryImageAspectRatio()
+        {
+            double value = 2;
+            value /= 3;
+
+            return value;
+        }
+
         public override string CreatePresentationUniqueKey()
         {
             if (LibraryManager.GetLibraryOptions(this).EnableAutomaticSeriesGrouping)
@@ -135,13 +142,12 @@ namespace MediaBrowser.Controller.Entities.TV
 
         public override int GetChildCount(User user)
         {
-            var enableSeriesPresentationKey = ConfigurationManager.Configuration.EnableSeriesPresentationUniqueKey;
             var seriesKey = GetUniqueSeriesKey(this);
 
             var result = LibraryManager.GetCount(new InternalItemsQuery(user)
             {
-                AncestorWithPresentationUniqueKey = enableSeriesPresentationKey ? null : seriesKey,
-                SeriesPresentationUniqueKey = enableSeriesPresentationKey ? seriesKey : null,
+                AncestorWithPresentationUniqueKey = null,
+                SeriesPresentationUniqueKey = seriesKey,
                 IncludeItemTypes = new[] { typeof(Season).Name },
                 IsVirtualItem = false,
                 Limit = 0,
@@ -160,13 +166,12 @@ namespace MediaBrowser.Controller.Entities.TV
 
         public override int GetRecursiveChildCount(User user)
         {
-            var enableSeriesPresentationKey = ConfigurationManager.Configuration.EnableSeriesPresentationUniqueKey;
             var seriesKey = GetUniqueSeriesKey(this);
 
             var query = new InternalItemsQuery(user)
             {
-                AncestorWithPresentationUniqueKey = enableSeriesPresentationKey ? null : seriesKey,
-                SeriesPresentationUniqueKey = enableSeriesPresentationKey ? seriesKey : null,
+                AncestorWithPresentationUniqueKey = null,
+                SeriesPresentationUniqueKey = seriesKey,
                 DtoOptions = new Dto.DtoOptions
                 {
                     Fields = new List<ItemFields>
@@ -244,12 +249,15 @@ namespace MediaBrowser.Controller.Entities.TV
 
         public override IEnumerable<BaseItem> GetChildren(User user, bool includeLinkedChildren)
         {
-            return GetSeasons(user);
+            return GetSeasons(user, new DtoOptions(true));
         }
 
-        public IEnumerable<Season> GetSeasons(User user)
+        public IEnumerable<Season> GetSeasons(User user, DtoOptions options)
         {
-            var query = new InternalItemsQuery(user);
+            var query = new InternalItemsQuery(user)
+            {
+                DtoOptions = options
+            };
 
             SetSeasonQueryOptions(query, user);
 
@@ -260,11 +268,10 @@ namespace MediaBrowser.Controller.Entities.TV
         {
             var config = user.Configuration;
 
-            var enableSeriesPresentationKey = ConfigurationManager.Configuration.EnableSeriesPresentationUniqueKey;
             var seriesKey = GetUniqueSeriesKey(this);
 
-            query.AncestorWithPresentationUniqueKey = enableSeriesPresentationKey ? null : seriesKey;
-            query.SeriesPresentationUniqueKey = enableSeriesPresentationKey ? seriesKey : null;
+            query.AncestorWithPresentationUniqueKey = null;
+            query.SeriesPresentationUniqueKey = seriesKey;
             query.IncludeItemTypes = new[] { typeof(Season).Name };
             query.SortBy = new[] {ItemSortBy.SortName};
 
@@ -282,7 +289,7 @@ namespace MediaBrowser.Controller.Entities.TV
             }
         }
 
-        protected override Task<QueryResult<BaseItem>> GetItemsInternal(InternalItemsQuery query)
+        protected override QueryResult<BaseItem> GetItemsInternal(InternalItemsQuery query)
         {
             if (query.User == null)
             {
@@ -293,11 +300,10 @@ namespace MediaBrowser.Controller.Entities.TV
 
             if (query.Recursive)
             {
-                var enableSeriesPresentationKey = ConfigurationManager.Configuration.EnableSeriesPresentationUniqueKey;
                 var seriesKey = GetUniqueSeriesKey(this);
 
-                query.AncestorWithPresentationUniqueKey = enableSeriesPresentationKey ? null : seriesKey;
-                query.SeriesPresentationUniqueKey = enableSeriesPresentationKey ? seriesKey : null;
+                query.AncestorWithPresentationUniqueKey = null;
+                query.SeriesPresentationUniqueKey = seriesKey;
                 if (query.SortBy.Length == 0)
                 {
                     query.SortBy = new[] { ItemSortBy.SortName };
@@ -307,25 +313,25 @@ namespace MediaBrowser.Controller.Entities.TV
                     query.IncludeItemTypes = new[] { typeof(Episode).Name, typeof(Season).Name };
                 }
                 query.IsVirtualItem = false;
-                return Task.FromResult(LibraryManager.GetItemsResult(query));
+                return LibraryManager.GetItemsResult(query);
             }
 
             SetSeasonQueryOptions(query, user);
 
-            return Task.FromResult(LibraryManager.GetItemsResult(query));
+            return LibraryManager.GetItemsResult(query);
         }
 
-        public IEnumerable<Episode> GetEpisodes(User user)
+        public IEnumerable<Episode> GetEpisodes(User user, DtoOptions options)
         {
-            var enableSeriesPresentationKey = ConfigurationManager.Configuration.EnableSeriesPresentationUniqueKey;
             var seriesKey = GetUniqueSeriesKey(this);
 
             var query = new InternalItemsQuery(user)
             {
-                AncestorWithPresentationUniqueKey = enableSeriesPresentationKey ? null : seriesKey,
-                SeriesPresentationUniqueKey = enableSeriesPresentationKey ? seriesKey : null,
+                AncestorWithPresentationUniqueKey = null,
+                SeriesPresentationUniqueKey = seriesKey,
                 IncludeItemTypes = new[] { typeof(Episode).Name, typeof(Season).Name },
-                SortBy = new[] { ItemSortBy.SortName }
+                SortBy = new[] { ItemSortBy.SortName },
+                DtoOptions = options
             };
             var config = user.Configuration;
             if (!config.DisplayMissingEpisodes && !config.DisplayUnairedEpisodes)
@@ -346,7 +352,7 @@ namespace MediaBrowser.Controller.Entities.TV
             var allSeriesEpisodes = allItems.OfType<Episode>().ToList();
 
             var allEpisodes = allItems.OfType<Season>()
-                .SelectMany(i => i.GetEpisodes(this, user, allSeriesEpisodes))
+                .SelectMany(i => i.GetEpisodes(this, user, allSeriesEpisodes, options))
                 .Reverse()
                 .ToList();
 
@@ -423,10 +429,8 @@ namespace MediaBrowser.Controller.Entities.TV
             progress.Report(100);
         }
 
-        public IEnumerable<Episode> GetSeasonEpisodes(Season parentSeason, User user)
+        public IEnumerable<Episode> GetSeasonEpisodes(Season parentSeason, User user, DtoOptions options)
         {
-            var enableSeriesPresentationKey = ConfigurationManager.Configuration.EnableSeriesPresentationUniqueKey;
-
             var queryFromSeries = ConfigurationManager.Configuration.DisplaySpecialsWithinSeasons;
 
             // add optimization when this setting is not enabled
@@ -436,10 +440,11 @@ namespace MediaBrowser.Controller.Entities.TV
 
             var query = new InternalItemsQuery(user)
             {
-                AncestorWithPresentationUniqueKey = queryFromSeries && enableSeriesPresentationKey ? null : seriesKey,
-                SeriesPresentationUniqueKey = queryFromSeries && enableSeriesPresentationKey ? seriesKey : null,
+                AncestorWithPresentationUniqueKey = queryFromSeries ? null : seriesKey,
+                SeriesPresentationUniqueKey = queryFromSeries ? seriesKey : null,
                 IncludeItemTypes = new[] { typeof(Episode).Name },
-                SortBy = new[] { ItemSortBy.SortName }
+                SortBy = new[] { ItemSortBy.SortName },
+                DtoOptions = options
             };
             if (user != null)
             {
@@ -460,14 +465,14 @@ namespace MediaBrowser.Controller.Entities.TV
 
             var allItems = LibraryManager.GetItemList(query).OfType<Episode>();
 
-            return GetSeasonEpisodes(parentSeason, user, allItems);
+            return GetSeasonEpisodes(parentSeason, user, allItems, options);
         }
 
-        public IEnumerable<Episode> GetSeasonEpisodes(Season parentSeason, User user, IEnumerable<Episode> allSeriesEpisodes)
+        public IEnumerable<Episode> GetSeasonEpisodes(Season parentSeason, User user, IEnumerable<Episode> allSeriesEpisodes, DtoOptions options)
         {
             if (allSeriesEpisodes == null)
             {
-                return GetSeasonEpisodes(parentSeason, user);
+                return GetSeasonEpisodes(parentSeason, user, options);
             }
 
             var episodes = FilterEpisodesBySeason(allSeriesEpisodes, parentSeason, ConfigurationManager.Configuration.DisplaySpecialsWithinSeasons);
@@ -545,8 +550,6 @@ namespace MediaBrowser.Controller.Entities.TV
         public SeriesInfo GetLookupInfo()
         {
             var info = GetItemLookupInfo<SeriesInfo>();
-
-            info.AnimeSeriesIndex = AnimeSeriesIndex;
 
             return info;
         }

@@ -1,6 +1,6 @@
 ﻿<div id="nowPlayingPage" data-role="page" class="page libraryPage nowPlayingPage noSecondaryNavPage selfBackdropPage" data-title="${TitleRemoteControl}" data-theme="b" style="padding:0;">
 
-    <div class="remoteControlContent ehsContent">
+    <div class="remoteControlContent padded-left padded-right padded-top">
 
         <div style="background: #080808;">
             <button is="paper-icon-button-light" style="position: absolute; top: .5em; left: .5em; z-index: 1;" tabindex="-1" class="btnExitRemoteControl autoSize">
@@ -24,12 +24,20 @@
                         <i class="md-icon">skip_previous</i>
                     </button>
 
+                    <button is="paper-icon-button-light" class="btnRewind btnNowPlayingRewind btnPlayStateCommand autoSize" title="${Rewind}">
+                        <i class="md-icon">&#xE020;</i>
+                    </button>
+
                     <button is="paper-icon-button-light" class="btnPlayPause btnPlayStateCommand autoSize" title="${ButtonPause}">
                         <i class="md-icon">pause</i>
                     </button>
 
                     <button is="paper-icon-button-light" class="btnPlayStateCommand btnStop autoSize" title="${ButtonStop}">
                         <i class="md-icon">stop</i>
+                    </button>
+
+                    <button is="paper-icon-button-light" class="btnPlayStateCommand btnFastForward btnNowPlayingFastForward autoSize" title="${FastForward}">
+                        <i class="md-icon">&#xE01F;</i>
                     </button>
 
                     <button is="paper-icon-button-light" class="btnPlayStateCommand btnNextTrack autoSize" title="${ButtonNextTrack}">
@@ -174,8 +182,5 @@
         <br />
         <br />
         <br />
-    </div>
-    <div data-role="content" style="overflow:visible;">
-
     </div>
 </div>

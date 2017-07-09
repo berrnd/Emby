@@ -158,7 +158,7 @@ namespace Emby.Common.Implementations.ScheduledTasks
                 _lastExecutionResult = value;
 
                 var path = GetHistoryFilePath();
-				_fileSystem.CreateDirectory(Path.GetDirectoryName(path));
+				_fileSystem.CreateDirectory(_fileSystem.GetDirectoryName(path));
 
                 lock (_lastExecutionResultSyncLock)
                 {
@@ -379,7 +379,7 @@ namespace Emby.Common.Implementations.ScheduledTasks
         /// <exception cref="System.InvalidOperationException">Cannot execute a Task that is already running</exception>
         public async Task Execute(TaskExecutionOptions options)
         {
-            var task = ExecuteInternal(options);
+            var task = Task.Run(async () => await ExecuteInternal(options).ConfigureAwait(false));
 
             _currentTask = task;
 
@@ -575,7 +575,7 @@ namespace Emby.Common.Implementations.ScheduledTasks
         {
             var path = GetConfigurationFilePath();
 
-			_fileSystem.CreateDirectory(Path.GetDirectoryName(path));
+			_fileSystem.CreateDirectory(_fileSystem.GetDirectoryName(path));
 
             JsonSerializer.SerializeToFile(triggers, path);
         }

@@ -11,7 +11,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MediaBrowser.Common.Extensions;
-using MediaBrowser.Common.IO;
+
 using MediaBrowser.Controller.Channels;
 using MediaBrowser.Controller.IO;
 using MediaBrowser.Model.IO;
@@ -33,7 +33,6 @@ namespace MediaBrowser.Controller.Entities
         public List<string> AdditionalParts { get; set; }
         public List<string> LocalAlternateVersions { get; set; }
         public List<LinkedChild> LinkedAlternateVersions { get; set; }
-        public List<ChannelMediaInfo> ChannelMediaSources { get; set; }
 
         [IgnoreDataMember]
         public override bool SupportsPlayedStatus
@@ -158,7 +157,6 @@ namespace MediaBrowser.Controller.Entities
             PlayableStreamFileNames = new List<string>();
             AdditionalParts = new List<string>();
             LocalAlternateVersions = new List<string>();
-            Tags = new List<string>();
             SubtitleFiles = new List<string>();
             LinkedAlternateVersions = new List<LinkedChild>();
         }
@@ -284,12 +282,10 @@ namespace MediaBrowser.Controller.Entities
 
         public IEnumerable<Video> GetLinkedAlternateVersions()
         {
-            var linkedVersions = LinkedAlternateVersions
+            return LinkedAlternateVersions
                 .Select(GetLinkedChild)
                 .Where(i => i != null)
-                .OfType<Video>();
-
-            return linkedVersions
+                .OfType<Video>()
                 .OrderBy(i => i.SortName);
         }
 
@@ -313,7 +309,7 @@ namespace MediaBrowser.Controller.Entities
             {
                 if (IsStacked)
                 {
-                    return System.IO.Path.GetDirectoryName(Path);
+                    return FileSystem.GetDirectoryName(Path);
                 }
 
                 if (!IsPlaceHolder)
@@ -477,11 +473,17 @@ namespace MediaBrowser.Controller.Entities
             }
         }
 
-        public override IEnumerable<string> GetDeletePaths()
+        public override IEnumerable<FileSystemMetadata> GetDeletePaths()
         {
             if (!DetectIsInMixedFolder())
             {
-                return new[] { ContainingFolderPath };
+                return new[] {
+                    new FileSystemMetadata
+                    {
+                        FullName = ContainingFolderPath,
+                        IsDirectory = true
+                    }
+                };
             }
 
             return base.GetDeletePaths();
@@ -550,7 +552,7 @@ namespace MediaBrowser.Controller.Entities
             if (SourceType == SourceType.Channel)
             {
                 var sources = ChannelManager.GetStaticMediaSources(this, CancellationToken.None)
-                           .Result.ToList();
+                           .ToList();
 
                 if (sources.Count > 0)
                 {
@@ -585,71 +587,83 @@ namespace MediaBrowser.Controller.Entities
             .ToList();
         }
 
-        private static MediaSourceInfo GetVersionInfo(bool enablePathSubstitution, Video i, MediaSourceType type)
+        private static MediaSourceInfo GetVersionInfo(bool enablePathSubstitution, Video media, MediaSourceType type)
         {
-            var mediaStreams = MediaSourceManager.GetMediaStreams(i.Id)
+            if (media == null)
+            {
+                throw new ArgumentNullException("media");
+            }
+
+            var mediaStreams = MediaSourceManager.GetMediaStreams(media.Id)
                 .ToList();
 
-            var locationType = i.LocationType;
+            var locationType = media.LocationType;
 
             var info = new MediaSourceInfo
             {
-                Id = i.Id.ToString("N"),
-                IsoType = i.IsoType,
+                Id = media.Id.ToString("N"),
+                IsoType = media.IsoType,
                 Protocol = locationType == LocationType.Remote ? MediaProtocol.Http : MediaProtocol.File,
                 MediaStreams = mediaStreams,
-                Name = GetMediaSourceName(i, mediaStreams),
-                Path = enablePathSubstitution ? GetMappedPath(i, i.Path, locationType) : i.Path,
-                RunTimeTicks = i.RunTimeTicks,
-                Video3DFormat = i.Video3DFormat,
-                VideoType = i.VideoType,
-                Container = i.Container,
-                Size = i.Size,
-                Timestamp = i.Timestamp,
+                Name = GetMediaSourceName(media, mediaStreams),
+                Path = enablePathSubstitution ? GetMappedPath(media, media.Path, locationType) : media.Path,
+                RunTimeTicks = media.RunTimeTicks,
+                Video3DFormat = media.Video3DFormat,
+                VideoType = media.VideoType,
+                Container = media.Container,
+                Size = media.Size,
+                Timestamp = media.Timestamp,
                 Type = type,
-                PlayableStreamFileNames = i.PlayableStreamFileNames.ToList(),
-                SupportsDirectStream = i.VideoType == VideoType.VideoFile
+                PlayableStreamFileNames = media.PlayableStreamFileNames.ToList(),
+                SupportsDirectStream = media.VideoType == VideoType.VideoFile,
+                IsRemote = media.IsShortcut
             };
 
             if (info.Protocol == MediaProtocol.File)
             {
-                info.ETag = i.DateModified.Ticks.ToString(CultureInfo.InvariantCulture).GetMD5().ToString("N");
+                info.ETag = media.DateModified.Ticks.ToString(CultureInfo.InvariantCulture).GetMD5().ToString("N");
             }
 
-            if (i.IsShortcut)
+            if (media.IsShortcut)
             {
-                info.Path = i.ShortcutPath;
+                info.Path = media.ShortcutPath;
 
-                if (info.Path.StartsWith("Http", StringComparison.OrdinalIgnoreCase))
+                if (!string.IsNullOrWhiteSpace(info.Path))
                 {
-                    info.Protocol = MediaProtocol.Http;
-                }
-                else if (info.Path.StartsWith("Rtmp", StringComparison.OrdinalIgnoreCase))
-                {
-                    info.Protocol = MediaProtocol.Rtmp;
-                }
-                else if (info.Path.StartsWith("Rtsp", StringComparison.OrdinalIgnoreCase))
-                {
-                    info.Protocol = MediaProtocol.Rtsp;
-                }
-                else
-                {
-                    info.Protocol = MediaProtocol.File;
+                    if (info.Path.StartsWith("Http", StringComparison.OrdinalIgnoreCase))
+                    {
+                        info.Protocol = MediaProtocol.Http;
+                        info.SupportsDirectStream = false;
+                    }
+                    else if (info.Path.StartsWith("Rtmp", StringComparison.OrdinalIgnoreCase))
+                    {
+                        info.Protocol = MediaProtocol.Rtmp;
+                        info.SupportsDirectStream = false;
+                    }
+                    else if (info.Path.StartsWith("Rtsp", StringComparison.OrdinalIgnoreCase))
+                    {
+                        info.Protocol = MediaProtocol.Rtsp;
+                        info.SupportsDirectStream = false;
+                    }
+                    else
+                    {
+                        info.Protocol = MediaProtocol.File;
+                    }
                 }
             }
 
             if (string.IsNullOrEmpty(info.Container))
             {
-                if (i.VideoType == VideoType.VideoFile || i.VideoType == VideoType.Iso)
+                if (media.VideoType == VideoType.VideoFile || media.VideoType == VideoType.Iso)
                 {
-                    if (!string.IsNullOrWhiteSpace(i.Path) && locationType != LocationType.Remote && locationType != LocationType.Virtual)
+                    if (!string.IsNullOrWhiteSpace(media.Path) && locationType != LocationType.Remote && locationType != LocationType.Virtual)
                     {
-                        info.Container = System.IO.Path.GetExtension(i.Path).TrimStart('.');
+                        info.Container = System.IO.Path.GetExtension(media.Path).TrimStart('.');
                     }
                 }
             }
 
-            info.Bitrate = i.TotalBitrate;
+            info.Bitrate = media.TotalBitrate;
             info.InferTotalBitrate();
 
             return info;

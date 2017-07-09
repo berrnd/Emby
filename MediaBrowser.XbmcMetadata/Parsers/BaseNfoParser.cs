@@ -15,6 +15,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Xml;
+using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Xml;
 
@@ -227,6 +228,11 @@ namespace MediaBrowser.XbmcMetadata.Parsers
             }
         }
 
+        protected virtual string MovieDbParserSearchString
+        {
+            get { return "themoviedb.org/movie/"; }
+        }
+
         private void ParseProviderLinks(T item, string xml)
         {
             //Look for a match for the Regex pattern "tt" followed by 7 digits
@@ -238,7 +244,7 @@ namespace MediaBrowser.XbmcMetadata.Parsers
 
             // Support Tmdb
             // http://www.themoviedb.org/movie/36557
-            var srch = "themoviedb.org/movie/";
+            var srch = MovieDbParserSearchString;
             var index = xml.IndexOf(srch, StringComparison.OrdinalIgnoreCase);
 
             if (index != -1)
@@ -250,13 +256,28 @@ namespace MediaBrowser.XbmcMetadata.Parsers
                     item.SetProviderId(MetadataProviders.Tmdb, tmdbId);
                 }
             }
+
+            if (item is Series)
+            {
+                srch = "thetvdb.com/?tab=series&id=";
+
+                index = xml.IndexOf(srch, StringComparison.OrdinalIgnoreCase);
+
+                if (index != -1)
+                {
+                    var tvdbId = xml.Substring(index + srch.Length).TrimEnd('/');
+                    int value;
+                    if (!string.IsNullOrWhiteSpace(tvdbId) && int.TryParse(tvdbId, NumberStyles.Any, CultureInfo.InvariantCulture, out value))
+                    {
+                        item.SetProviderId(MetadataProviders.Tvdb, tvdbId);
+                    }
+                }
+            }
         }
 
         protected virtual void FetchDataFromXmlNode(XmlReader reader, MetadataResult<T> itemResult)
         {
             var item = itemResult.Item;
-
-            var userDataUserId = _config.GetNfoConfiguration().UserId;
 
             switch (reader.Name)
             {
@@ -320,69 +341,6 @@ namespace MediaBrowser.XbmcMetadata.Parsers
                         break;
                     }
 
-                case "budget":
-                    {
-                        var text = reader.ReadElementContentAsString();
-                        var hasBudget = item as IHasBudget;
-                        if (hasBudget != null)
-                        {
-                            double value;
-                            if (double.TryParse(text, NumberStyles.Any, _usCulture, out value))
-                            {
-                                hasBudget.Budget = value;
-                            }
-                        }
-
-                        break;
-                    }
-
-                case "revenue":
-                    {
-                        var text = reader.ReadElementContentAsString();
-                        var hasBudget = item as IHasBudget;
-                        if (hasBudget != null)
-                        {
-                            double value;
-                            if (double.TryParse(text, NumberStyles.Any, _usCulture, out value))
-                            {
-                                hasBudget.Revenue = value;
-                            }
-                        }
-
-                        break;
-                    }
-
-                case "metascore":
-                    {
-                        var text = reader.ReadElementContentAsString();
-                        var hasMetascore = item as IHasMetascore;
-                        if (hasMetascore != null)
-                        {
-                            float value;
-                            if (float.TryParse(text, NumberStyles.Any, _usCulture, out value))
-                            {
-                                hasMetascore.Metascore = value;
-                            }
-                        }
-
-                        break;
-                    }
-
-                case "awardsummary":
-                    {
-                        var text = reader.ReadElementContentAsString();
-                        var hasAwards = item as IHasAwards;
-                        if (hasAwards != null)
-                        {
-                            if (!string.IsNullOrWhiteSpace(text))
-                            {
-                                hasAwards.AwardSummary = text;
-                            }
-                        }
-
-                        break;
-                    }
-
                 case "sorttitle":
                     {
                         var val = reader.ReadElementContentAsString();
@@ -390,17 +348,6 @@ namespace MediaBrowser.XbmcMetadata.Parsers
                         if (!string.IsNullOrWhiteSpace(val))
                         {
                             item.ForcedSortName = val;
-                        }
-                        break;
-                    }
-
-                case "outline":
-                    {
-                        var val = reader.ReadElementContentAsString();
-
-                        if (!string.IsNullOrWhiteSpace(val))
-                        {
-                            item.ShortOverview = val;
                         }
                         break;
                     }
@@ -414,18 +361,6 @@ namespace MediaBrowser.XbmcMetadata.Parsers
                         if (!string.IsNullOrWhiteSpace(val))
                         {
                             item.Overview = val;
-                        }
-
-                        break;
-                    }
-
-                case "criticratingsummary":
-                    {
-                        var val = reader.ReadElementContentAsString();
-
-                        if (!string.IsNullOrWhiteSpace(val))
-                        {
-                            item.CriticRatingSummary = val;
                         }
 
                         break;
@@ -507,10 +442,9 @@ namespace MediaBrowser.XbmcMetadata.Parsers
 
                         if (!string.IsNullOrWhiteSpace(val))
                         {
-                            item.ProductionLocations = val.Split('/')
+                            item.ProductionLocations.AddRange(val.Split('/')
                                 .Select(i => i.Trim())
-                                .Where(i => !string.IsNullOrWhiteSpace(i))
-                                .ToList();
+                                .Where(i => !string.IsNullOrWhiteSpace(i)));
                         }
                         break;
                     }
@@ -522,17 +456,6 @@ namespace MediaBrowser.XbmcMetadata.Parsers
                         if (!string.IsNullOrWhiteSpace(rating))
                         {
                             item.OfficialRating = rating;
-                        }
-                        break;
-                    }
-
-                case "mpaadescription":
-                    {
-                        var rating = reader.ReadElementContentAsString();
-
-                        if (!string.IsNullOrWhiteSpace(rating))
-                        {
-                            item.OfficialRatingDescription = rating;
                         }
                         break;
                     }
@@ -781,21 +704,6 @@ namespace MediaBrowser.XbmcMetadata.Parsers
                         break;
                     }
 
-                case "votes":
-                    {
-                        var val = reader.ReadElementContentAsString();
-                        if (!string.IsNullOrWhiteSpace(val))
-                        {
-                            int num;
-
-                            if (int.TryParse(val, NumberStyles.Integer, _usCulture, out num))
-                            {
-                                item.VoteCount = num;
-                            }
-                        }
-                        break;
-                    }
-
                 case "genre":
                     {
                         var val = reader.ReadElementContentAsString();
@@ -852,117 +760,6 @@ namespace MediaBrowser.XbmcMetadata.Parsers
                         break;
                     }
 
-                case "watched":
-                    {
-                        var val = reader.ReadElementContentAsString();
-
-                        if (!string.IsNullOrWhiteSpace(val) && !string.IsNullOrWhiteSpace(userDataUserId))
-                        {
-                            bool parsedValue;
-                            if (bool.TryParse(val, out parsedValue))
-                            {
-                                var userData = GetOrAdd(itemResult, userDataUserId);
-
-                                userData.Played = parsedValue;
-                            }
-                        }
-                        break;
-                    }
-
-                case "playcount":
-                    {
-                        var val = reader.ReadElementContentAsString();
-
-                        if (!string.IsNullOrWhiteSpace(val) && !string.IsNullOrWhiteSpace(userDataUserId))
-                        {
-                            int parsedValue;
-                            if (int.TryParse(val, NumberStyles.Integer, _usCulture, out parsedValue))
-                            {
-                                var userData = GetOrAdd(itemResult, userDataUserId);
-
-                                userData.PlayCount = parsedValue;
-
-                                if (parsedValue > 0)
-                                {
-                                    userData.Played = true;
-                                }
-                            }
-                        }
-                        break;
-                    }
-
-                case "lastplayed":
-                    {
-                        var val = reader.ReadElementContentAsString();
-
-                        if (!string.IsNullOrWhiteSpace(val) && !string.IsNullOrWhiteSpace(userDataUserId))
-                        {
-                            DateTime parsedValue;
-                            if (DateTime.TryParseExact(val, "yyyy-MM-dd HH:mm:ss", _usCulture, DateTimeStyles.AssumeLocal, out parsedValue))
-                            {
-                                var userData = GetOrAdd(itemResult, userDataUserId);
-
-                                userData.LastPlayedDate = parsedValue.ToUniversalTime();
-                            }
-                        }
-                        break;
-                    }
-
-                case "resume":
-                    {
-                        if (!reader.IsEmptyElement)
-                        {
-                            using (var subtree = reader.ReadSubtree())
-                            {
-                                if (!string.IsNullOrWhiteSpace(userDataUserId))
-                                {
-                                    var userData = GetOrAdd(itemResult, userDataUserId);
-
-                                    FetchFromResumeNode(subtree, item, userData);
-                                }
-                            }
-                        }
-                        else
-                        {
-                            reader.Read();
-                        }
-                        break;
-                    }
-
-                case "isuserfavorite":
-                    {
-                        var val = reader.ReadElementContentAsString();
-
-                        if (!string.IsNullOrWhiteSpace(val) && !string.IsNullOrWhiteSpace(userDataUserId))
-                        {
-                            bool parsedValue;
-                            if (bool.TryParse(val, out parsedValue))
-                            {
-                                var userData = GetOrAdd(itemResult, userDataUserId);
-
-                                userData.IsFavorite = parsedValue;
-                            }
-                        }
-                        break;
-                    }
-
-                case "userrating":
-                    {
-                        var val = reader.ReadElementContentAsString();
-
-                        if (!string.IsNullOrWhiteSpace(val) && !string.IsNullOrWhiteSpace(userDataUserId))
-                        {
-                            double parsedValue;
-                            if (double.TryParse(val, NumberStyles.Any, _usCulture, out parsedValue))
-                            {
-                                var userData = GetOrAdd(itemResult, userDataUserId);
-
-                                userData.Rating = parsedValue;
-                            }
-                        }
-                        break;
-                    }
-
                 default:
                     string readerName = reader.Name;
                     string providerIdValue;
@@ -979,50 +776,6 @@ namespace MediaBrowser.XbmcMetadata.Parsers
                         reader.Skip();
                     }
                     break;
-            }
-        }
-
-        private UserItemData GetOrAdd(MetadataResult<T> result, string userId)
-        {
-            return result.GetOrAddUserData(userId);
-        }
-
-        private void FetchFromResumeNode(XmlReader reader, T item, UserItemData userData)
-        {
-            reader.MoveToContent();
-            reader.Read();
-
-            // Loop through each element
-            while (!reader.EOF && reader.ReadState == ReadState.Interactive)
-            {
-                if (reader.NodeType == XmlNodeType.Element)
-                {
-                    switch (reader.Name)
-                    {
-                        case "position":
-                            {
-                                var val = reader.ReadElementContentAsString();
-
-                                if (!string.IsNullOrWhiteSpace(val))
-                                {
-                                    double parsedValue;
-                                    if (double.TryParse(val, NumberStyles.Any, _usCulture, out parsedValue))
-                                    {
-                                        userData.PlaybackPositionTicks = TimeSpan.FromSeconds(parsedValue).Ticks;
-                                    }
-                                }
-                                break;
-                            }
-
-                        default:
-                            reader.Skip();
-                            break;
-                    }
-                }
-                else
-                {
-                    reader.Read();
-                }
             }
         }
 

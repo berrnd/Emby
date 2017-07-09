@@ -15,7 +15,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Emby.Server.Implementations.Library;
-using MediaBrowser.Common.IO;
+using MediaBrowser.Controller.Dto;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.IO;
 using MediaBrowser.Model.IO;
@@ -352,7 +352,7 @@ namespace Emby.Server.Implementations.FileOrganization
                         _libraryMonitor.ReportFileSystemChangeBeginning(path);
 
                         var renameRelatedFiles = !hasRenamedFiles &&
-                            string.Equals(Path.GetDirectoryName(path), Path.GetDirectoryName(result.TargetPath), StringComparison.OrdinalIgnoreCase);
+                            string.Equals(_fileSystem.GetDirectoryName(path), _fileSystem.GetDirectoryName(result.TargetPath), StringComparison.OrdinalIgnoreCase);
 
                         if (renameRelatedFiles)
                         {
@@ -432,7 +432,7 @@ namespace Emby.Server.Implementations.FileOrganization
 
             // Now find other files
             var originalFilenameWithoutExtension = Path.GetFileNameWithoutExtension(path);
-            var directory = Path.GetDirectoryName(path);
+            var directory = _fileSystem.GetDirectoryName(path);
 
             if (!string.IsNullOrWhiteSpace(originalFilenameWithoutExtension) && !string.IsNullOrWhiteSpace(directory))
             {
@@ -445,7 +445,7 @@ namespace Emby.Server.Implementations.FileOrganization
 
                 foreach (var file in files)
                 {
-                    directory = Path.GetDirectoryName(file);
+                    directory = _fileSystem.GetDirectoryName(file);
                     var filename = Path.GetFileName(file);
 
                     filename = filename.Replace(originalFilenameWithoutExtension, targetFilenameWithoutExtension,
@@ -470,7 +470,7 @@ namespace Emby.Server.Implementations.FileOrganization
                 return new List<string>();
             }
 
-            var episodePaths = series.GetRecursiveChildren()
+            var episodePaths = series.GetRecursiveChildren(i => i is Episode)
                 .OfType<Episode>()
                 .Where(i =>
                 {
@@ -499,7 +499,7 @@ namespace Emby.Server.Implementations.FileOrganization
                 .Select(i => i.Path)
                 .ToList();
 
-            var folder = Path.GetDirectoryName(targetPath);
+            var folder = _fileSystem.GetDirectoryName(targetPath);
             var targetFileNameWithoutExtension = _fileSystem.GetFileNameWithoutExtension(targetPath);
 
             try
@@ -529,7 +529,7 @@ namespace Emby.Server.Implementations.FileOrganization
 
             _libraryMonitor.ReportFileSystemChangeBeginning(result.TargetPath);
 
-            _fileSystem.CreateDirectory(Path.GetDirectoryName(result.TargetPath));
+            _fileSystem.CreateDirectory(_fileSystem.GetDirectoryName(result.TargetPath));
 
             var targetAlreadyExists = _fileSystem.FileExists(result.TargetPath);
 
@@ -588,7 +588,8 @@ namespace Emby.Server.Implementations.FileOrganization
             var series = _libraryManager.GetItemList(new InternalItemsQuery
             {
                 IncludeItemTypes = new[] { typeof(Series).Name },
-                Recursive = true
+                Recursive = true,
+                DtoOptions = new DtoOptions(true)
             })
                 .Cast<Series>()
                 .Select(i => NameUtils.GetMatchScore(nameWithoutYear, yearInName, i))
@@ -607,7 +608,8 @@ namespace Emby.Server.Implementations.FileOrganization
                     {
                         IncludeItemTypes = new[] { typeof(Series).Name },
                         Recursive = true,
-                        Name = info.ItemName
+                        Name = info.ItemName,
+                        DtoOptions = new DtoOptions(true)
 
                     }).Cast<Series>().FirstOrDefault();
                 }
@@ -677,20 +679,7 @@ namespace Emby.Server.Implementations.FileOrganization
 
             var newPath = GetSeasonFolderPath(series, seasonNumber.Value, options);
 
-            // MAX_PATH - trailing <NULL> charachter - drive component: 260 - 1 - 3 = 256
-            // Usually newPath would include the drive component, but use 256 to be sure
-            var maxFilenameLength = 256 - newPath.Length;
-
-            if (!newPath.EndsWith(@"\"))
-            {
-                // Remove 1 for missing backslash combining path and filename
-                maxFilenameLength--;
-            }
-
-            // Remove additional 4 chars to prevent PathTooLongException for downloaded subtitles (eg. filename.ext.eng.srt)
-            maxFilenameLength -= 4;
-
-            var episodeFileName = GetEpisodeFileName(sourcePath, series.Name, seasonNumber.Value, episodeNumber.Value, endingEpisodeNumber, episodeName, options, maxFilenameLength);
+            var episodeFileName = GetEpisodeFileName(sourcePath, series.Name, seasonNumber.Value, episodeNumber.Value, endingEpisodeNumber, episodeName, options);
 
             if (string.IsNullOrEmpty(episodeFileName))
             {
@@ -742,7 +731,7 @@ namespace Emby.Server.Implementations.FileOrganization
             return Path.Combine(path, _fileSystem.GetValidFilename(seasonFolderName));
         }
 
-        private string GetEpisodeFileName(string sourcePath, string seriesName, int seasonNumber, int episodeNumber, int? endingEpisodeNumber, string episodeTitle, TvFileOrganizationOptions options, int? maxLength)
+        private string GetEpisodeFileName(string sourcePath, string seriesName, int seasonNumber, int episodeNumber, int? endingEpisodeNumber, string episodeTitle, TvFileOrganizationOptions options)
         {
             seriesName = _fileSystem.GetValidFilename(seriesName).Trim();
 
@@ -786,32 +775,15 @@ namespace Emby.Server.Implementations.FileOrganization
                 .Replace("%0e", episodeNumber.ToString("00", _usCulture))
                 .Replace("%00e", episodeNumber.ToString("000", _usCulture));
 
-            if (maxLength.HasValue && result.Contains("%#"))
+            if (result.Contains("%#"))
             {
-                // Substract 3 for the temp token length (%#1, %#2 or %#3)  
-                int maxRemainingTitleLength = maxLength.Value - result.Length + 3;
-                string shortenedEpisodeTitle = string.Empty;
-
-                if (maxRemainingTitleLength > 5)
-                {
-                    // A title with fewer than 5 letters wouldn't be of much value
-                    shortenedEpisodeTitle = episodeTitle.Substring(0, Math.Min(maxRemainingTitleLength, episodeTitle.Length));
-                }
-
-                result = result.Replace("%#1", shortenedEpisodeTitle)
-                    .Replace("%#2", shortenedEpisodeTitle.Replace(" ", "."))
-                    .Replace("%#3", shortenedEpisodeTitle.Replace(" ", "_"));
+                result = result.Replace("%#1", episodeTitle)
+                    .Replace("%#2", episodeTitle.Replace(" ", "."))
+                    .Replace("%#3", episodeTitle.Replace(" ", "_"));
             }
 
-            if (maxLength.HasValue && result.Length > maxLength.Value)
-            {
-                // There may be cases where reducing the title length may still not be sufficient to
-                // stay below maxLength
-                var msg = string.Format("Unable to generate an episode file name shorter than {0} characters to constrain to the max path limit", maxLength);
-                throw new Exception(msg);
-            }
-
-            return result;
+            // Finally, call GetValidFilename again in case user customized the episode expression with any invalid filename characters
+            return _fileSystem.GetValidFilename(result).Trim();
         }
 
         private bool IsSameEpisode(string sourcePath, string newPath)

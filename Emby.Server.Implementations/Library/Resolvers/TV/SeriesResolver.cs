@@ -10,7 +10,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using MediaBrowser.Common.IO;
+
 using MediaBrowser.Model.IO;
 using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Controller.IO;
@@ -75,21 +75,22 @@ namespace Emby.Server.Implementations.Library.Resolvers.TV
                     var configuredContentType = _libraryManager.GetConfiguredContentType(args.Path);
                     if (!string.Equals(configuredContentType, CollectionType.TvShows, StringComparison.OrdinalIgnoreCase))
                     {
-                        Series series = new Series
+						Series series = new Series
                         {
                             Path = args.Path,
                             Name = Path.GetFileName(args.Path)
                         };
 
+						//myproduction-change-start
+						//OV series handling
 						if (args.Path.Contains("SerienOV"))
 						{
 							series.Tags.Add("OV");
 						}
-
-						return series;
-                    }
-                }
-                else if (string.IsNullOrWhiteSpace(collectionType))
+						//myproduction-change-end
+					}
+				}
+				else if (string.IsNullOrWhiteSpace(collectionType))
                 {
                     if (args.ContainsFileSystemEntryByName("tvshow.nfo"))
                     {

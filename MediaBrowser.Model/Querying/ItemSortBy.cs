@@ -20,14 +20,6 @@ namespace MediaBrowser.Model.Querying
         /// </summary>
         public const string Artist = "Artist";
         /// <summary>
-        /// The budget
-        /// </summary>
-        public const string Budget = "Budget";
-        /// <summary>
-        /// The revenue
-        /// </summary>
-        public const string Revenue = "Revenue";
-        /// <summary>
         /// The date created
         /// </summary>
         public const string DateCreated = "DateCreated";
@@ -79,7 +71,6 @@ namespace MediaBrowser.Model.Querying
         public const string SeriesSortName = "SeriesSortName";
         public const string VideoBitRate = "VideoBitRate";
         public const string AirTime = "AirTime";
-        public const string Metascore = "Metascore";
         public const string Studio = "Studio";
         public const string Players = "Players";
         public const string GameSystem = "GameSystem";

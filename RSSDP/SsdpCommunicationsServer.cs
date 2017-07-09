@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using MediaBrowser.Common.Net;
 using MediaBrowser.Model.Logging;
@@ -37,10 +38,10 @@ namespace Rssdp.Infrastructure
 		*/
 
         private object _BroadcastListenSocketSynchroniser = new object();
-        private IUdpSocket _BroadcastListenSocket;
+        private ISocket _BroadcastListenSocket;
 
         private object _SendSocketSynchroniser = new object();
-        private List<IUdpSocket> _sendSockets;
+        private List<ISocket> _sendSockets;
 
         private HttpRequestParser _RequestParser;
         private HttpResponseParser _ResponseParser;
@@ -149,12 +150,7 @@ namespace Rssdp.Infrastructure
         /// <summary>
         /// Sends a message to a particular address (uni or multicast) and port.
         /// </summary>
-        /// <param name="messageData">A byte array containing the data to send.</param>
-        /// <param name="destination">A <see cref="IpEndPointInfo"/> representing the destination address for the data. Can be either a multicast or unicast destination.</param>
-        /// <param name="fromLocalIpAddress">A <see cref="IpEndPointInfo"/> The local ip address to send from, or .Any if sending from all available</param>
-        /// <exception cref="System.ArgumentNullException">Thrown if the <paramref name="messageData"/> argument is null.</exception>
-        /// <exception cref="System.ObjectDisposedException">Thrown if the <see cref="DisposableManagedObjectBase.IsDisposed"/> property is true (because <seealso cref="DisposableManagedObjectBase.Dispose()" /> has been called previously).</exception>
-        public async Task SendMessage(byte[] messageData, IpEndPointInfo destination, IpAddressInfo fromLocalIpAddress)
+        public async Task SendMessage(byte[] messageData, IpEndPointInfo destination, IpAddressInfo fromLocalIpAddress, CancellationToken cancellationToken)
         {
             if (messageData == null) throw new ArgumentNullException("messageData");
 
@@ -170,20 +166,24 @@ namespace Rssdp.Infrastructure
             // SSDP spec recommends sending messages multiple times (not more than 3) to account for possible packet loss over UDP.
             for (var i = 0; i < SsdpConstants.UdpResendCount; i++)
             {
-                var tasks = sockets.Select(s => SendFromSocket(s, messageData, destination)).ToArray();
+                var tasks = sockets.Select(s => SendFromSocket(s, messageData, destination, cancellationToken)).ToArray();
                 await Task.WhenAll(tasks).ConfigureAwait(false);
 
-                await Task.Delay(100).ConfigureAwait(false);
+                await Task.Delay(100, cancellationToken).ConfigureAwait(false);
             }
         }
 
-        private async Task SendFromSocket(IUdpSocket socket, byte[] messageData, IpEndPointInfo destination)
+        private async Task SendFromSocket(ISocket socket, byte[] messageData, IpEndPointInfo destination, CancellationToken cancellationToken)
         {
             try
             {
-                await socket.SendAsync(messageData, messageData.Length, destination).ConfigureAwait(false);
+                await socket.SendToAsync(messageData, 0, messageData.Length, destination, cancellationToken).ConfigureAwait(false);
             }
             catch (ObjectDisposedException)
+            {
+
+            }
+            catch (OperationCanceledException)
             {
 
             }
@@ -193,7 +193,7 @@ namespace Rssdp.Infrastructure
             }
         }
 
-        private List<IUdpSocket> GetSendSockets(IpAddressInfo fromLocalIpAddress, IpEndPointInfo destination)
+        private List<ISocket> GetSendSockets(IpAddressInfo fromLocalIpAddress, IpEndPointInfo destination)
         {
             EnsureSendSocketCreated();
 
@@ -230,13 +230,15 @@ namespace Rssdp.Infrastructure
         /// <summary>
         /// Sends a message to the SSDP multicast address and port.
         /// </summary>
-        public async Task SendMulticastMessage(string message)
+        public async Task SendMulticastMessage(string message, CancellationToken cancellationToken)
         {
             if (message == null) throw new ArgumentNullException("messageData");
 
             byte[] messageData = Encoding.UTF8.GetBytes(message);
 
             ThrowIfDisposed();
+
+            cancellationToken.ThrowIfCancellationRequested();
 
             EnsureSendSocketCreated();
 
@@ -245,15 +247,12 @@ namespace Rssdp.Infrastructure
             {
                 await SendMessageIfSocketNotDisposed(messageData, new IpEndPointInfo
                 {
-                    IpAddress = new IpAddressInfo
-                    {
-                        Address = SsdpConstants.MulticastLocalAdminAddress
-                    },
+                    IpAddress = new IpAddressInfo(SsdpConstants.MulticastLocalAdminAddress, IpAddressFamily.InterNetwork),
                     Port = SsdpConstants.MulticastPort
 
-                }).ConfigureAwait(false);
+                }, cancellationToken).ConfigureAwait(false);
 
-                await Task.Delay(100).ConfigureAwait(false);
+                await Task.Delay(100, cancellationToken).ConfigureAwait(false);
             }
         }
 
@@ -334,7 +333,7 @@ namespace Rssdp.Infrastructure
 
         #region Private Methods
 
-        private async Task SendMessageIfSocketNotDisposed(byte[] messageData, IpEndPointInfo destination)
+        private async Task SendMessageIfSocketNotDisposed(byte[] messageData, IpEndPointInfo destination, CancellationToken cancellationToken)
         {
             var sockets = _sendSockets;
             if (sockets != null)
@@ -343,14 +342,12 @@ namespace Rssdp.Infrastructure
 
                 foreach (var socket in sockets)
                 {
-                    await socket.SendAsync(messageData, messageData.Length, destination).ConfigureAwait(false);
+                    await SendFromSocket(socket, messageData, destination, cancellationToken).ConfigureAwait(false);
                 }
             }
-
-            ThrowIfDisposed();
         }
 
-        private IUdpSocket ListenForBroadcastsAsync()
+        private ISocket ListenForBroadcastsAsync()
         {
             var socket = _SocketFactory.CreateUdpMulticastSocket(SsdpConstants.MulticastLocalAdminAddress, _MulticastTtl, SsdpConstants.MulticastPort);
 
@@ -359,9 +356,9 @@ namespace Rssdp.Infrastructure
             return socket;
         }
 
-        private List<IUdpSocket> CreateSocketAndListenForResponsesAsync()
+        private List<ISocket> CreateSocketAndListenForResponsesAsync()
         {
-            var sockets = new List<IUdpSocket>();
+            var sockets = new List<ISocket>();
 
             sockets.Add(_SocketFactory.CreateSsdpUdpSocket(IpAddressInfo.Any, _LocalPort));
 
@@ -389,17 +386,19 @@ namespace Rssdp.Infrastructure
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1804:RemoveUnusedLocals", MessageId = "t", Justification = "Capturing task to local variable removes compiler warning, task is not otherwise required.")]
-        private void ListenToSocket(IUdpSocket socket)
+        private void ListenToSocket(ISocket socket)
         {
             // Tasks are captured to local variables even if we don't use them just to avoid compiler warnings.
             var t = Task.Run(async () =>
             {
                 var cancelled = false;
+                var receiveBuffer = new byte[8192];
+
                 while (!cancelled)
                 {
                     try
                     {
-                        var result = await socket.ReceiveAsync().ConfigureAwait(false);
+                        var result = await socket.ReceiveAsync(receiveBuffer, 0, receiveBuffer.Length, CancellationToken.None).ConfigureAwait(false);
 
                         if (result.ReceivedBytes > 0)
                         {

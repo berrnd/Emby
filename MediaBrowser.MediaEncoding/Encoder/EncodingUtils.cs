@@ -45,6 +45,11 @@ namespace MediaBrowser.MediaEncoding.Encoder
         /// <returns>System.String.</returns>
         private static string GetFileInputArgument(string path)
         {
+            if (path.IndexOf("://") != -1)
+            {
+                return string.Format("\"{0}\"", path);
+            }
+
             // Quotes are valid path characters in linux and they need to be escaped here with a leading \
             path = NormalizePath(path);
 
@@ -60,16 +65,6 @@ namespace MediaBrowser.MediaEncoding.Encoder
         {
             // Quotes are valid path characters in linux and they need to be escaped here with a leading \
             return path.Replace("\"", "\\\"");
-        }
-
-        public static string GetProbeSizeArgument(int numInputFiles)
-        {
-            return numInputFiles > 1 ? "-probesize 1G" : "";
-        }
-
-        public static string GetAnalyzeDurationArgument(int numInputFiles)
-        {
-            return numInputFiles > 1 ? "-analyzeduration 200M" : "";
         }
     }
 }

@@ -182,7 +182,7 @@ namespace Emby.Server.Implementations.Library
             }
         }
 
-        public Task<bool> AuthenticateUser(string username, string passwordSha1, string remoteEndPoint)
+        public Task<User> AuthenticateUser(string username, string passwordSha1, string remoteEndPoint)
         {
             return AuthenticateUser(username, passwordSha1, null, remoteEndPoint);
         }
@@ -202,8 +202,7 @@ namespace Emby.Server.Implementations.Library
 
         private bool IsValidUsernameCharacter(char i)
         {
-            return char.IsLetterOrDigit(i) || char.Equals(i, '-') || char.Equals(i, '_') || char.Equals(i, '\'') ||
-                   char.Equals(i, '.');
+            return !char.Equals(i, '<') && !char.Equals(i, '>');
         }
 
         public string MakeValidUsername(string username)
@@ -226,7 +225,7 @@ namespace Emby.Server.Implementations.Library
             return builder.ToString();
         }
 
-        public async Task<bool> AuthenticateUser(string username, string passwordSha1, string passwordMd5, string remoteEndPoint)
+        public async Task<User> AuthenticateUser(string username, string passwordSha1, string passwordMd5, string remoteEndPoint)
         {
             if (string.IsNullOrWhiteSpace(username))
             {
@@ -307,7 +306,7 @@ namespace Emby.Server.Implementations.Library
 
             _logger.Info("Authentication request for {0} {1}.", user.Name, success ? "has succeeded" : "has been denied");
 
-            return success;
+            return success ? user : null;
         }
 
         private async Task UpdateInvalidLoginAttemptCount(User user, int newValue)
@@ -433,6 +432,11 @@ namespace Emby.Server.Implementations.Library
                 ServerId = _appHost.SystemId,
                 Policy = user.Policy
             };
+
+            if (!hasPassword && Users.Count() == 1)
+            {
+                dto.EnableAutoLogin = true;
+            }
 
             var image = user.GetImageInfo(ImageType.Primary, 0);
 
@@ -937,7 +941,8 @@ namespace Emby.Server.Implementations.Library
         {
             return new UserPolicy
             {
-                EnableSync = true
+                EnableContentDownloading = true,
+                EnableSyncTranscoding = true
             };
         }
 
@@ -959,7 +964,7 @@ namespace Emby.Server.Implementations.Library
 
             var path = GetPolifyFilePath(user);
 
-            _fileSystem.CreateDirectory(Path.GetDirectoryName(path));
+            _fileSystem.CreateDirectory(_fileSystem.GetDirectoryName(path));
 
             lock (_policySyncLock)
             {
@@ -1046,7 +1051,7 @@ namespace Emby.Server.Implementations.Library
                 config = _jsonSerializer.DeserializeFromString<UserConfiguration>(json);
             }
 
-            _fileSystem.CreateDirectory(Path.GetDirectoryName(path));
+            _fileSystem.CreateDirectory(_fileSystem.GetDirectoryName(path));
 
             lock (_configSyncLock)
             {

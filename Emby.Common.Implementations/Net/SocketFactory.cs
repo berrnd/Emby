@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -31,7 +32,7 @@ namespace Emby.Common.Implementations.Net
             _logger = logger;
         }
 
-        public ISocket CreateSocket(IpAddressFamily family, MediaBrowser.Model.Net.SocketType socketType, MediaBrowser.Model.Net.ProtocolType protocolType, bool dualMode)
+        public IAcceptSocket CreateSocket(IpAddressFamily family, MediaBrowser.Model.Net.SocketType socketType, MediaBrowser.Model.Net.ProtocolType protocolType, bool dualMode)
         {
             try
             {
@@ -46,21 +47,63 @@ namespace Emby.Common.Implementations.Net
                     socket.DualMode = true;
                 }
 
-                return new NetSocket(socket, _logger, dualMode);
+                return new NetAcceptSocket(socket, _logger, dualMode);
             }
             catch (SocketException ex)
             {
                 throw new SocketCreateException(ex.SocketErrorCode.ToString(), ex);
             }
+            catch (ArgumentException ex)
+            {
+                if (dualMode)
+                {
+                    // Mono for BSD incorrectly throws ArgumentException instead of SocketException
+                    throw new SocketCreateException("AddressFamilyNotSupported", ex);
+                }
+                else
+                {
+                    throw;
+                }
+            }
         }
 
-        #region ISocketFactory Members
+        public ISocket CreateTcpSocket(IpAddressInfo remoteAddress, int remotePort)
+        {
+            if (remotePort < 0) throw new ArgumentException("remotePort cannot be less than zero.", "remotePort");
+
+            var addressFamily = remoteAddress.AddressFamily == IpAddressFamily.InterNetwork
+               ? AddressFamily.InterNetwork
+               : AddressFamily.InterNetworkV6;
+
+            var retVal = new Socket(addressFamily, System.Net.Sockets.SocketType.Stream, System.Net.Sockets.ProtocolType.Tcp);
+
+            try
+            {
+                retVal.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            }
+            catch (SocketException)
+            {
+                // This is not supported on all operating systems (qnap)
+            }
+            
+            try
+            {
+                return new UdpSocket(retVal, new IpEndPointInfo(remoteAddress, remotePort));
+            }
+            catch
+            {
+                if (retVal != null)
+                    retVal.Dispose();
+
+                throw;
+            }
+        }
 
         /// <summary>
-        /// Creates a new UDP socket and binds it to the specified local port.
+        /// Creates a new UDP acceptSocket and binds it to the specified local port.
         /// </summary>
-        /// <param name="localPort">An integer specifying the local port to bind the socket to.</param>
-        public IUdpSocket CreateUdpSocket(int localPort)
+        /// <param name="localPort">An integer specifying the local port to bind the acceptSocket to.</param>
+        public ISocket CreateUdpSocket(int localPort)
         {
             if (localPort < 0) throw new ArgumentException("localPort cannot be less than zero.", "localPort");
 
@@ -79,11 +122,32 @@ namespace Emby.Common.Implementations.Net
             }
         }
 
+        public ISocket CreateUdpBroadcastSocket(int localPort)
+        {
+            if (localPort < 0) throw new ArgumentException("localPort cannot be less than zero.", "localPort");
+
+            var retVal = new Socket(AddressFamily.InterNetwork, System.Net.Sockets.SocketType.Dgram, System.Net.Sockets.ProtocolType.Udp);
+            try
+            {
+                retVal.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+                retVal.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, 1);
+
+                return new UdpSocket(retVal, localPort, IPAddress.Any);
+            }
+            catch
+            {
+                if (retVal != null)
+                    retVal.Dispose();
+
+                throw;
+            }
+        }
+        
         /// <summary>
-        /// Creates a new UDP socket that is a member of the SSDP multicast local admin group and binds it to the specified local port.
-        /// </summary>
-        /// <returns>An implementation of the <see cref="IUdpSocket"/> interface used by RSSDP components to perform socket operations.</returns>
-        public IUdpSocket CreateSsdpUdpSocket(IpAddressInfo localIpAddress, int localPort)
+              /// Creates a new UDP acceptSocket that is a member of the SSDP multicast local admin group and binds it to the specified local port.
+              /// </summary>
+              /// <returns>An implementation of the <see cref="ISocket"/> interface used by RSSDP components to perform acceptSocket operations.</returns>
+        public ISocket CreateSsdpUdpSocket(IpAddressInfo localIpAddress, int localPort)
         {
             if (localPort < 0) throw new ArgumentException("localPort cannot be less than zero.", "localPort");
 
@@ -108,13 +172,13 @@ namespace Emby.Common.Implementations.Net
         }
 
         /// <summary>
-        /// Creates a new UDP socket that is a member of the specified multicast IP address, and binds it to the specified local port.
+        /// Creates a new UDP acceptSocket that is a member of the specified multicast IP address, and binds it to the specified local port.
         /// </summary>
-        /// <param name="ipAddress">The multicast IP address to make the socket a member of.</param>
-        /// <param name="multicastTimeToLive">The multicast time to live value for the socket.</param>
+        /// <param name="ipAddress">The multicast IP address to make the acceptSocket a member of.</param>
+        /// <param name="multicastTimeToLive">The multicast time to live value for the acceptSocket.</param>
         /// <param name="localPort">The number of the local port to bind to.</param>
         /// <returns></returns>
-        public IUdpSocket CreateUdpMulticastSocket(string ipAddress, int multicastTimeToLive, int localPort)
+        public ISocket CreateUdpMulticastSocket(string ipAddress, int multicastTimeToLive, int localPort)
         {
             if (ipAddress == null) throw new ArgumentNullException("ipAddress");
             if (ipAddress.Length == 0) throw new ArgumentException("ipAddress cannot be an empty string.", "ipAddress");
@@ -125,16 +189,7 @@ namespace Emby.Common.Implementations.Net
 
             try
             {
-#if NET46
-				retVal.ExclusiveAddressUse = false;
-#else
-                // The ExclusiveAddressUse socket option is a Windows-specific option that, when set to "true," tells Windows not to allow another socket to use the same local address as this socket
-                // See https://github.com/dotnet/corefx/pull/11509 for more details
-                if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows))
-				{
-					retVal.ExclusiveAddressUse = false;
-				}
-#endif
+                retVal.ExclusiveAddressUse = false;
                 //retVal.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, true);
                 retVal.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
                 retVal.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastTimeToLive, multicastTimeToLive);
@@ -155,6 +210,88 @@ namespace Emby.Common.Implementations.Net
             }
         }
 
-        #endregion
+        public Stream CreateNetworkStream(ISocket socket, bool ownsSocket)
+        {
+            var netSocket = (UdpSocket)socket;
+
+            return new SocketStream(netSocket.Socket, ownsSocket);
+        }
     }
+
+    public class SocketStream : Stream
+    {
+        private readonly Socket _socket;
+
+        public SocketStream(Socket socket, bool ownsSocket)
+        {
+            _socket = socket;
+        }
+
+        public override void Flush()
+        {
+        }
+
+        public override bool CanRead
+        {
+            get { return true; }
+        }
+        public override bool CanSeek
+        {
+            get { return false; }
+        }
+        public override bool CanWrite
+        {
+            get { return true; }
+        }
+        public override long Length
+        {
+            get { throw new NotImplementedException(); }
+        }
+        public override long Position
+        {
+            get { throw new NotImplementedException(); }
+            set { throw new NotImplementedException(); }
+        }
+
+        public override void Write(byte[] buffer, int offset, int count)
+        {
+            _socket.Send(buffer, offset, count, SocketFlags.None);
+        }
+
+        public override IAsyncResult BeginWrite(byte[] buffer, int offset, int count, AsyncCallback callback, object state)
+        {
+            return _socket.BeginSend(buffer, offset, count, SocketFlags.None, callback, state);
+        }
+
+        public override void EndWrite(IAsyncResult asyncResult)
+        {
+            _socket.EndSend(asyncResult);
+        }
+
+        public override void SetLength(long value)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override long Seek(long offset, SeekOrigin origin)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            return _socket.Receive(buffer, offset, count, SocketFlags.None);
+        }
+
+        public override IAsyncResult BeginRead(byte[] buffer, int offset, int count, AsyncCallback callback, object state)
+        {
+            return _socket.BeginReceive(buffer, offset, count, SocketFlags.None, callback, state);
+        }
+
+        public override int EndRead(IAsyncResult asyncResult)
+        {
+            return _socket.EndReceive(asyncResult);
+        }
+    }
+
 }

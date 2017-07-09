@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Xml;
-using MediaBrowser.Common.IO;
+
 using MediaBrowser.Controller.IO;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Xml;
@@ -83,27 +83,21 @@ namespace MediaBrowser.XbmcMetadata.Savers
             {
                 writer.WriteElementString("airs_dayofweek", series.AirDays[0].ToString());
             }
-
-            if (series.AnimeSeriesIndex.HasValue)
-            {
-                writer.WriteElementString("animeseriesindex", series.AnimeSeriesIndex.Value.ToString(CultureInfo.InvariantCulture));
-            }
         }
 
-        protected override List<string> GetTagsUsed()
+        protected override List<string> GetTagsUsed(IHasMetadata item)
         {
-            var list = new List<string>
+            var list = base.GetTagsUsed(item);
+            list.AddRange(new string[]
             {
-                    "id",
-                    "episodeguide",
-                    "season",
-                    "episode",
-                    "status",
-                    "airs_time",
-                    "airs_dayofweek",
-                    "animeseriesindex"
-            };
-
+                "id",
+                "episodeguide",
+                "season",
+                "episode",
+                "status",
+                "airs_time",
+                "airs_dayofweek"
+            });
             return list;
         }
 

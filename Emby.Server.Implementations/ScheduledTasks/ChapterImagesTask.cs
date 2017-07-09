@@ -10,7 +10,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using MediaBrowser.Common.IO;
+using MediaBrowser.Controller.Dto;
 using MediaBrowser.Controller.IO;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Entities;
@@ -85,7 +85,9 @@ namespace Emby.Server.Implementations.ScheduledTasks
             {
                 MediaTypes = new[] { MediaType.Video },
                 IsFolder = false,
-                Recursive = true
+                Recursive = true,
+                DtoOptions = new DtoOptions(false)
+
             })
                 .OfType<Video>()
                 .ToList();
@@ -136,7 +138,7 @@ namespace Emby.Server.Implementations.ScheduledTasks
                     {
                         previouslyFailedImages.Add(key);
 
-                        var parentPath = Path.GetDirectoryName(failHistoryPath);
+                        var parentPath = _fileSystem.GetDirectoryName(failHistoryPath);
 
                         _fileSystem.CreateDirectory(parentPath);
 

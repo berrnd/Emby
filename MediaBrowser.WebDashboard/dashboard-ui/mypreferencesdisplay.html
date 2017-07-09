@@ -1,5 +1,5 @@
 ﻿<div id="displayPreferencesPage" data-role="page" class="page libraryPage userPreferencesPage noSecondaryNavPage" data-title="${HeaderDisplaySettings}" data-backbutton="true">
-    <div data-role="content">
+    <div class="padded-left padded-right padded-bottom-page">
         <form class="displayPreferencesForm userProfileSettingsForm" style="margin: 0 auto;">
             <div class="detailSection languageSection hide">
                 <h1>
@@ -30,6 +30,7 @@
                         <option value="it">Italian</option>
                         <option value="kk">Kazakh</option>
                         <option value="nb">Norwegian Bokmål</option>
+                        <option value="fa">Persian</option>
                         <option value="pl">Polish</option>
                         <option value="pt-BR">Portuguese (Brazil)</option>
                         <option value="pt-PT">Portuguese (Portugal)</option>
@@ -45,7 +46,7 @@
                     <div class="fieldDescription">
                         <div>${LabelPreferredDisplayLanguageHelp}</div>
                         <div style="margin-top: .25em;">
-                            <a href="http://emby.media/community/index.php?/topic/5727-join-our-translation-team/" target="_blank">${LabelReadHowYouCanContribute}</a>
+                            <a is="emby-linkbutton" class="button-link" href="http://emby.media/community/index.php?/topic/5727-join-our-translation-team/" target="_blank">${LabelReadHowYouCanContribute}</a>
                         </div>
                     </div>
                 </div>
@@ -70,7 +71,7 @@
                     <div class="fieldDescription checkboxFieldDescription">${LabelEnableThemeSongsHelp}</div>
                 </div>
             </div>
-            <div class="detailSection requiresUserPreferences">
+            <div class="detailSection">
                 <h1>
                     ${HeaderDisplay}
                 </h1>

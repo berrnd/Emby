@@ -33,14 +33,6 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release Mono|AnyCPU' ">
-    <DebugType>none</DebugType>
-    <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-  </PropertyGroup>
   <PropertyGroup>
     <RunPostBuildEvent>Always</RunPostBuildEvent>
   </PropertyGroup>
@@ -51,7 +43,6 @@
     <Compile Include="BasePeriodicWebSocketListener.cs" />
     <Compile Include="BrandingService.cs" />
     <Compile Include="ChannelService.cs" />
-    <Compile Include="ConnectService.cs" />
     <Compile Include="Devices\DeviceService.cs" />
     <Compile Include="Dlna\DlnaServerService.cs" />
     <Compile Include="Dlna\DlnaService.cs" />
@@ -59,6 +50,7 @@
     <Compile Include="IHasDtoOptions.cs" />
     <Compile Include="Playback\MediaInfoService.cs" />
     <Compile Include="Playback\TranscodingThrottler.cs" />
+    <Compile Include="Playback\UniversalAudioService.cs" />
     <Compile Include="PlaylistService.cs" />
     <Compile Include="Reports\Activities\ReportActivitiesBuilder.cs" />
     <Compile Include="Reports\Common\HeaderActivitiesMetadata.cs" />
@@ -82,10 +74,6 @@
     <Compile Include="Reports\Model\ReportRow.cs" />
     <Compile Include="Reports\ReportRequests.cs" />
     <Compile Include="Reports\ReportsService.cs" />
-    <Compile Include="Reports\Stat\ReportStatBuilder.cs" />
-    <Compile Include="Reports\Stat\ReportStatGroup.cs" />
-    <Compile Include="Reports\Stat\ReportStatItem.cs" />
-    <Compile Include="Reports\Stat\ReportStatResult.cs" />
     <Compile Include="Social\SharingService.cs" />
     <Compile Include="StartupWizardService.cs" />
     <Compile Include="Subtitles\SubtitleService.cs" />
@@ -134,10 +122,7 @@
     <Compile Include="SearchService.cs" />
     <Compile Include="Session\SessionsService.cs" />
     <Compile Include="SimilarItemsHelper.cs" />
-    <Compile Include="Sync\SyncHelper.cs" />
-    <Compile Include="Sync\SyncJobWebSocketListener.cs" />
-    <Compile Include="Sync\SyncJobsWebSocketListener.cs" />
-    <Compile Include="Sync\SyncService.cs" />
+    <Compile Include="SuggestionsService.cs" />
     <Compile Include="System\ActivityLogService.cs" />
     <Compile Include="System\ActivityLogWebSocketListener.cs" />
     <Compile Include="System\SystemService.cs" />

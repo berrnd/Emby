@@ -4,7 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using MediaBrowser.Common.IO;
+
 using MediaBrowser.Controller.IO;
 using MediaBrowser.Model.IO;
 
@@ -72,7 +72,7 @@ namespace Emby.Server.Implementations.LiveTv.EmbyTV
             }
 
             var file = _dataPath + ".json";
-            _fileSystem.CreateDirectory(Path.GetDirectoryName(file));
+            _fileSystem.CreateDirectory(_fileSystem.GetDirectoryName(file));
 
             lock (_fileDataLock)
             {

@@ -31,17 +31,6 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release Mono|AnyCPU' ">
-    <Optimize>false</Optimize>
-    <OutputPath>bin\Release Mono</OutputPath>
-    <WarningLevel>4</WarningLevel>
-  </PropertyGroup>
-  <ItemGroup>
-    <Reference Include="UniversalDetector, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\UniversalDetector.1.0.1\lib\portable-net45+sl4+wp71+win8+wpa81\UniversalDetector.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-  </ItemGroup>
   <ItemGroup>
     <Compile Include="..\SharedVersion.cs">
       <Link>Properties\SharedVersion.cs</Link>
@@ -55,7 +44,6 @@
     <Compile Include="Encoder\EncodingUtils.cs" />
     <Compile Include="Encoder\EncoderValidator.cs" />
     <Compile Include="Encoder\FontConfigLoader.cs" />
-    <Compile Include="Encoder\JobLogger.cs" />
     <Compile Include="Encoder\MediaEncoder.cs" />
     <Compile Include="Encoder\VideoEncoder.cs" />
     <Compile Include="Probing\FFProbeHelpers.cs" />

@@ -63,6 +63,11 @@ namespace MediaBrowser.Controller.Entities.Audio
             }
         }
 
+        public override double? GetDefaultPrimaryImageAspectRatio()
+        {
+            return 1;
+        }
+
         public override bool CanDelete()
         {
             return false;
@@ -86,16 +91,6 @@ namespace MediaBrowser.Controller.Entities.Audio
             }
         }
 
-        public IEnumerable<BaseItem> GetTaggedItems(IEnumerable<BaseItem> inputItems)
-        {
-            return inputItems.Where(GetItemFilter());
-        }
-
-        public Func<BaseItem, bool> GetItemFilter()
-        {
-            return i => i is IHasMusicGenres && i.Genres.Contains(Name, StringComparer.OrdinalIgnoreCase);
-        }
-
         [IgnoreDataMember]
         public override bool SupportsPeople
         {
@@ -107,13 +102,18 @@ namespace MediaBrowser.Controller.Entities.Audio
 
         public IEnumerable<BaseItem> GetTaggedItems(InternalItemsQuery query)
         {
-            query.Genres = new[] { Name };
+            query.GenreIds = new[] { Id.ToString("N") };
             query.IncludeItemTypes = new[] { typeof(MusicVideo).Name, typeof(Audio).Name, typeof(MusicAlbum).Name, typeof(MusicArtist).Name };
 
             return LibraryManager.GetItemList(query);
         }
 
-        public static string GetPath(string name, bool normalizeName = true)
+        public static string GetPath(string name)
+        {
+            return GetPath(name, true);
+        }
+
+        public static string GetPath(string name, bool normalizeName)
         {
             // Trim the period at the end because windows will have a hard time with that
             var validName = normalizeName ?

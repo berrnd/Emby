@@ -5,7 +5,8 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using MediaBrowser.Common.IO;
+
+using MediaBrowser.Controller.MediaEncoding;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Services;
 
@@ -14,6 +15,8 @@ namespace MediaBrowser.Api.Playback.Hls
     /// <summary>
     /// Class GetHlsAudioSegment
     /// </summary>
+    // Can't require authentication just yet due to seeing some requests come from Chrome without full query string
+    //[Authenticated]
     [Route("/Audio/{Id}/hls/{SegmentId}/stream.mp3", "GET")]
     [Route("/Audio/{Id}/hls/{SegmentId}/stream.aac", "GET")]
     public class GetHlsAudioSegmentLegacy
@@ -37,6 +40,7 @@ namespace MediaBrowser.Api.Playback.Hls
     /// Class GetHlsVideoSegment
     /// </summary>
     [Route("/Videos/{Id}/hls/{PlaylistId}/stream.m3u8", "GET")]
+    [Authenticated]
     public class GetHlsPlaylistLegacy
     {
         // TODO: Deprecate with new iOS app
@@ -51,6 +55,7 @@ namespace MediaBrowser.Api.Playback.Hls
     }
 
     [Route("/Videos/ActiveEncodings", "DELETE")]
+    [Authenticated]
     public class StopEncodingProcess
     {
         [ApiMember(Name = "DeviceId", Description = "The device id of the client requesting. Used to stop encoding processes when needed.", IsRequired = true, DataType = "string", ParameterType = "query", Verb = "DELETE")]
@@ -63,7 +68,9 @@ namespace MediaBrowser.Api.Playback.Hls
     /// <summary>
     /// Class GetHlsVideoSegment
     /// </summary>
-    [Route("/Videos/{Id}/hls/{PlaylistId}/{SegmentId}.ts", "GET")]
+    // Can't require authentication just yet due to seeing some requests come from Chrome without full query string
+    //[Authenticated]
+    [Route("/Videos/{Id}/hls/{PlaylistId}/{SegmentId}.{SegmentContainer}", "GET")]
     public class GetHlsVideoSegmentLegacy : VideoStreamRequest
     {
         public string PlaylistId { get; set; }
@@ -109,11 +116,13 @@ namespace MediaBrowser.Api.Playback.Hls
         public Task<object> Get(GetHlsVideoSegmentLegacy request)
         {
             var file = request.SegmentId + Path.GetExtension(Request.PathInfo);
-            file = Path.Combine(_config.ApplicationPaths.TranscodingTempPath, file);
+
+            var transcodeFolderPath = _config.ApplicationPaths.TranscodingTempPath;
+            file = Path.Combine(transcodeFolderPath, file);
 
             var normalizedPlaylistId = request.PlaylistId;
 
-            var playlistPath = _fileSystem.GetFilePaths(_config.ApplicationPaths.TranscodingTempPath)
+            var playlistPath = _fileSystem.GetFilePaths(transcodeFolderPath)
                 .FirstOrDefault(i => string.Equals(Path.GetExtension(i), ".m3u8", StringComparison.OrdinalIgnoreCase) && i.IndexOf(normalizedPlaylistId, StringComparison.OrdinalIgnoreCase) != -1);
 
             return GetFileResult(file, playlistPath);

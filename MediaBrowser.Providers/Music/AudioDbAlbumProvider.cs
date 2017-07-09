@@ -13,7 +13,7 @@ using System.Globalization;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using MediaBrowser.Common.IO;
+
 using MediaBrowser.Controller.IO;
 using MediaBrowser.Model.IO;
 
@@ -40,9 +40,9 @@ namespace MediaBrowser.Providers.Music
             Current = this;
         }
 
-        public async Task<IEnumerable<RemoteSearchResult>> GetSearchResults(AlbumInfo searchInfo, CancellationToken cancellationToken)
+        public Task<IEnumerable<RemoteSearchResult>> GetSearchResults(AlbumInfo searchInfo, CancellationToken cancellationToken)
         {
-            return new List<RemoteSearchResult>();
+            return Task.FromResult((IEnumerable<RemoteSearchResult>)new List<RemoteSearchResult>());
         }
 
         public async Task<MetadataResult<MusicAlbum>> GetMetadata(AlbumInfo info, CancellationToken cancellationToken)
@@ -142,7 +142,7 @@ namespace MediaBrowser.Providers.Music
 
             if (fileInfo.Exists)
             {
-                if ((DateTime.UtcNow - _fileSystem.GetLastWriteTimeUtc(fileInfo)).TotalDays <= 7)
+                if ((DateTime.UtcNow - _fileSystem.GetLastWriteTimeUtc(fileInfo)).TotalDays <= 3)
                 {
                     return _cachedTask;
                 }
@@ -159,7 +159,7 @@ namespace MediaBrowser.Providers.Music
 
             var path = GetAlbumInfoPath(_config.ApplicationPaths, musicBrainzReleaseGroupId);
 
-			_fileSystem.CreateDirectory(Path.GetDirectoryName(path));
+			_fileSystem.CreateDirectory(_fileSystem.GetDirectoryName(path));
 
             using (var response = await _httpClient.Get(new HttpRequestOptions
             {

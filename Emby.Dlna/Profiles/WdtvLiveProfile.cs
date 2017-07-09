@@ -126,7 +126,6 @@ namespace Emby.Dlna.Profiles
                 new DirectPlayProfile
                 {
                     Container = "flac",
-                    AudioCodec = "flac",
                     Type = DlnaProfileType.Audio
                 },
 

@@ -13,7 +13,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using MediaBrowser.Common.IO;
+
 using MediaBrowser.Controller.IO;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Controller.Library;
@@ -138,7 +138,7 @@ namespace Emby.Server.Implementations.MediaEncoder
 
                             var inputPath = MediaEncoderHelpers.GetInputArgument(_fileSystem, video.Path, protocol, null, video.PlayableStreamFileNames);
 
-                            _fileSystem.CreateDirectory(Path.GetDirectoryName(path));
+                            _fileSystem.CreateDirectory(_fileSystem.GetDirectoryName(path));
 
                             var container = video.Container;
 

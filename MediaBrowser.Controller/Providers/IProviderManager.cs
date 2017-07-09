@@ -20,9 +20,7 @@ namespace MediaBrowser.Controller.Providers
         /// <summary>
         /// Queues the refresh.
         /// </summary>
-        /// <param name="itemId">The item identifier.</param>
-        /// <param name="options">The options.</param>
-        void QueueRefresh(Guid itemId, MetadataRefreshOptions options);
+        void QueueRefresh(Guid itemId, MetadataRefreshOptions options, RefreshPriority priority);
 
         /// <summary>
         /// Refreshes the full item.
@@ -47,12 +45,11 @@ namespace MediaBrowser.Controller.Providers
         /// </summary>
         /// <param name="item">The item.</param>
         /// <param name="url">The URL.</param>
-        /// <param name="resourcePool">The resource pool.</param>
         /// <param name="type">The type.</param>
         /// <param name="imageIndex">Index of the image.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>Task.</returns>
-        Task SaveImage(IHasImages item, string url, SemaphoreSlim resourcePool, ImageType type, int? imageIndex, CancellationToken cancellationToken);
+        Task SaveImage(IHasImages item, string url, ImageType type, int? imageIndex, CancellationToken cancellationToken);
 
         /// <summary>
         /// Saves the image.
@@ -161,5 +158,12 @@ namespace MediaBrowser.Controller.Providers
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>Task{HttpResponseInfo}.</returns>
         Task<HttpResponseInfo> GetSearchImage(string providerName, string url, CancellationToken cancellationToken);
+    }
+
+    public enum RefreshPriority
+    {
+        High = 0,
+        Normal = 1,
+        Low = 2
     }
 }

@@ -1,13 +1,1 @@
-﻿define([], function () {
-    'use strict';
-
-    return function () {
-
-        var self = this;
-
-        self.upload = function (file, name, url) {
-
-            return Promise.reject();
-        };
-    };
-});
+define([],function(){"use strict";function FileUpload(){}return FileUpload.prototype.upload=function(file,name,url){return Promise.reject()},FileUpload});

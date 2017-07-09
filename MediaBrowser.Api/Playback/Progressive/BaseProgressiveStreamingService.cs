@@ -15,10 +15,8 @@ using System.Globalization;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using MediaBrowser.Common.IO;
-using MediaBrowser.Controller.IO;
-using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Services;
+using MediaBrowser.Model.System;
 
 namespace MediaBrowser.Api.Playback.Progressive
 {
@@ -28,10 +26,12 @@ namespace MediaBrowser.Api.Playback.Progressive
     public abstract class BaseProgressiveStreamingService : BaseStreamingService
     {
         protected readonly IImageProcessor ImageProcessor;
+        protected readonly IEnvironmentInfo EnvironmentInfo;
 
-        public BaseProgressiveStreamingService(IServerConfigurationManager serverConfig, IUserManager userManager, ILibraryManager libraryManager, IIsoManager isoManager, IMediaEncoder mediaEncoder, IFileSystem fileSystem, IDlnaManager dlnaManager, ISubtitleEncoder subtitleEncoder, IDeviceManager deviceManager, IMediaSourceManager mediaSourceManager, IZipClient zipClient, IJsonSerializer jsonSerializer, IAuthorizationContext authorizationContext, IImageProcessor imageProcessor) : base(serverConfig, userManager, libraryManager, isoManager, mediaEncoder, fileSystem, dlnaManager, subtitleEncoder, deviceManager, mediaSourceManager, zipClient, jsonSerializer, authorizationContext)
+        public BaseProgressiveStreamingService(IServerConfigurationManager serverConfig, IUserManager userManager, ILibraryManager libraryManager, IIsoManager isoManager, IMediaEncoder mediaEncoder, IFileSystem fileSystem, IDlnaManager dlnaManager, ISubtitleEncoder subtitleEncoder, IDeviceManager deviceManager, IMediaSourceManager mediaSourceManager, IZipClient zipClient, IJsonSerializer jsonSerializer, IAuthorizationContext authorizationContext, IImageProcessor imageProcessor, IEnvironmentInfo environmentInfo) : base(serverConfig, userManager, libraryManager, isoManager, mediaEncoder, fileSystem, dlnaManager, subtitleEncoder, deviceManager, mediaSourceManager, zipClient, jsonSerializer, authorizationContext)
         {
             ImageProcessor = imageProcessor;
+            EnvironmentInfo = environmentInfo;
         }
 
         /// <summary>
@@ -133,7 +133,7 @@ namespace MediaBrowser.Api.Playback.Progressive
                     // TODO: Don't hardcode this
                     outputHeaders["Content-Type"] = MediaBrowser.Model.Net.MimeTypes.GetMimeType("file.ts");
 
-                    return new ProgressiveFileCopier(state.DirectStreamProvider, outputHeaders, null, Logger, CancellationToken.None)
+                    return new ProgressiveFileCopier(state.DirectStreamProvider, outputHeaders, null, Logger, EnvironmentInfo, CancellationToken.None)
                     {
                         AllowEndOfFile = false
                     };
@@ -177,7 +177,7 @@ namespace MediaBrowser.Api.Playback.Progressive
 
                         outputHeaders["Content-Type"] = contentType;
 
-                        return new ProgressiveFileCopier(FileSystem, state.MediaPath, outputHeaders, null, Logger, CancellationToken.None)
+                        return new ProgressiveFileCopier(FileSystem, state.MediaPath, outputHeaders, null, Logger, EnvironmentInfo, CancellationToken.None)
                         {
                             AllowEndOfFile = false
                         };
@@ -298,7 +298,8 @@ namespace MediaBrowser.Api.Playback.Progressive
                 responseHeaders["Accept-Ranges"] = "none";
             }
 
-            if (response.ContentLength.HasValue)
+            // Seeing cases of -1 here
+            if (response.ContentLength.HasValue && response.ContentLength.Value >= 0)
             {
                 responseHeaders["Content-Length"] = response.ContentLength.Value.ToString(UsCulture);
             }
@@ -400,7 +401,7 @@ namespace MediaBrowser.Api.Playback.Progressive
                     outputHeaders[item.Key] = item.Value;
                 }
 
-                return new ProgressiveFileCopier(FileSystem, outputPath, outputHeaders, job, Logger, CancellationToken.None);
+                return new ProgressiveFileCopier(FileSystem, outputPath, outputHeaders, job, Logger, EnvironmentInfo, CancellationToken.None);
             }
             finally
             {

@@ -11,7 +11,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using MediaBrowser.Common.IO;
+
 using MediaBrowser.Controller.IO;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Logging;
@@ -219,7 +219,7 @@ namespace Emby.Server.Implementations.Library.Resolvers.Movies
 
                 if (string.Equals(collectionType, CollectionType.MusicVideos, StringComparison.OrdinalIgnoreCase))
                 {
-                    return FindMovie<MusicVideo>(args.Path, args.Parent, files, args.DirectoryService, collectionType, false);
+                    return FindMovie<MusicVideo>(args.Path, args.Parent, files, args.DirectoryService, collectionType, true);
                 }
 
                 if (string.Equals(collectionType, CollectionType.HomeVideos, StringComparison.OrdinalIgnoreCase))

@@ -29,6 +29,9 @@ namespace MediaBrowser.Model.Dto
         public string ETag { get; set; }
         public long? RunTimeTicks { get; set; }
         public bool ReadAtNativeFramerate { get; set; }
+        public bool IgnoreDts { get; set; }
+        public bool IgnoreIndex { get; set; }
+        public bool GenPtsInput { get; set; }
         public bool SupportsTranscoding { get; set; }
         public bool SupportsDirectStream { get; set; }
         public bool SupportsDirectPlay { get; set; }
@@ -39,6 +42,8 @@ namespace MediaBrowser.Model.Dto
         public bool SupportsProbing { get; set; }
         public string LiveStreamId { get; set; }
         public int? BufferMs { get; set; }
+
+        public bool RequiresLooping { get; set; }
 
         public VideoType? VideoType { get; set; }
 
@@ -59,6 +64,8 @@ namespace MediaBrowser.Model.Dto
         public string TranscodingUrl { get; set; }
         public string TranscodingSubProtocol { get; set; }
         public string TranscodingContainer { get; set; }
+
+        public int? AnalyzeDurationMs { get; set; }
 
         public MediaSourceInfo()
         {

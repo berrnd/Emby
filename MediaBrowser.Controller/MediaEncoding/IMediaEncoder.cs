@@ -79,14 +79,6 @@ namespace MediaBrowser.Controller.MediaEncoding
         Task<MediaInfo> GetMediaInfo(MediaInfoRequest request, CancellationToken cancellationToken);
 
         /// <summary>
-        /// Gets the probe size argument.
-        /// </summary>
-        /// <param name="inputFiles">The input files.</param>
-        /// <param name="protocol">The protocol.</param>
-        /// <returns>System.String.</returns>
-        string GetProbeSizeAndAnalyzeDurationArgument(string[] inputFiles, MediaProtocol protocol);
-
-        /// <summary>
         /// Gets the input argument.
         /// </summary>
         /// <param name="inputFiles">The input files.</param>
@@ -132,9 +124,8 @@ namespace MediaBrowser.Controller.MediaEncoding
 
         Task Init();
 
-        Task UpdateEncoderPath(string path, string pathType);
+        void UpdateEncoderPath(string path, string pathType);
         bool SupportsEncoder(string encoder);
-        bool IsDefaultEncoderPath { get; }
 
         void SetLogFilename(string name);
         void ClearLogFilename();

@@ -34,14 +34,6 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release Mono|AnyCPU' ">
-    <DebugType>none</DebugType>
-    <Optimize>true</Optimize>
-    <OutputPath>bin\Release Mono\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-  </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\SharedVersion.cs">
       <Link>Properties\SharedVersion.cs</Link>
@@ -65,10 +57,15 @@
     <Compile Include="LiveTv\ChannelMetadataService.cs" />
     <Compile Include="LiveTv\ProgramMetadataService.cs" />
     <Compile Include="LiveTv\VideoRecordingService.cs" />
+    <Compile Include="Manager\GenericPriorityQueue.cs" />
+    <Compile Include="Manager\GenericPriorityQueueNode.cs" />
+    <Compile Include="Manager\IFixedSizePriorityQueue.cs" />
     <Compile Include="Manager\ImageSaver.cs" />
+    <Compile Include="Manager\IPriorityQueue.cs" />
     <Compile Include="Manager\ItemImageProvider.cs" />
     <Compile Include="Manager\ProviderManager.cs" />
     <Compile Include="Manager\MetadataService.cs" />
+    <Compile Include="Manager\SimplePriorityQueue.cs" />
     <Compile Include="MediaInfo\FFProbeAudioInfo.cs" />
     <Compile Include="MediaInfo\FFProbeProvider.cs" />
     <Compile Include="MediaInfo\FFProbeVideoInfo.cs" />

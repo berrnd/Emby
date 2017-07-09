@@ -18,7 +18,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using MediaBrowser.Common.IO;
+
 using MediaBrowser.Controller.IO;
 using MediaBrowser.Model.IO;
 
@@ -96,8 +96,7 @@ namespace MediaBrowser.Providers.TV
 
                     try
                     {
-                        int seasonNumber = AdjustForSeriesOffset(series, season.IndexNumber.Value);
-                        AddImages(list, seasonNumber, path, cancellationToken);
+                        AddImages(list, season.IndexNumber.Value, path, cancellationToken);
                     }
                     catch (FileNotFoundException)
                     {
@@ -137,15 +136,6 @@ namespace MediaBrowser.Providers.TV
                 })
                 .ThenByDescending(i => i.CommunityRating ?? 0)
                 .ThenByDescending(i => i.VoteCount ?? 0);
-        }
-
-        private int AdjustForSeriesOffset(Series series, int seasonNumber)
-        {
-            var offset = TvdbSeriesProvider.GetSeriesOffset(series.ProviderIds);
-            if (offset != null)
-                return (int)(seasonNumber + offset);
-
-            return seasonNumber;
         }
 
         private void AddImages(List<RemoteImageInfo> list, int seasonNumber, string path, CancellationToken cancellationToken)

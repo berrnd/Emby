@@ -14,12 +14,15 @@ using System.Threading.Tasks;
 using Emby.Common.Implementations.EnvironmentInfo;
 using Emby.Common.Implementations.Logging;
 using Emby.Common.Implementations.Networking;
-using Emby.Common.Implementations.Security;
+using Emby.Server.Core.Cryptography;
 using Emby.Server.Core;
+using Emby.Server.Core.IO;
+using Emby.Server.Core.Logging;
 using Emby.Server.Implementations;
 using Emby.Server.Implementations.IO;
+using Emby.Server.Implementations.Logging;
+using MediaBrowser.Model.IO;
 using MediaBrowser.Model.System;
-using MediaBrowser.Server.Startup.Common.IO;
 using Mono.Unix.Native;
 using NLog;
 using ILogger = MediaBrowser.Model.Logging.ILogger;
@@ -32,13 +35,13 @@ namespace MediaBrowser.Server.Mono
         private static ApplicationHost _appHost;
 
         private static ILogger _logger;
+        private static IFileSystem FileSystem;
 
         public static void Main(string[] args)
         {
             var applicationPath = Assembly.GetEntryAssembly().Location;
             var appFolderPath = Path.GetDirectoryName(applicationPath);
 
-            TryCopySqliteConfigFile(appFolderPath);
             SetSqliteProvider();
 
             var options = new StartupOptions(Environment.GetCommandLineArgs());
@@ -70,20 +73,6 @@ namespace MediaBrowser.Server.Mono
             }
         }
 
-        private static void TryCopySqliteConfigFile(string appFolderPath)
-        {
-            try
-            {
-                File.Copy(Path.Combine(appFolderPath, "System.Data.SQLite.dll.config"),
-                    Path.Combine(appFolderPath, "SQLitePCLRaw.provider.sqlite3.dll.config"),
-                    true);
-            }
-            catch
-            {
-                
-            }
-        }
-
         private static void SetSqliteProvider()
         {
             SQLitePCL.raw.SetProvider(new SQLitePCL.SQLite3Provider_sqlite3());
@@ -98,7 +87,9 @@ namespace MediaBrowser.Server.Mono
 
             var appFolderPath = Path.GetDirectoryName(applicationPath);
 
-            return new ServerApplicationPaths(programDataPath, appFolderPath, Path.GetDirectoryName(applicationPath));
+            Action<string> createDirectoryFn = s => Directory.CreateDirectory(s);
+
+            return new ServerApplicationPaths(programDataPath, appFolderPath, Path.GetDirectoryName(applicationPath), createDirectoryFn);
         }
 
         private static readonly TaskCompletionSource<bool> ApplicationTaskCompletionSource = new TaskCompletionSource<bool>();
@@ -108,10 +99,11 @@ namespace MediaBrowser.Server.Mono
             // Allow all https requests
             ServicePointManager.ServerCertificateValidationCallback = new RemoteCertificateValidationCallback(delegate { return true; });
 
-            var fileSystem = new MonoFileSystem(logManager.GetLogger("FileSystem"), false, false, appPaths.TempDirectory);
-            fileSystem.AddShortcutHandler(new MbLinkShortcutHandler(fileSystem));
-
             var environmentInfo = GetEnvironmentInfo();
+
+            var fileSystem = new MonoFileSystem(logManager.GetLogger("FileSystem"), environmentInfo, appPaths.TempDirectory);
+
+            FileSystem = fileSystem;
 
             var imageEncoder = ImageEncoderHelper.GetImageEncoder(_logger, logManager, fileSystem, options, () => _appHost.HttpClient, appPaths);
 
@@ -152,9 +144,9 @@ namespace MediaBrowser.Server.Mono
             Task.WaitAll(task);
         }
 
-        private static void GenerateCertificate(string certPath, string certHost)
+        private static void GenerateCertificate(string certPath, string certHost, string certPassword)
         {
-            CertificateGenerator.CreateSelfSignCertificatePfx(certPath, certHost, _logger);
+            CertificateGenerator.CreateSelfSignCertificatePfx(certPath, certHost, certPassword, _logger);
         }
 
         private static MonoEnvironmentInfo GetEnvironmentInfo()
@@ -247,11 +239,17 @@ namespace MediaBrowser.Server.Mono
         {
             var exception = (Exception)e.ExceptionObject;
 
-            new UnhandledExceptionWriter(_appHost.ServerConfigurationManager.ApplicationPaths, _logger, _appHost.LogManager).Log(exception);
+            new UnhandledExceptionWriter(_appHost.ServerConfigurationManager.ApplicationPaths, _logger, _appHost.LogManager, FileSystem, new ConsoleLogger()).Log(exception);
 
             if (!Debugger.IsAttached)
             {
-                Environment.Exit(System.Runtime.InteropServices.Marshal.GetHRForException(exception));
+                var message = LogHelper.GetLogMessage(exception).ToString();
+
+                if (message.IndexOf("InotifyWatcher", StringComparison.OrdinalIgnoreCase) == -1 &&
+                    message.IndexOf("_IOCompletionCallback", StringComparison.OrdinalIgnoreCase) == -1)
+                {
+                    Environment.Exit(System.Runtime.InteropServices.Marshal.GetHRForException(exception));
+                }
             }
         }
 
@@ -318,6 +316,19 @@ namespace MediaBrowser.Server.Mono
         public override string GetUserId()
         {
             return Syscall.getuid().ToString(CultureInfo.InvariantCulture);
+        }
+
+        public override Model.System.OperatingSystem OperatingSystem
+        {
+            get
+            {
+                if (IsBsd)
+                {
+                    return Model.System.OperatingSystem.BSD;
+                }
+
+                return base.OperatingSystem;
+            }
         }
     }
 }

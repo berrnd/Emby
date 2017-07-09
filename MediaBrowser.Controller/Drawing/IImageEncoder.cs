@@ -15,24 +15,11 @@ namespace MediaBrowser.Controller.Drawing
         /// </summary>
         /// <value>The supported output formats.</value>
         ImageFormat[] SupportedOutputFormats { get; }
-        /// <summary>
-        /// Crops the white space.
-        /// </summary>
-        /// <param name="inputPath">The input path.</param>
-        /// <param name="outputPath">The output path.</param>
-        void CropWhiteSpace(string inputPath, string outputPath);
+
         /// <summary>
         /// Encodes the image.
         /// </summary>
-        /// <param name="inputPath">The input path.</param>
-        /// <param name="outputPath">The output path.</param>
-        /// <param name="autoOrient">if set to <c>true</c> [automatic orient].</param>
-        /// <param name="width">The width.</param>
-        /// <param name="height">The height.</param>
-        /// <param name="quality">The quality.</param>
-        /// <param name="options">The options.</param>
-        /// <param name="outputFormat">The output format.</param>
-        void EncodeImage(string inputPath, string outputPath, bool autoOrient, int width, int height, int quality, ImageProcessingOptions options, ImageFormat outputFormat);
+        string EncodeImage(string inputPath, DateTime dateModified, string outputPath, bool autoOrient, ImageOrientation? orientation, int quality, ImageProcessingOptions options, ImageFormat outputFormat);
 
         /// <summary>
         /// Creates the image collage.
@@ -56,5 +43,7 @@ namespace MediaBrowser.Controller.Drawing
         /// </summary>
         /// <value><c>true</c> if [supports image encoding]; otherwise, <c>false</c>.</value>
         bool SupportsImageEncoding { get; }
+
+        ImageSize GetImageSize(string path);
     }
 }

@@ -1,7 +1,7 @@
 ﻿using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Providers;
 using System.Collections.Generic;
-using MediaBrowser.Common.IO;
+
 using MediaBrowser.Controller.IO;
 using MediaBrowser.Model.IO;
 
@@ -39,7 +39,7 @@ namespace MediaBrowser.LocalMetadata.Images
         {
             var collectionFolder = (CollectionFolder)item;
 
-            return new LocalImageProvider(_fileSystem).GetImages(item, collectionFolder.PhysicalLocations, directoryService);
+            return new LocalImageProvider(_fileSystem).GetImages(item, collectionFolder.PhysicalLocations, true, directoryService);
         }
     }
 }

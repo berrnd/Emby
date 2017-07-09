@@ -4,12 +4,14 @@ using SocketHttpListener.Net;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using MediaBrowser.Common.Net;
 using MediaBrowser.Model.Cryptography;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Net;
 using MediaBrowser.Model.Services;
+using MediaBrowser.Model.System;
 using MediaBrowser.Model.Text;
 using SocketHttpListener.Primitives;
 
@@ -27,10 +29,15 @@ namespace Emby.Server.Implementations.HttpServer.SocketSharp
         private readonly ISocketFactory _socketFactory;
         private readonly ICryptoProvider _cryptoProvider;
         private readonly IStreamFactory _streamFactory;
+        private readonly IFileSystem _fileSystem;
         private readonly Func<HttpListenerContext, IHttpRequest> _httpRequestFactory;
         private readonly bool _enableDualMode;
+        private readonly IEnvironmentInfo _environment;
 
-        public WebSocketSharpListener(ILogger logger, ICertificate certificate, IMemoryStreamFactory memoryStreamProvider, ITextEncoding textEncoding, INetworkManager networkManager, ISocketFactory socketFactory, ICryptoProvider cryptoProvider, IStreamFactory streamFactory, bool enableDualMode, Func<HttpListenerContext, IHttpRequest> httpRequestFactory)
+        private CancellationTokenSource _disposeCancellationTokenSource = new CancellationTokenSource();
+        private CancellationToken _disposeCancellationToken;
+
+        public WebSocketSharpListener(ILogger logger, ICertificate certificate, IMemoryStreamFactory memoryStreamProvider, ITextEncoding textEncoding, INetworkManager networkManager, ISocketFactory socketFactory, ICryptoProvider cryptoProvider, IStreamFactory streamFactory, bool enableDualMode, Func<HttpListenerContext, IHttpRequest> httpRequestFactory, IFileSystem fileSystem, IEnvironmentInfo environment)
         {
             _logger = logger;
             _certificate = certificate;
@@ -42,10 +49,14 @@ namespace Emby.Server.Implementations.HttpServer.SocketSharp
             _streamFactory = streamFactory;
             _enableDualMode = enableDualMode;
             _httpRequestFactory = httpRequestFactory;
+            _fileSystem = fileSystem;
+            _environment = environment;
+
+            _disposeCancellationToken = _disposeCancellationTokenSource.Token;
         }
 
         public Action<Exception, IRequest, bool> ErrorHandler { get; set; }
-        public Func<IHttpRequest, Uri, Task> RequestHandler { get; set; }
+        public Func<IHttpRequest, Uri, CancellationToken, Task> RequestHandler { get; set; }
 
         public Action<WebSocketConnectingEventArgs> WebSocketConnecting { get; set; }
 
@@ -54,7 +65,7 @@ namespace Emby.Server.Implementations.HttpServer.SocketSharp
         public void Start(IEnumerable<string> urlPrefixes)
         {
             if (_listener == null)
-                _listener = new HttpListener(_logger, _cryptoProvider, _streamFactory, _socketFactory, _networkManager, _textEncoding, _memoryStreamProvider);
+                _listener = new HttpListener(_logger, _cryptoProvider, _streamFactory, _socketFactory, _networkManager, _textEncoding, _memoryStreamProvider, _fileSystem, _environment);
 
             _listener.EnableDualMode = _enableDualMode;
 
@@ -76,11 +87,11 @@ namespace Emby.Server.Implementations.HttpServer.SocketSharp
 
         private void ProcessContext(HttpListenerContext context)
         {
-            //Task.Factory.StartNew(() => InitTask(context), TaskCreationOptions.DenyChildAttach | TaskCreationOptions.PreferFairness);
-            Task.Run(() => InitTask(context));
+            InitTask(context, _disposeCancellationToken);
+            //Task.Run(() => InitTask(context, _disposeCancellationToken));
         }
 
-        private Task InitTask(HttpListenerContext context)
+        private Task InitTask(HttpListenerContext context, CancellationToken cancellationToken)
         {
             IHttpRequest httpReq = null;
             var request = context.Request;
@@ -106,7 +117,7 @@ namespace Emby.Server.Implementations.HttpServer.SocketSharp
                 return Task.FromResult(true);
             }
 
-            return RequestHandler(httpReq, request.Url);
+            return RequestHandler(httpReq, request.Url, cancellationToken);
         }
 
         private void ProcessWebSocketRequest(HttpListenerContext ctx)
@@ -167,6 +178,8 @@ namespace Emby.Server.Implementations.HttpServer.SocketSharp
 
         public void Stop()
         {
+            _disposeCancellationTokenSource.Cancel();
+
             if (_listener != null)
             {
                 foreach (var prefix in _listener.Prefixes.ToList())

@@ -20,7 +20,7 @@ using System.Net;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using MediaBrowser.Common.IO;
+
 using MediaBrowser.Controller.IO;
 using MediaBrowser.Model.IO;
 
@@ -312,14 +312,13 @@ namespace MediaBrowser.Providers.TV
 
             var path = GetFanartJsonPath(tvdbId);
 
-			_fileSystem.CreateDirectory(Path.GetDirectoryName(path));
+			_fileSystem.CreateDirectory(_fileSystem.GetDirectoryName(path));
 
             try
             {
                 using (var response = await _httpClient.Get(new HttpRequestOptions
                 {
                     Url = url,
-                    ResourcePool = FanartArtistProvider.Current.FanArtResourcePool,
                     CancellationToken = cancellationToken,
                     BufferContent = true
 

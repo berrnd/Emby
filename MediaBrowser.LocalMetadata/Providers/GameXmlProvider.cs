@@ -4,7 +4,7 @@ using MediaBrowser.LocalMetadata.Parsers;
 using MediaBrowser.Model.Logging;
 using System.IO;
 using System.Threading;
-using MediaBrowser.Common.IO;
+
 using MediaBrowser.Controller.IO;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Xml;
@@ -35,7 +35,7 @@ namespace MediaBrowser.LocalMetadata.Providers
             var specificFile = Path.ChangeExtension(info.Path, ".xml");
             var file = FileSystem.GetFileInfo(specificFile);
 
-            return info.IsInMixedFolder || file.Exists ? file : FileSystem.GetFileInfo(Path.Combine(Path.GetDirectoryName(info.Path), "game.xml"));
+            return info.IsInMixedFolder || file.Exists ? file : FileSystem.GetFileInfo(Path.Combine(FileSystem.GetDirectoryName(info.Path), "game.xml"));
         }
     }
 }

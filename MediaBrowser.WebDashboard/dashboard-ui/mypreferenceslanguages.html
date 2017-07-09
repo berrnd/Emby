@@ -1,6 +1,6 @@
 ﻿<div id="languagePreferencesPage" data-role="page" class="page libraryPage userPreferencesPage noSecondaryNavPage" data-title="${HeaderPlaybackSettings}" data-backbutton="true">
 
-    <div data-role="content">
+    <div class="padded-left padded-right padded-bottom-page">
 
         <form style="margin: 0 auto;" class="languagePreferencesForm userProfileSettingsForm">
 
@@ -62,10 +62,10 @@
                     ${HeaderAdvanced}
                 </h1>
                 <br />
-                <div class="selectContainer">
+                <div class="selectContainer fldMaxBitrate hide">
                     <select is="emby-select" id="selectMaxBitrate" label="${LabelMaxStreamingBitrate}"></select>
                 </div>
-                <div class="selectContainer">
+                <div class="selectContainer fldChromecastBitrate hide">
                     <select is="emby-select" id="selectMaxChromecastBitrate" label="${LabelMaxChromecastBitrate}"></select>
                 </div>
                 <label class="checkboxContainer">

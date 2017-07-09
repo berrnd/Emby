@@ -67,7 +67,7 @@ namespace MediaBrowser.Api.Reports
         /// <summary> Gets the given request. </summary>
         /// <param name="request"> The request. </param>
         /// <returns> A Task&lt;object&gt; </returns>
-        public async Task<object> Get(GetReportHeaders request)
+        public object Get(GetReportHeaders request)
         {
             if (string.IsNullOrEmpty(request.IncludeItemTypes))
                 return null;
@@ -95,14 +95,14 @@ namespace MediaBrowser.Api.Reports
         /// <summary> Gets the given request. </summary>
         /// <param name="request"> The request. </param>
         /// <returns> A Task&lt;object&gt; </returns>
-        public async Task<object> Get(GetItemReport request)
+        public object Get(GetItemReport request)
         {
             if (string.IsNullOrEmpty(request.IncludeItemTypes))
                 return null;
 
             request.DisplayType = "Screen";
             var user = !string.IsNullOrWhiteSpace(request.UserId) ? _userManager.GetUserById(request.UserId) : null;
-            var reportResult = await GetReportResult(request, user);
+            var reportResult = GetReportResult(request, user);
 
             return ToOptimizedResult(reportResult);
         }
@@ -110,7 +110,7 @@ namespace MediaBrowser.Api.Reports
         /// <summary> Gets the given request. </summary>
         /// <param name="request"> The request. </param>
         /// <returns> A Task&lt;object&gt; </returns>
-        public async Task<object> Get(GetReportDownload request)
+        public object Get(GetReportDownload request)
         {
             if (string.IsNullOrEmpty(request.IncludeItemTypes))
                 return null;
@@ -142,7 +142,7 @@ namespace MediaBrowser.Api.Reports
                 case ReportViewType.ReportData:
                     ReportIncludeItemTypes reportRowType = ReportHelper.GetRowType(request.IncludeItemTypes);
                     ReportBuilder dataBuilder = new ReportBuilder(_libraryManager);
-                    QueryResult<BaseItem> queryResult = await GetQueryResult(request, user).ConfigureAwait(false);
+                    QueryResult<BaseItem> queryResult = GetQueryResult(request, user);
                     result = dataBuilder.GetResult(queryResult.Items, request);
                     result.TotalRecordCount = queryResult.TotalRecordCount;
                     break;
@@ -225,7 +225,6 @@ namespace MediaBrowser.Api.Reports
                 ParentId = string.IsNullOrWhiteSpace(request.ParentId) ? (Guid?)null : new Guid(request.ParentId),
                 ParentIndexNumber = request.ParentIndexNumber,
                 AiredDuringSeason = request.AiredDuringSeason,
-                AlbumArtistStartsWithOrGreater = request.AlbumArtistStartsWithOrGreater,
                 EnableTotalRecordCount = request.EnableTotalRecordCount
             };
 
@@ -300,11 +299,6 @@ namespace MediaBrowser.Api.Reports
                 }
             }
 
-            if (!string.IsNullOrEmpty(request.LocationTypes))
-            {
-                query.LocationTypes = request.LocationTypes.Split(',').Select(d => (LocationType)Enum.Parse(typeof(LocationType), d, true)).ToArray();
-            }
-
             // Min official rating
             if (!string.IsNullOrWhiteSpace(request.MinOfficialRating))
             {
@@ -317,16 +311,10 @@ namespace MediaBrowser.Api.Reports
                 query.MaxParentalRating = _localization.GetRatingLevel(request.MaxOfficialRating);
             }
 
-            // Albums
-            if (!string.IsNullOrEmpty(request.Albums))
-            {
-                query.AlbumNames = request.Albums.Split('|');
-            }
-
             return query;
         }
 
-        private async Task<QueryResult<BaseItem>> GetQueryResult(BaseReportRequest request, User user)
+        private QueryResult<BaseItem> GetQueryResult(BaseReportRequest request, User user)
         {
             // all report queries currently need this because it's not being specified
             request.Recursive = true;
@@ -356,7 +344,7 @@ namespace MediaBrowser.Api.Reports
             {
                 request.Recursive = true;
                 var query = GetItemsQuery(request, user);
-                var result = await folder.GetItems(query).ConfigureAwait(false);
+                var result = folder.GetItems(query);
 
                 if (string.IsNullOrWhiteSpace(request.SortBy))
                 {
@@ -371,19 +359,19 @@ namespace MediaBrowser.Api.Reports
 
             if (request.Recursive)
             {
-                return await folder.GetItems(GetItemsQuery(request, user)).ConfigureAwait(false);
+                return folder.GetItems(GetItemsQuery(request, user));
             }
 
             if (user == null)
             {
-                return await folder.GetItems(GetItemsQuery(request, null)).ConfigureAwait(false);
+                return folder.GetItems(GetItemsQuery(request, null));
             }
 
             var userRoot = item as UserRootFolder;
 
             if (userRoot == null)
             {
-                return await folder.GetItems(GetItemsQuery(request, user)).ConfigureAwait(false);
+                return folder.GetItems(GetItemsQuery(request, user));
             }
 
             IEnumerable<BaseItem> items = folder.GetChildren(user, true);
@@ -424,10 +412,10 @@ namespace MediaBrowser.Api.Reports
         /// <summary> Gets report result. </summary>
         /// <param name="request"> The request. </param>
         /// <returns> The report result. </returns>
-        private async Task<ReportResult> GetReportResult(GetItemReport request, User user)
+        private ReportResult GetReportResult(GetItemReport request, User user)
         {
             ReportBuilder reportBuilder = new ReportBuilder(_libraryManager);
-            QueryResult<BaseItem> queryResult = await GetQueryResult(request, user).ConfigureAwait(false);
+            QueryResult<BaseItem> queryResult = GetQueryResult(request, user);
             ReportResult reportResult = reportBuilder.GetResult(queryResult.Items, request);
             reportResult.TotalRecordCount = queryResult.TotalRecordCount;
 

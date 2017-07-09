@@ -8,7 +8,9 @@ using System.Linq;
 using MediaBrowser.Model.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using MediaBrowser.Controller.Dto;
 using MediaBrowser.Controller.Library;
+using MediaBrowser.Model.Dto;
 
 namespace MediaBrowser.Controller.Entities.Audio
 {
@@ -41,20 +43,22 @@ namespace MediaBrowser.Controller.Entities.Audio
         [IgnoreDataMember]
         public MusicArtist MusicArtist
         {
-            get
-            {
-                var artist = GetParents().OfType<MusicArtist>().FirstOrDefault();
+            get { return GetMusicArtist(new DtoOptions(true)); }
+        }
 
-                if (artist == null)
+        public MusicArtist GetMusicArtist(DtoOptions options)
+        {
+            var artist = GetParents().OfType<MusicArtist>().FirstOrDefault();
+
+            if (artist == null)
+            {
+                var name = AlbumArtist;
+                if (!string.IsNullOrWhiteSpace(name))
                 {
-                    var name = AlbumArtist;
-                    if (!string.IsNullOrWhiteSpace(name))
-                    {
-                        artist = LibraryManager.GetArtist(name);
-                    }
+                    artist = LibraryManager.GetArtist(name, options);
                 }
-                return artist;
             }
+            return artist;
         }
 
         [IgnoreDataMember]
@@ -119,6 +123,11 @@ namespace MediaBrowser.Controller.Entities.Audio
             return Tracks;
         }
 
+        public override double? GetDefaultPrimaryImageAspectRatio()
+        {
+            return 1;
+        }
+
         public override List<string> GetUserDataKeys()
         {
             var list = base.GetUserDataKeys();
@@ -165,7 +174,7 @@ namespace MediaBrowser.Controller.Entities.Audio
 
             id.AlbumArtists = AlbumArtists;
 
-            var artist = MusicArtist;
+            var artist = GetMusicArtist(new DtoOptions(false));
 
             if (artist != null)
             {
@@ -222,7 +231,39 @@ namespace MediaBrowser.Controller.Entities.Audio
             // Refresh current item
             await RefreshMetadata(parentRefreshOptions, cancellationToken).ConfigureAwait(false);
 
+            if (!refreshOptions.IsAutomated)
+            {
+                await RefreshArtists(refreshOptions, cancellationToken).ConfigureAwait(false);
+            }
+
             progress.Report(100);
+        }
+
+        private async Task RefreshArtists(MetadataRefreshOptions refreshOptions, CancellationToken cancellationToken)
+        {
+            var artists = AllArtists.Select(i =>
+            {
+                // This should not be necessary but we're seeing some cases of it
+                if (string.IsNullOrWhiteSpace(i))
+                {
+                    return null;
+                }
+
+                var artist = LibraryManager.GetArtist(i);
+
+                if (!artist.IsAccessedByName)
+                {
+                    return null;
+                }
+
+                return artist;
+
+            }).Where(i => i != null).ToList();
+
+            foreach (var artist in artists)
+            {
+                await artist.RefreshMetadata(refreshOptions, cancellationToken).ConfigureAwait(false);
+            }
         }
     }
 }

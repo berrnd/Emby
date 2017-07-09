@@ -9,11 +9,10 @@ using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Serialization;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using MediaBrowser.Common.IO;
-using MediaBrowser.Controller.IO;
 using MediaBrowser.Controller.Net;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Services;
+using MediaBrowser.Model.System;
 
 namespace MediaBrowser.Api.Playback.Progressive
 {
@@ -26,15 +25,19 @@ namespace MediaBrowser.Api.Playback.Progressive
     [Route("/Audio/{Id}/stream", "HEAD", Summary = "Gets an audio stream")]
     public class GetAudioStream : StreamRequest
     {
-        [ApiMember(Name = "Container", Description = "Container", IsRequired = true, DataType = "string", ParameterType = "path", Verb = "GET")]
-        public string Container { get; set; }
     }
 
     /// <summary>
     /// Class AudioService
     /// </summary>
+    // TODO: In order to autheneticate this in the future, Dlna playback will require updating
+    //[Authenticated]
     public class AudioService : BaseProgressiveStreamingService
     {
+        public AudioService(IServerConfigurationManager serverConfig, IUserManager userManager, ILibraryManager libraryManager, IIsoManager isoManager, IMediaEncoder mediaEncoder, IFileSystem fileSystem, IDlnaManager dlnaManager, ISubtitleEncoder subtitleEncoder, IDeviceManager deviceManager, IMediaSourceManager mediaSourceManager, IZipClient zipClient, IJsonSerializer jsonSerializer, IAuthorizationContext authorizationContext, IImageProcessor imageProcessor, IEnvironmentInfo environmentInfo) : base(serverConfig, userManager, libraryManager, isoManager, mediaEncoder, fileSystem, dlnaManager, subtitleEncoder, deviceManager, mediaSourceManager, zipClient, jsonSerializer, authorizationContext, imageProcessor, environmentInfo)
+        {
+        }
+
         /// <summary>
         /// Gets the specified request.
         /// </summary>
@@ -57,46 +60,9 @@ namespace MediaBrowser.Api.Playback.Progressive
 
         protected override string GetCommandLineArguments(string outputPath, StreamState state, bool isEncoding)
         {
-            var audioTranscodeParams = new List<string>();
+            var encodingOptions = ApiEntryPoint.Instance.GetEncodingOptions();
 
-            var bitrate = state.OutputAudioBitrate;
-
-            if (bitrate.HasValue)
-            {
-                audioTranscodeParams.Add("-ab " + bitrate.Value.ToString(UsCulture));
-            }
-
-            if (state.OutputAudioChannels.HasValue)
-            {
-                audioTranscodeParams.Add("-ac " + state.OutputAudioChannels.Value.ToString(UsCulture));
-            }
-
-            // opus will fail on 44100
-            if (!string.Equals(state.OutputAudioCodec, "opus", global::System.StringComparison.OrdinalIgnoreCase))
-            {
-                if (state.OutputAudioSampleRate.HasValue)
-                {
-                    audioTranscodeParams.Add("-ar " + state.OutputAudioSampleRate.Value.ToString(UsCulture));
-                }
-            }
-
-            const string vn = " -vn";
-
-            var threads = GetNumberOfThreads(state, false);
-
-            var inputModifier = GetInputModifier(state);
-
-            return string.Format("{0} {1} -threads {2}{3} {4} -id3v2_version 3 -write_id3v1 1 -y \"{5}\"",
-                inputModifier,
-                GetInputArgument(state),
-                threads,
-                vn,
-                string.Join(" ", audioTranscodeParams.ToArray()),
-                outputPath).Trim();
-        }
-
-        public AudioService(IServerConfigurationManager serverConfig, IUserManager userManager, ILibraryManager libraryManager, IIsoManager isoManager, IMediaEncoder mediaEncoder, IFileSystem fileSystem, IDlnaManager dlnaManager, ISubtitleEncoder subtitleEncoder, IDeviceManager deviceManager, IMediaSourceManager mediaSourceManager, IZipClient zipClient, IJsonSerializer jsonSerializer, IAuthorizationContext authorizationContext, IImageProcessor imageProcessor) : base(serverConfig, userManager, libraryManager, isoManager, mediaEncoder, fileSystem, dlnaManager, subtitleEncoder, deviceManager, mediaSourceManager, zipClient, jsonSerializer, authorizationContext, imageProcessor)
-        {
+            return EncodingHelper.GetProgressiveAudioFullCommandLine(state, encodingOptions, outputPath);
         }
     }
 }

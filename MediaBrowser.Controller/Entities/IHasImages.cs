@@ -3,7 +3,7 @@ using MediaBrowser.Model.Entities;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using MediaBrowser.Common.IO;
+
 using MediaBrowser.Controller.IO;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Model.IO;
@@ -204,6 +204,10 @@ namespace MediaBrowser.Controller.Entities
         /// <param name="image">The image.</param>
         /// <param name="index">The index.</param>
         void SetImage(ItemImageInfo image, int index);
+
+        double? GetDefaultPrimaryImageAspectRatio();
+
+        int? ProductionYear { get; set; }
     }
 
     public static class HasImagesExtensions

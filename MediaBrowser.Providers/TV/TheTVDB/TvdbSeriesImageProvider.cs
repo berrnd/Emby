@@ -16,7 +16,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
-using MediaBrowser.Common.IO;
+
 using MediaBrowser.Controller.IO;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Xml;
@@ -70,16 +70,12 @@ namespace MediaBrowser.Providers.TV
             {
                 var language = item.GetPreferredMetadataLanguage();
 
-                var seriesDataPath = await TvdbSeriesProvider.Current.EnsureSeriesInfo(item.ProviderIds, language, cancellationToken).ConfigureAwait(false);
+                var seriesDataPath = await TvdbSeriesProvider.Current.EnsureSeriesInfo(item.ProviderIds, item.Name, item.ProductionYear, language, cancellationToken).ConfigureAwait(false);
 
                 var path = Path.Combine(seriesDataPath, "banners.xml");
 
                 try
                 {
-                    var seriesOffset = TvdbSeriesProvider.GetSeriesOffset(item.ProviderIds);
-                    if (seriesOffset != null && seriesOffset.Value != 0)
-                        return TvdbSeasonImageProvider.GetImages(path, language, seriesOffset.Value + 1, _xmlReaderSettingsFactory, _fileSystem, cancellationToken);
-                    
                     return GetImages(path, language, cancellationToken);
                 }
                 catch (FileNotFoundException)
@@ -351,8 +347,7 @@ namespace MediaBrowser.Providers.TV
             return _httpClient.GetResponse(new HttpRequestOptions
             {
                 CancellationToken = cancellationToken,
-                Url = url,
-                ResourcePool = TvdbSeriesProvider.Current.TvDbResourcePool
+                Url = url
             });
         }
     }

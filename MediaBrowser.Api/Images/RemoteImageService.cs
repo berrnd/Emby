@@ -14,7 +14,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using MediaBrowser.Common.IO;
+
 using MediaBrowser.Controller.IO;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Services;
@@ -141,11 +141,6 @@ namespace MediaBrowser.Api.Images
         {
             var item = _libraryManager.GetItemById(request.Id);
 
-            return await GetRemoteImageResult(item, request).ConfigureAwait(false);
-        }
-
-        private async Task<RemoteImageResult> GetRemoteImageResult(BaseItem item, BaseRemoteImageRequest request)
-        {
             var images = await _providerManager.GetAvailableRemoteImages(item, new RemoteImageQuery
             {
                 ProviderName = request.ProviderName,
@@ -210,7 +205,7 @@ namespace MediaBrowser.Api.Images
         /// <returns>Task.</returns>
         private async Task DownloadRemoteImage(BaseItem item, BaseDownloadRemoteImage request)
         {
-            await _providerManager.SaveImage(item, request.ImageUrl, null, request.Type, null, CancellationToken.None).ConfigureAwait(false);
+            await _providerManager.SaveImage(item, request.ImageUrl, request.Type, null, CancellationToken.None).ConfigureAwait(false);
 
             await item.UpdateToRepository(ItemUpdateType.ImageUpdate, CancellationToken.None).ConfigureAwait(false);
         }
@@ -278,7 +273,7 @@ namespace MediaBrowser.Api.Images
 
             var fullCachePath = GetFullCachePath(urlHash + "." + ext);
 
-			_fileSystem.CreateDirectory(Path.GetDirectoryName(fullCachePath));
+			_fileSystem.CreateDirectory(_fileSystem.GetDirectoryName(fullCachePath));
             using (var stream = result.Content)
             {
                 using (var filestream = _fileSystem.GetFileStream(fullCachePath, FileOpenMode.Create, FileAccessMode.Write, FileShareMode.Read, true))
@@ -287,7 +282,7 @@ namespace MediaBrowser.Api.Images
                 }
             }
 
-			_fileSystem.CreateDirectory(Path.GetDirectoryName(pointerCachePath));
+			_fileSystem.CreateDirectory(_fileSystem.GetDirectoryName(pointerCachePath));
             _fileSystem.WriteAllText(pointerCachePath, fullCachePath);
         }
 

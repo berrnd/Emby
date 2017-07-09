@@ -50,10 +50,7 @@ namespace MediaBrowser.MediaEncoding.Encoder
                 return false;
             }
 
-            if (logOutput)
-            {
-                _logger.Info("ffmpeg info: {0}", output);
-            }
+            _logger.Info("ffmpeg info: {0}", output);
 
             if (output.IndexOf("Libav developers", StringComparison.OrdinalIgnoreCase) != -1)
             {
@@ -89,9 +86,12 @@ namespace MediaBrowser.MediaEncoding.Encoder
             var found = new List<string>();
             var required = new[]
             {
+                "mpeg2video",
                 "h264_qsv",
+                "hevc_qsv",
                 "mpeg2_qsv",
-                "vc1_qsv"
+                "vc1_qsv",
+                "h264_cuvid"
             };
 
             foreach (var codec in required)
@@ -134,9 +134,13 @@ namespace MediaBrowser.MediaEncoding.Encoder
                 "libvorbis",
                 "srt",
                 "h264_nvenc",
+                "hevc_nvenc",
                 "h264_qsv",
+                "hevc_qsv",
                 "h264_omx",
+                "hevc_omx",
                 "h264_vaapi",
+                "hevc_vaapi",
                 "ac3"
             };
 

@@ -8,7 +8,7 @@ using System.Collections.Concurrent;
 using System.Globalization;
 using System.Linq;
 using System.Threading;
-using MediaBrowser.Common.IO;
+
 using MediaBrowser.Controller.IO;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Model.LiveTv;
@@ -165,6 +165,11 @@ namespace Emby.Server.Implementations.LiveTv.EmbyTV
         public TimerInfo GetTimer(string id)
         {
             return GetAll().FirstOrDefault(r => string.Equals(r.Id, id, StringComparison.OrdinalIgnoreCase));
+        }
+
+        public TimerInfo GetTimerByProgramId(string programId)
+        {
+            return GetAll().FirstOrDefault(r => string.Equals(r.ProgramId, programId, StringComparison.OrdinalIgnoreCase));
         }
     }
 }

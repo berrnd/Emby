@@ -69,19 +69,9 @@ namespace MediaBrowser.Controller.Entities
             return false;
         }
 
-        public IEnumerable<BaseItem> GetTaggedItems(IEnumerable<BaseItem> inputItems)
-        {
-            return inputItems.Where(GetItemFilter());
-        }
-
-        public Func<BaseItem, bool> GetItemFilter()
-        {
-            return i => i is Game && i.Genres.Contains(Name, StringComparer.OrdinalIgnoreCase);
-        }
-
         public IEnumerable<BaseItem> GetTaggedItems(InternalItemsQuery query)
         {
-            query.Genres = new[] { Name };
+            query.GenreIds = new[] { Id.ToString("N") };
             query.IncludeItemTypes = new[] { typeof(Game).Name };
 
             return LibraryManager.GetItemList(query);
@@ -96,7 +86,12 @@ namespace MediaBrowser.Controller.Entities
             }
         }
 
-        public static string GetPath(string name, bool normalizeName = true)
+        public static string GetPath(string name)
+        {
+            return GetPath(name, true);
+        }
+
+        public static string GetPath(string name, bool normalizeName)
         {
             // Trim the period at the end because windows will have a hard time with that
             var validName = normalizeName ?

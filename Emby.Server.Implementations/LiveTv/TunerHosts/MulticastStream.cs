@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -6,14 +7,14 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using MediaBrowser.Model.Logging;
+using MediaBrowser.Model.Net;
 
 namespace Emby.Server.Implementations.LiveTv.TunerHosts
 {
     public class MulticastStream
     {
-        private readonly List<QueueStream> _outputStreams = new List<QueueStream>();
+        private readonly ConcurrentDictionary<Guid, QueueStream> _outputStreams = new ConcurrentDictionary<Guid, QueueStream>();
         private const int BufferSize = 81920;
-        private CancellationToken _cancellationToken;
         private readonly ILogger _logger;
 
         public MulticastStream(ILogger logger)
@@ -23,29 +24,36 @@ namespace Emby.Server.Implementations.LiveTv.TunerHosts
 
         public async Task CopyUntilCancelled(Stream source, Action onStarted, CancellationToken cancellationToken)
         {
-            _cancellationToken = cancellationToken;
-
             byte[] buffer = new byte[BufferSize];
 
-            while (!cancellationToken.IsCancellationRequested)
+            if (source == null)
             {
-                var bytesRead = await source.ReadAsync(buffer, 0, buffer.Length, cancellationToken).ConfigureAwait(false);
+                throw new ArgumentNullException("source");
+            }
+
+            while (true)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var bytesRead = source.Read(buffer, 0, buffer.Length);
 
                 if (bytesRead > 0)
                 {
-                    byte[] copy = new byte[bytesRead];
-                    Buffer.BlockCopy(buffer, 0, copy, 0, bytesRead);
-                   
-                    List<QueueStream> streams = null;
+                    var allStreams = _outputStreams.ToList();
 
-                    lock (_outputStreams)
+                    //if (allStreams.Count == 1)
+                    //{
+                    //    allStreams[0].Value.Write(buffer, 0, bytesRead);
+                    //}
+                    //else
                     {
-                        streams = _outputStreams.ToList();
-                    }
+                        byte[] copy = new byte[bytesRead];
+                        Buffer.BlockCopy(buffer, 0, copy, 0, bytesRead);
 
-                    foreach (var stream in streams)
-                    {
-                        stream.Queue(copy);
+                        foreach (var stream in allStreams)
+                        {
+                            stream.Value.Queue(copy, 0, copy.Length);
+                        }
                     }
 
                     if (onStarted != null)
@@ -63,29 +71,24 @@ namespace Emby.Server.Implementations.LiveTv.TunerHosts
             }
         }
 
-        public Task CopyToAsync(Stream stream)
+        public Task CopyToAsync(Stream stream, CancellationToken cancellationToken)
         {
             var result = new QueueStream(stream, _logger)
             {
                 OnFinished = OnFinished
             };
 
-            lock (_outputStreams)
-            {
-                _outputStreams.Add(result);
-            }
+            _outputStreams.TryAdd(result.Id, result);
 
-            result.Start(_cancellationToken);
+            result.Start(cancellationToken);
 
             return result.TaskCompletion.Task;
         }
 
         public void RemoveOutputStream(QueueStream stream)
         {
-            lock (_outputStreams)
-            {
-                _outputStreams.Remove(stream);
-            }
+            QueueStream removed;
+            _outputStreams.TryRemove(stream.Id, out removed);
         }
 
         private void OnFinished(QueueStream queueStream)

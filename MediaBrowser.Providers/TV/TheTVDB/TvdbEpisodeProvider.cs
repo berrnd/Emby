@@ -16,7 +16,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
-using MediaBrowser.Common.IO;
+
 using MediaBrowser.Controller.IO;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Xml;
@@ -48,14 +48,14 @@ namespace MediaBrowser.Providers.TV
             Current = this;
         }
 
-        public async Task<IEnumerable<RemoteSearchResult>> GetSearchResults(EpisodeInfo searchInfo, CancellationToken cancellationToken)
+        public Task<IEnumerable<RemoteSearchResult>> GetSearchResults(EpisodeInfo searchInfo, CancellationToken cancellationToken)
         {
             var list = new List<RemoteSearchResult>();
 
             // The search query must either provide an episode number or date
             if (!searchInfo.IndexNumber.HasValue && !searchInfo.PremiereDate.HasValue)
             {
-                return list;
+                return Task.FromResult((IEnumerable<RemoteSearchResult>)list);
             }
 
             if (TvdbSeriesProvider.IsValidSeries(searchInfo.SeriesProviderIds))
@@ -103,7 +103,7 @@ namespace MediaBrowser.Providers.TV
                 }
             }
 
-            return list;
+            return Task.FromResult((IEnumerable<RemoteSearchResult>)list);
         }
 
         public string Name
@@ -119,7 +119,7 @@ namespace MediaBrowser.Providers.TV
             if (TvdbSeriesProvider.IsValidSeries(searchInfo.SeriesProviderIds) &&
                 (searchInfo.IndexNumber.HasValue || searchInfo.PremiereDate.HasValue))
             {
-                await TvdbSeriesProvider.Current.EnsureSeriesInfo(searchInfo.SeriesProviderIds, searchInfo.MetadataLanguage, cancellationToken).ConfigureAwait(false);
+                await TvdbSeriesProvider.Current.EnsureSeriesInfo(searchInfo.SeriesProviderIds, null, null, searchInfo.MetadataLanguage, cancellationToken).ConfigureAwait(false);
 
                 var seriesDataPath = TvdbSeriesProvider.GetSeriesDataPath(_config.ApplicationPaths, searchInfo.SeriesProviderIds);
 
@@ -226,7 +226,7 @@ namespace MediaBrowser.Providers.TV
 
             if (searchInfo.IndexNumber.HasValue)
             {
-                var files = GetEpisodeXmlFiles(searchInfo.ParentIndexNumber, searchInfo.IndexNumber, searchInfo.IndexNumberEnd, Path.GetDirectoryName(xmlFile));
+                var files = GetEpisodeXmlFiles(searchInfo.ParentIndexNumber, searchInfo.IndexNumber, searchInfo.IndexNumberEnd, _fileSystem.GetDirectoryName(xmlFile));
 
                 list = files.Select(GetXmlReader).ToList();
             }
@@ -680,7 +680,7 @@ namespace MediaBrowser.Providers.TV
                                         // int.TryParse is local aware, so it can be probamatic, force us culture
                                         if (int.TryParse(val, NumberStyles.Integer, _usCulture, out rval))
                                         {
-                                            item.VoteCount = rval;
+                                            //item.VoteCount = rval;
                                         }
                                     }
 
@@ -742,7 +742,7 @@ namespace MediaBrowser.Providers.TV
                                     {
                                         if (!item.LockedFields.Contains(MetadataFields.Cast))
                                         {
-                                            AddPeople(result, val, PersonType.Writer);
+                                            //AddPeople(result, val, PersonType.Writer);
                                         }
                                     }
 
@@ -894,7 +894,7 @@ namespace MediaBrowser.Providers.TV
                                     {
                                         if (!item.LockedFields.Contains(MetadataFields.Cast))
                                         {
-                                            AddPeople(result, val, PersonType.Writer);
+                                            //AddPeople(result, val, PersonType.Writer);
                                         }
                                     }
 
@@ -919,8 +919,7 @@ namespace MediaBrowser.Providers.TV
             return _httpClient.GetResponse(new HttpRequestOptions
             {
                 CancellationToken = cancellationToken,
-                Url = url,
-                ResourcePool = TvdbSeriesProvider.Current.TvDbResourcePool
+                Url = url
             });
         }
 

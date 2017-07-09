@@ -5,11 +5,8 @@ using MediaBrowser.Model.Entities;
 using System;
 using System.IO;
 using System.Linq;
-using MediaBrowser.Common.IO;
-using MediaBrowser.Model.IO;
-using MediaBrowser.Controller.Configuration;
-using MediaBrowser.Controller.IO;
 using MediaBrowser.Model.Configuration;
+using MediaBrowser.Model.IO;
 
 namespace Emby.Server.Implementations.Library.Resolvers
 {
@@ -17,11 +14,13 @@ namespace Emby.Server.Implementations.Library.Resolvers
     {
         private readonly IImageProcessor _imageProcessor;
         private readonly ILibraryManager _libraryManager;
+        private readonly IFileSystem _fileSystem;
 
-        public PhotoResolver(IImageProcessor imageProcessor, ILibraryManager libraryManager)
+        public PhotoResolver(IImageProcessor imageProcessor, ILibraryManager libraryManager, IFileSystem fileSystem)
         {
             _imageProcessor = imageProcessor;
             _libraryManager = libraryManager;
+            _fileSystem = fileSystem;
         }
 
         /// <summary>
@@ -45,7 +44,7 @@ namespace Emby.Server.Implementations.Library.Resolvers
                         var filename = Path.GetFileNameWithoutExtension(args.Path);
 
                         // Make sure the image doesn't belong to a video file
-                        if (args.DirectoryService.GetFiles(Path.GetDirectoryName(args.Path)).Any(i => IsOwnedByMedia(args.GetLibraryOptions(), i, filename)))
+                        if (args.DirectoryService.GetFilePaths(_fileSystem.GetDirectoryName(args.Path)).Any(i => IsOwnedByMedia(args.GetLibraryOptions(), i, filename)))
                         {
                             return null;
                         }
@@ -61,11 +60,14 @@ namespace Emby.Server.Implementations.Library.Resolvers
             return null;
         }
 
-        private bool IsOwnedByMedia(LibraryOptions libraryOptions, FileSystemMetadata file, string imageFilename)
+        private bool IsOwnedByMedia(LibraryOptions libraryOptions, string file, string imageFilename)
         {
-            if (_libraryManager.IsVideoFile(file.FullName, libraryOptions) && imageFilename.StartsWith(Path.GetFileNameWithoutExtension(file.Name), StringComparison.OrdinalIgnoreCase))
+            if (_libraryManager.IsVideoFile(file, libraryOptions))
             {
-                return true;
+                if (imageFilename.StartsWith(Path.GetFileNameWithoutExtension(file), StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
             }
 
             return false;

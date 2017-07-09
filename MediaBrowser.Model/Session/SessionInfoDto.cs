@@ -1,4 +1,4 @@
-﻿using MediaBrowser.Model.Entities;
+﻿using MediaBrowser.Model.Dto;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -13,12 +13,6 @@ namespace MediaBrowser.Model.Session
         /// </summary>
         /// <value>The supported commands.</value>
         public List<string> SupportedCommands { get; set; }
-
-        /// <summary>
-        /// Gets or sets the queueable media types.
-        /// </summary>
-        /// <value>The queueable media types.</value>
-        public List<string> QueueableMediaTypes { get; set; }
 
         /// <summary>
         /// Gets or sets the playable media types.
@@ -78,7 +72,7 @@ namespace MediaBrowser.Model.Session
         /// Gets or sets the now viewing item.
         /// </summary>
         /// <value>The now viewing item.</value>
-        public BaseItemInfo NowViewingItem { get; set; }
+        public BaseItemDto NowViewingItem { get; set; }
         
         /// <summary>
         /// Gets or sets the name of the device.
@@ -90,7 +84,7 @@ namespace MediaBrowser.Model.Session
         /// Gets or sets the now playing item.
         /// </summary>
         /// <value>The now playing item.</value>
-        public BaseItemInfo NowPlayingItem { get; set; }
+        public BaseItemDto NowPlayingItem { get; set; }
 
         /// <summary>
         /// Gets or sets the device id.
@@ -119,7 +113,6 @@ namespace MediaBrowser.Model.Session
             AdditionalUsers = new List<SessionUserInfo>();
 
             PlayableMediaTypes = new List<string>();
-            QueueableMediaTypes = new List<string>();
             SupportedCommands = new List<string>();
         }
     }

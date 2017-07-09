@@ -102,7 +102,7 @@ namespace Emby.Server.Implementations.Collections
                 }
                 else
                 {
-                    _providerManager.QueueRefresh(collection.Id, new MetadataRefreshOptions(_fileSystem));
+                    _providerManager.QueueRefresh(collection.Id, new MetadataRefreshOptions(_fileSystem), RefreshPriority.High);
                 }
 
                 EventHelper.FireEventIfNotNull(CollectionCreated, this, new CollectionCreatedEventArgs
@@ -170,6 +170,11 @@ namespace Emby.Server.Implementations.Collections
             {
                 var item = _libraryManager.GetItemById(itemId);
 
+                if (string.IsNullOrWhiteSpace(item.Path))
+                {
+                    continue;
+                }
+
                 if (item == null)
                 {
                     throw new ArgumentException("No item exists with the supplied Id");
@@ -191,7 +196,7 @@ namespace Emby.Server.Implementations.Collections
 
                 await collection.UpdateToRepository(ItemUpdateType.MetadataEdit, CancellationToken.None).ConfigureAwait(false);
 
-                _providerManager.QueueRefresh(collection.Id, refreshOptions);
+                _providerManager.QueueRefresh(collection.Id, refreshOptions, RefreshPriority.High);
 
                 if (fireEvent)
                 {
@@ -244,7 +249,7 @@ namespace Emby.Server.Implementations.Collections
             collection.UpdateRatingToContent();
 
             await collection.UpdateToRepository(ItemUpdateType.MetadataEdit, CancellationToken.None).ConfigureAwait(false);
-            _providerManager.QueueRefresh(collection.Id, new MetadataRefreshOptions(_fileSystem));
+            _providerManager.QueueRefresh(collection.Id, new MetadataRefreshOptions(_fileSystem), RefreshPriority.High);
 
             EventHelper.FireEventIfNotNull(ItemsRemovedFromCollection, this, new CollectionModifiedEventArgs
             {

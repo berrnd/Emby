@@ -16,7 +16,7 @@ using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
-using MediaBrowser.Common.IO;
+
 using MediaBrowser.Controller.IO;
 using MediaBrowser.Model.Globalization;
 
@@ -122,7 +122,7 @@ namespace MediaBrowser.Providers.TV
                 item.Overview = response.overview;
 
                 item.CommunityRating = (float)response.vote_average;
-                item.VoteCount = response.vote_count;
+                //item.VoteCount = response.vote_count;
 
                 if (response.videos != null && response.videos.results != null)
                 {
@@ -167,7 +167,12 @@ namespace MediaBrowser.Providers.TV
                     //and the rest from crew
                     if (credits.crew != null)
                     {
-                        var keepTypes = new[] { PersonType.Director, PersonType.Writer, PersonType.Producer };
+                        var keepTypes = new[]
+                        {
+                            PersonType.Director,
+                            //PersonType.Writer,
+                            //PersonType.Producer
+                        };
 
                         foreach (var person in credits.crew)
                         {

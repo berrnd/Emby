@@ -6,10 +6,7 @@ using MediaBrowser.Controller.MediaEncoding;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Serialization;
 using System;
-using MediaBrowser.Common.IO;
-using MediaBrowser.Controller.IO;
 using MediaBrowser.Controller.Net;
-using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Dlna;
 using MediaBrowser.Model.Services;
 
@@ -23,6 +20,7 @@ namespace MediaBrowser.Api.Playback.Hls
     /// <summary>
     /// Class VideoHlsService
     /// </summary>
+    [Authenticated]
     public class VideoHlsService : BaseHlsService
     {
         public object Get(GetLiveHlsStream request)
@@ -37,7 +35,7 @@ namespace MediaBrowser.Api.Playback.Hls
         /// <returns>System.String.</returns>
         protected override string GetAudioArguments(StreamState state)
         {
-            var codec = GetAudioEncoder(state);
+            var codec = EncodingHelper.GetAudioEncoder(state);
 
             if (string.Equals(codec, "copy", StringComparison.OrdinalIgnoreCase))
             {
@@ -60,7 +58,12 @@ namespace MediaBrowser.Api.Playback.Hls
                 args += " -ab " + bitrate.Value.ToString(UsCulture);
             }
 
-            args += " " + GetAudioFilterParam(state, true);
+            if (state.OutputAudioSampleRate.HasValue)
+            {
+                args += " -ar " + state.OutputAudioSampleRate.Value.ToString(UsCulture);
+            }
+
+            args += " " + EncodingHelper.GetAudioFilterParam(state, ApiEntryPoint.Instance.GetEncodingOptions(), true);
 
             return args;
         }
@@ -72,7 +75,7 @@ namespace MediaBrowser.Api.Playback.Hls
         /// <returns>System.String.</returns>
         protected override string GetVideoArguments(StreamState state)
         {
-            var codec = GetVideoEncoder(state);
+            var codec = EncodingHelper.GetVideoEncoder(state, ApiEntryPoint.Instance.GetEncodingOptions());
 
             var args = "-codec:v:0 " + codec;
 
@@ -85,46 +88,45 @@ namespace MediaBrowser.Api.Playback.Hls
             if (codec.Equals("copy", StringComparison.OrdinalIgnoreCase))
             {
                 // if h264_mp4toannexb is ever added, do not use it for live tv
-                if (state.VideoStream != null && IsH264(state.VideoStream) && !string.Equals(state.VideoStream.NalLengthSize, "0", StringComparison.OrdinalIgnoreCase))
+                if (state.VideoStream != null && EncodingHelper.IsH264(state.VideoStream) &&
+                    !string.Equals(state.VideoStream.NalLengthSize, "0", StringComparison.OrdinalIgnoreCase))
                 {
                     args += " -bsf:v h264_mp4toannexb";
                 }
-                args += " -flags -global_header";
-                return args;
             }
-
-            var keyFrameArg = string.Format(" -force_key_frames \"expr:gte(t,n_forced*{0})\"",
-                state.SegmentLength.ToString(UsCulture));
-
-            var hasGraphicalSubs = state.SubtitleStream != null && !state.SubtitleStream.IsTextSubtitleStream && state.VideoRequest.SubtitleMethod == SubtitleDeliveryMethod.Encode;
-
-            args += " " + GetVideoQualityParam(state, GetH264Encoder(state)) + keyFrameArg;
-
-            // Add resolution params, if specified
-            if (!hasGraphicalSubs)
+            else
             {
-                args += GetOutputSizeParam(state, codec);
-            }
+                var keyFrameArg = string.Format(" -force_key_frames \"expr:gte(t,n_forced*{0})\"",
+                    state.SegmentLength.ToString(UsCulture));
 
-            // This is for internal graphical subs
-            if (hasGraphicalSubs)
-            {
-                args += GetGraphicalSubtitleParam(state, codec);
+                var hasGraphicalSubs = state.SubtitleStream != null && !state.SubtitleStream.IsTextSubtitleStream && state.SubtitleDeliveryMethod == SubtitleDeliveryMethod.Encode;
+
+                var encodingOptions = ApiEntryPoint.Instance.GetEncodingOptions();
+                args += " " + EncodingHelper.GetVideoQualityParam(state, codec, encodingOptions, GetDefaultH264Preset()) + keyFrameArg;
+
+                // Add resolution params, if specified
+                if (!hasGraphicalSubs)
+                {
+                    args += EncodingHelper.GetOutputSizeParam(state, codec);
+                }
+
+                // This is for internal graphical subs
+                if (hasGraphicalSubs)
+                {
+                    args += EncodingHelper.GetGraphicalSubtitleParam(state, codec);
+                }
             }
 
             args += " -flags -global_header";
 
-            return args;
-        }
+            if (!string.IsNullOrEmpty(state.OutputVideoSync))
+            {
+                args += " -vsync " + state.OutputVideoSync;
+            }
 
-        /// <summary>
-        /// Gets the segment file extension.
-        /// </summary>
-        /// <param name="state">The state.</param>
-        /// <returns>System.String.</returns>
-        protected override string GetSegmentFileExtension(StreamState state)
-        {
-            return ".ts";
+            args += EncodingHelper.GetOutputFFlags(state);
+
+            return args;
         }
 
         public VideoHlsService(IServerConfigurationManager serverConfig, IUserManager userManager, ILibraryManager libraryManager, IIsoManager isoManager, IMediaEncoder mediaEncoder, IFileSystem fileSystem, IDlnaManager dlnaManager, ISubtitleEncoder subtitleEncoder, IDeviceManager deviceManager, IMediaSourceManager mediaSourceManager, IZipClient zipClient, IJsonSerializer jsonSerializer, IAuthorizationContext authorizationContext) : base(serverConfig, userManager, libraryManager, isoManager, mediaEncoder, fileSystem, dlnaManager, subtitleEncoder, deviceManager, mediaSourceManager, zipClient, jsonSerializer, authorizationContext)

@@ -11,12 +11,14 @@ namespace MediaBrowser.Model.System
         void SetProcessEnvironmentVariable(string name, string value);
         string GetUserId();
         string StackTrace { get; }
+        char PathSeparator { get; }
     }
 
     public enum OperatingSystem
     {
         Windows,
         Linux,
-        OSX
+        OSX,
+        BSD
     }
 }

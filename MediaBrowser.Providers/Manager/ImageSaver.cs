@@ -1,5 +1,5 @@
 ﻿using MediaBrowser.Common.Configuration;
-using MediaBrowser.Common.IO;
+
 using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Audio;
@@ -16,7 +16,6 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using MediaBrowser.Controller.IO;
 using MediaBrowser.Model.IO;
 
 namespace MediaBrowser.Providers.Manager
@@ -167,24 +166,17 @@ namespace MediaBrowser.Providers.Manager
             {
                 var currentPath = currentImagePath;
 
-                _logger.Debug("Deleting previous image {0}", currentPath);
+                _logger.Info("Deleting previous image {0}", currentPath);
 
                 _libraryMonitor.ReportFileSystemChangeBeginning(currentPath);
 
                 try
                 {
-                    var currentFile = _fileSystem.GetFileInfo(currentPath);
-
-                    // This will fail if the file is hidden
-                    if (currentFile.Exists)
-                    {
-                        if (currentFile.IsHidden)
-                        {
-                            _fileSystem.SetHidden(currentFile.FullName, false);
-                        }
-
-                        _fileSystem.DeleteFile(currentFile.FullName);
-                    }
+                    _fileSystem.DeleteFile(currentPath);
+                }
+                catch (FileNotFoundException)
+                {
+                    
                 }
                 finally
                 {
@@ -243,42 +235,27 @@ namespace MediaBrowser.Providers.Manager
         /// <returns>Task.</returns>
         private async Task SaveImageToLocation(Stream source, string path, CancellationToken cancellationToken)
         {
-            _logger.Debug("Saving image to {0}", path);
+            _logger.Info("Saving image to {0}", path);
 
-            var parentFolder = Path.GetDirectoryName(path);
-
-            _libraryMonitor.ReportFileSystemChangeBeginning(path);
-            _libraryMonitor.ReportFileSystemChangeBeginning(parentFolder);
+            var parentFolder = _fileSystem.GetDirectoryName(path);
 
             try
             {
-                _fileSystem.CreateDirectory(Path.GetDirectoryName(path));
+                _libraryMonitor.ReportFileSystemChangeBeginning(path);
+                _libraryMonitor.ReportFileSystemChangeBeginning(parentFolder);
 
-                // If the file is currently hidden we'll have to remove that or the save will fail
-                var file = _fileSystem.GetFileInfo(path);
+                _fileSystem.CreateDirectory(_fileSystem.GetDirectoryName(path));
 
-                // This will fail if the file is hidden
-                if (file.Exists)
+                _fileSystem.SetAttributes(path, false, false);
+
+                using (var fs = _fileSystem.GetFileStream(path, FileOpenMode.Create, FileAccessMode.Write, FileShareMode.Read, FileOpenOptions.Asynchronous))
                 {
-                    if (file.IsHidden)
-                    {
-                        _fileSystem.SetHidden(file.FullName, false);
-                    }
-                    if (file.IsReadOnly)
-                    {
-                        _fileSystem.SetReadOnly(path, false);
-                    }
-                }
-
-                using (var fs = _fileSystem.GetFileStream(path, FileOpenMode.Create, FileAccessMode.Write, FileShareMode.Read, true))
-                {
-                    await source.CopyToAsync(fs, StreamDefaults.DefaultCopyToBufferSize, cancellationToken)
-                            .ConfigureAwait(false);
+                    await source.CopyToAsync(fs, StreamDefaults.DefaultCopyToBufferSize, cancellationToken).ConfigureAwait(false);
                 }
 
                 if (_config.Configuration.SaveMetadataHidden)
                 {
-                    _fileSystem.SetHidden(file.FullName, true);
+                    _fileSystem.SetHidden(path, true);
                 }
             }
             finally
@@ -406,6 +383,7 @@ namespace MediaBrowser.Providers.Manager
             var folderName = item is MusicAlbum ||
                 item is MusicArtist ||
                 item is PhotoAlbum ||
+                item is Person ||
                 (saveLocally && _config.Configuration.ImageSavingConvention == ImageSavingConvention.Legacy) ?
                 "folder" :
                 "poster";
@@ -451,7 +429,7 @@ namespace MediaBrowser.Providers.Manager
             {
                 if (type == ImageType.Primary && item is Episode)
                 {
-                    path = Path.Combine(Path.GetDirectoryName(item.Path), "metadata", filename + extension);
+                    path = Path.Combine(_fileSystem.GetDirectoryName(item.Path), "metadata", filename + extension);
                 }
 
                 else if (item.DetectIsInMixedFolder())
@@ -583,7 +561,7 @@ namespace MediaBrowser.Providers.Manager
 
                 if (item is Episode)
                 {
-                    var seasonFolder = Path.GetDirectoryName(item.Path);
+                    var seasonFolder = _fileSystem.GetDirectoryName(item.Path);
 
                     var imageFilename = _fileSystem.GetFileNameWithoutExtension(item.Path) + "-thumb" + extension;
 
@@ -631,7 +609,7 @@ namespace MediaBrowser.Providers.Manager
             {
                 imageFilename = "poster";
             }
-            var folder = Path.GetDirectoryName(item.Path);
+            var folder = _fileSystem.GetDirectoryName(item.Path);
 
             return Path.Combine(folder, _fileSystem.GetFileNameWithoutExtension(item.Path) + "-" + imageFilename + extension);
         }

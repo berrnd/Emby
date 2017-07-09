@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Net;
 using System.Text;
@@ -26,13 +27,15 @@ namespace Emby.Server.Implementations.LiveTv.Listings
         private readonly IHttpClient _httpClient;
         private readonly ILogger _logger;
         private readonly IFileSystem _fileSystem;
+        private readonly IZipClient _zipClient;
 
-        public XmlTvListingsProvider(IServerConfigurationManager config, IHttpClient httpClient, ILogger logger, IFileSystem fileSystem)
+        public XmlTvListingsProvider(IServerConfigurationManager config, IHttpClient httpClient, ILogger logger, IFileSystem fileSystem, IZipClient zipClient)
         {
             _config = config;
             _httpClient = httpClient;
             _logger = logger;
             _fileSystem = fileSystem;
+            _zipClient = zipClient;
         }
 
         public string Name
@@ -63,7 +66,7 @@ namespace Emby.Server.Implementations.LiveTv.Listings
             var cacheFile = Path.Combine(_config.ApplicationPaths.CachePath, "xmltv", cacheFilename);
             if (_fileSystem.FileExists(cacheFile))
             {
-                return cacheFile;
+                return UnzipIfNeeded(path, cacheFile);
             }
 
             _logger.Info("Downloading xmltv listings from {0}", path);
@@ -83,7 +86,7 @@ namespace Emby.Server.Implementations.LiveTv.Listings
 
             }).ConfigureAwait(false);
 
-            _fileSystem.CreateDirectory(Path.GetDirectoryName(cacheFile));
+            _fileSystem.CreateDirectory(_fileSystem.GetDirectoryName(cacheFile));
 
             using (var stream = _fileSystem.OpenRead(tempFile))
             {
@@ -103,11 +106,39 @@ namespace Emby.Server.Implementations.LiveTv.Listings
             }
 
             _logger.Debug("Returning xmltv path {0}", cacheFile);
-            return cacheFile;
+            return UnzipIfNeeded(path, cacheFile);
         }
 
-        public async Task<IEnumerable<ProgramInfo>> GetProgramsAsync(ListingsProviderInfo info, string channelNumber, string channelName, DateTime startDateUtc, DateTime endDateUtc, CancellationToken cancellationToken)
+        private string UnzipIfNeeded(string originalUrl, string file)
         {
+            //var ext = Path.GetExtension(originalUrl);
+
+            //if (string.Equals(ext, ".gz", StringComparison.OrdinalIgnoreCase))
+            //{
+            //    using (var stream = _fileSystem.OpenRead(file))
+            //    {
+            //        var tempFolder = Path.Combine(_config.ApplicationPaths.TempDirectory, Guid.NewGuid().ToString());
+            //        _fileSystem.CreateDirectory(tempFolder);
+
+            //        _zipClient.ExtractAllFromZip(stream, tempFolder, true);
+
+            //        return _fileSystem.GetFiles(tempFolder, true)
+            //            .Where(i => string.Equals(i.Extension, ".xml", StringComparison.OrdinalIgnoreCase))
+            //            .Select(i => i.FullName)
+            //            .FirstOrDefault();
+            //    }
+            //}
+
+            return file;
+        }
+
+        public async Task<IEnumerable<ProgramInfo>> GetProgramsAsync(ListingsProviderInfo info, string channelId, DateTime startDateUtc, DateTime endDateUtc, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(channelId))
+            {
+                throw new ArgumentNullException("channelId");
+            }
+
             if (!await EmbyTV.EmbyTVRegistration.Instance.EnableXmlTv().ConfigureAwait(false))
             {
                 var length = endDateUtc - startDateUtc;
@@ -117,10 +148,12 @@ namespace Emby.Server.Implementations.LiveTv.Listings
                 }
             }
 
+            _logger.Debug("Getting xmltv programs for channel {0}", channelId);
+
             var path = await GetXml(info.Path, cancellationToken).ConfigureAwait(false);
             var reader = new XmlTvReader(path, GetLanguage());
 
-            var results = reader.GetProgrammes(channelNumber, startDateUtc, endDateUtc, cancellationToken);
+            var results = reader.GetProgrammes(channelId, startDateUtc, endDateUtc, cancellationToken);
             return results.Select(p => GetProgramInfo(p, info));
         }
 
@@ -135,11 +168,9 @@ namespace Emby.Server.Implementations.LiveTv.Listings
                 EpisodeNumber = p.Episode == null ? null : p.Episode.Episode,
                 EpisodeTitle = episodeTitle,
                 Genres = p.Categories,
-                Id = String.Format("{0}_{1:O}", p.ChannelId, p.StartDate), // Construct an id from the channel and start date,
                 StartDate = GetDate(p.StartDate),
                 Name = p.Title,
                 Overview = p.Description,
-                ShortOverview = p.Description,
                 ProductionYear = !p.CopyrightDate.HasValue ? (int?)null : p.CopyrightDate.Value.Year,
                 SeasonNumber = p.Episode == null ? null : p.Episode.Series,
                 IsSeries = p.Episode != null,
@@ -153,9 +184,40 @@ namespace Emby.Server.Implementations.LiveTv.Listings
                 HasImage = p.Icon != null && !String.IsNullOrEmpty(p.Icon.Source),
                 OfficialRating = p.Rating != null && !String.IsNullOrEmpty(p.Rating.Value) ? p.Rating.Value : null,
                 CommunityRating = p.StarRating.HasValue ? p.StarRating.Value : (float?)null,
-                SeriesId = p.Episode != null ? p.Title.GetMD5().ToString("N") : null,
-                ShowId = ((p.Title ?? string.Empty) + (episodeTitle ?? string.Empty)).GetMD5().ToString("N")
+                SeriesId = p.Episode != null ? p.Title.GetMD5().ToString("N") : null
             };
+
+            if (!string.IsNullOrWhiteSpace(p.ProgramId))
+            {
+                programInfo.ShowId = p.ProgramId;
+            }
+            else
+            {
+                var uniqueString = (p.Title ?? string.Empty) + (episodeTitle ?? string.Empty) + (p.IceTvEpisodeNumber ?? string.Empty);
+
+                if (programInfo.SeasonNumber.HasValue)
+                {
+                    uniqueString = "-" + programInfo.SeasonNumber.Value.ToString(CultureInfo.InvariantCulture);
+                }
+                if (programInfo.EpisodeNumber.HasValue)
+                {
+                    uniqueString = "-" + programInfo.EpisodeNumber.Value.ToString(CultureInfo.InvariantCulture);
+                }
+
+                programInfo.ShowId = uniqueString.GetMD5().ToString("N");
+
+                // If we don't have valid episode info, assume it's a unique program, otherwise recordings might be skipped
+                if (programInfo.IsSeries && !programInfo.IsRepeat)
+                {
+                    if ((programInfo.EpisodeNumber ?? 0) == 0)
+                    {
+                        programInfo.ShowId = programInfo.ShowId + programInfo.StartDate.Ticks.ToString(CultureInfo.InvariantCulture);
+                    }
+                }
+            }
+
+            // Construct an id from the channel and start date
+            programInfo.Id = String.Format("{0}_{1:O}", p.ChannelId, p.StartDate);
 
             if (programInfo.IsMovie)
             {
@@ -174,28 +236,6 @@ namespace Emby.Server.Implementations.LiveTv.Listings
                 date = DateTime.SpecifyKind(date, DateTimeKind.Utc);
             }
             return date;
-        }
-
-        public async Task AddMetadata(ListingsProviderInfo info, List<ChannelInfo> channels, CancellationToken cancellationToken)
-        {
-            // Add the channel image url
-            var path = await GetXml(info.Path, cancellationToken).ConfigureAwait(false);
-            var reader = new XmlTvReader(path, GetLanguage());
-            var results = reader.GetChannels().ToList();
-
-            if (channels != null)
-            {
-                foreach (var c in channels)
-                {
-                    var channelNumber = info.GetMappedChannel(c.Number);
-                    var match = results.FirstOrDefault(r => string.Equals(r.Id, channelNumber, StringComparison.OrdinalIgnoreCase));
-
-                    if (match != null && match.Icon != null && !String.IsNullOrEmpty(match.Icon.Source))
-                    {
-                        c.ImageUrl = match.Icon.Source;
-                    }
-                }
-            }
         }
 
         public Task Validate(ListingsProviderInfo info, bool validateLogin, bool validateListings)
@@ -228,12 +268,12 @@ namespace Emby.Server.Implementations.LiveTv.Listings
             var results = reader.GetChannels();
 
             // Should this method be async?
-            return results.Select(c => new ChannelInfo()
+            return results.Select(c => new ChannelInfo
             {
                 Id = c.Id,
                 Name = c.DisplayName,
                 ImageUrl = c.Icon != null && !String.IsNullOrEmpty(c.Icon.Source) ? c.Icon.Source : null,
-                Number = c.Id
+                Number = string.IsNullOrWhiteSpace(c.Number) ? c.Id : c.Number
 
             }).ToList();
         }

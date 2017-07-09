@@ -3,6 +3,7 @@ using System.IO;
 using System.Net.Security;
 using System.Net.Sockets;
 using System.Security.Cryptography.X509Certificates;
+using System.Threading;
 using System.Threading.Tasks;
 using Emby.Common.Implementations.Net;
 using Emby.Server.Implementations.HttpServer;
@@ -33,10 +34,10 @@ namespace Emby.Server.Core
         /// <returns>IHttpServer.</returns>
         public static IHttpServer CreateServer(IServerApplicationHost applicationHost,
             ILogManager logManager,
-            IServerConfigurationManager config, 
+            IServerConfigurationManager config,
             INetworkManager networkmanager,
             IMemoryStreamFactory streamProvider,
-            string serverName, 
+            string serverName,
             string defaultRedirectpath,
             ITextEncoding textEncoding,
             ISocketFactory socketFactory,
@@ -45,27 +46,29 @@ namespace Emby.Server.Core
             IXmlSerializer xml,
             IEnvironmentInfo environment,
             ICertificate certificate,
+            IFileSystem fileSystem,
             bool enableDualModeSockets)
         {
             var logger = logManager.GetLogger("HttpServer");
 
             return new HttpListenerHost(applicationHost,
-                logger, 
-                config, 
-                serverName, 
-                defaultRedirectpath, 
-                networkmanager, 
-                streamProvider, 
-                textEncoding, 
-                socketFactory, 
-                cryptoProvider, 
-                json, 
+                logger,
+                config,
+                serverName,
+                defaultRedirectpath,
+                networkmanager,
+                streamProvider,
+                textEncoding,
+                socketFactory,
+                cryptoProvider,
+                json,
                 xml,
                 environment,
                 certificate,
                 new StreamFactory(),
                 GetParseFn,
-                enableDualModeSockets);
+                enableDualModeSockets,
+                fileSystem);
         }
 
         private static Func<string, object> GetParseFn(Type propertyType)
@@ -76,11 +79,11 @@ namespace Emby.Server.Core
 
     public class StreamFactory : IStreamFactory
     {
-        public Stream CreateNetworkStream(ISocket socket, bool ownsSocket)
+        public Stream CreateNetworkStream(IAcceptSocket acceptSocket, bool ownsSocket)
         {
-            var netSocket = (NetSocket)socket;
+            var netSocket = (NetAcceptSocket)acceptSocket;
 
-            return new NetworkStream(netSocket.Socket, ownsSocket);
+            return new SocketStream(netSocket.Socket, ownsSocket);
         }
 
         public Task AuthenticateSslStreamAsServer(Stream stream, ICertificate certificate)

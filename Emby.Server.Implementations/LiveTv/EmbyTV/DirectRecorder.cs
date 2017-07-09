@@ -3,9 +3,10 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using MediaBrowser.Model.IO;
-using MediaBrowser.Common.IO;
+
 using MediaBrowser.Common.Net;
 using MediaBrowser.Controller.IO;
+using MediaBrowser.Controller.Library;
 using MediaBrowser.Model.Dto;
 using MediaBrowser.Model.Logging;
 
@@ -29,7 +30,35 @@ namespace Emby.Server.Implementations.LiveTv.EmbyTV
             return targetFile;
         }
 
-        public async Task Record(MediaSourceInfo mediaSource, string targetFile, TimeSpan duration, Action onStarted, CancellationToken cancellationToken)
+        public Task Record(IDirectStreamProvider directStreamProvider, MediaSourceInfo mediaSource, string targetFile, TimeSpan duration, Action onStarted, CancellationToken cancellationToken)
+        {
+            if (directStreamProvider != null)
+            {
+                return RecordFromDirectStreamProvider(directStreamProvider, targetFile, duration, onStarted, cancellationToken);
+            }
+
+            return RecordFromMediaSource(mediaSource, targetFile, duration, onStarted, cancellationToken);
+        }
+
+        private async Task RecordFromDirectStreamProvider(IDirectStreamProvider directStreamProvider, string targetFile, TimeSpan duration, Action onStarted, CancellationToken cancellationToken)
+        {
+            using (var output = _fileSystem.GetFileStream(targetFile, FileOpenMode.Create, FileAccessMode.Write, FileShareMode.Read))
+            {
+                onStarted();
+
+                _logger.Info("Copying recording stream to file {0}", targetFile);
+
+                // The media source if infinite so we need to handle stopping ourselves
+                var durationToken = new CancellationTokenSource(duration);
+                cancellationToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, durationToken.Token).Token;
+
+                await directStreamProvider.CopyToAsync(output, cancellationToken).ConfigureAwait(false);
+            }
+
+            _logger.Info("Recording completed to file {0}", targetFile);
+        }
+
+        private async Task RecordFromMediaSource(MediaSourceInfo mediaSource, string targetFile, TimeSpan duration, Action onStarted, CancellationToken cancellationToken)
         {
             var httpRequestOptions = new HttpRequestOptions
             {
@@ -65,17 +94,13 @@ namespace Emby.Server.Implementations.LiveTv.EmbyTV
         }
 
         private const int BufferSize = 81920;
-        public static Task CopyUntilCancelled(Stream source, Stream target, CancellationToken cancellationToken)
+        public static async Task CopyUntilCancelled(Stream source, Stream target, CancellationToken cancellationToken)
         {
-            return CopyUntilCancelled(source, target, null, cancellationToken);
-        }
-        public static async Task CopyUntilCancelled(Stream source, Stream target, Action onStarted, CancellationToken cancellationToken)
-        {
+            byte[] buffer = new byte[BufferSize];
+
             while (!cancellationToken.IsCancellationRequested)
             {
-                var bytesRead = await CopyToAsyncInternal(source, target, BufferSize, onStarted, cancellationToken).ConfigureAwait(false);
-
-                onStarted = null;
+                var bytesRead = await CopyToAsyncInternal(source, target, buffer, cancellationToken).ConfigureAwait(false);
 
                 //var position = fs.Position;
                 //_logger.Debug("Streamed {0} bytes to position {1} from file {2}", bytesRead, position, path);
@@ -87,23 +112,16 @@ namespace Emby.Server.Implementations.LiveTv.EmbyTV
             }
         }
 
-        private static async Task<int> CopyToAsyncInternal(Stream source, Stream destination, Int32 bufferSize, Action onStarted, CancellationToken cancellationToken)
+        private static async Task<int> CopyToAsyncInternal(Stream source, Stream destination, byte[] buffer, CancellationToken cancellationToken)
         {
-            byte[] buffer = new byte[bufferSize];
             int bytesRead;
             int totalBytesRead = 0;
 
             while ((bytesRead = await source.ReadAsync(buffer, 0, buffer.Length, cancellationToken).ConfigureAwait(false)) != 0)
             {
-                await destination.WriteAsync(buffer, 0, bytesRead, cancellationToken).ConfigureAwait(false);
+                destination.Write(buffer, 0, bytesRead);
 
                 totalBytesRead += bytesRead;
-
-                if (onStarted != null)
-                {
-                    onStarted();
-                }
-                onStarted = null;
             }
 
             return totalBytesRead;

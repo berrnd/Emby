@@ -9,7 +9,6 @@ using System.Globalization;
 using System.Linq;
 using System.Threading;
 using MediaBrowser.Common.Extensions;
-using MediaBrowser.Controller.Channels;
 using MediaBrowser.Model.Serialization;
 
 namespace MediaBrowser.Controller.Entities.Audio
@@ -24,8 +23,6 @@ namespace MediaBrowser.Controller.Entities.Audio
         IHasLookupInfo<SongInfo>,
         IHasMediaSources
     {
-        public List<ChannelMediaInfo> ChannelMediaSources { get; set; }
-
         /// <summary>
         /// Gets or sets the artist.
         /// </summary>
@@ -44,6 +41,11 @@ namespace MediaBrowser.Controller.Entities.Audio
         {
             Artists = new List<string>();
             AlbumArtists = new List<string>();
+        }
+
+        public override double? GetDefaultPrimaryImageAspectRatio()
+        {
+            return 1;
         }
 
         [IgnoreDataMember]
@@ -207,7 +209,7 @@ namespace MediaBrowser.Controller.Entities.Audio
             if (SourceType == SourceType.Channel)
             {
                 var sources = ChannelManager.GetStaticMediaSources(this, CancellationToken.None)
-                           .Result.ToList();
+                           .ToList();
 
                 if (sources.Count > 0)
                 {

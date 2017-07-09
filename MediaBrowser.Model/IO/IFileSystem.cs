@@ -10,6 +10,8 @@ namespace MediaBrowser.Model.IO
     /// </summary>
     public interface IFileSystem
     {
+        void AddShortcutHandler(IShortcutHandler handler);
+
         /// <summary>
         /// Determines whether the specified filename is shortcut.
         /// </summary>
@@ -106,6 +108,8 @@ namespace MediaBrowser.Model.IO
         /// <returns>FileStream.</returns>
         Stream GetFileStream(string path, FileOpenMode mode, FileAccessMode access, FileShareMode share, bool isAsync = false);
 
+        Stream GetFileStream(string path, FileOpenMode mode, FileAccessMode access, FileShareMode share, FileOpenOptions fileOpenOptions);
+
         /// <summary>
         /// Opens the read.
         /// </summary>
@@ -143,6 +147,8 @@ namespace MediaBrowser.Model.IO
         /// <param name="path">The path.</param>
         /// <returns>System.String.</returns>
         string NormalizePath(string path);
+
+        string GetDirectoryName(string path);
 
         /// <summary>
         /// Gets the file name without extension.
@@ -189,10 +195,9 @@ namespace MediaBrowser.Model.IO
         /// <summary>
         /// Gets the files.
         /// </summary>
-        /// <param name="path">The path.</param>
-        /// <param name="recursive">if set to <c>true</c> [recursive].</param>
-        /// <returns>IEnumerable&lt;FileInfo&gt;.</returns>
         IEnumerable<FileSystemMetadata> GetFiles(string path, bool recursive = false);
+
+        IEnumerable<FileSystemMetadata> GetFiles(string path, string [] extensions, bool enableCaseSensitiveExtensions, bool recursive);
 
         /// <summary>
         /// Gets the file system entries.
@@ -297,6 +302,7 @@ namespace MediaBrowser.Model.IO
         /// <param name="recursive">if set to <c>true</c> [recursive].</param>
         /// <returns>IEnumerable&lt;System.String&gt;.</returns>
         IEnumerable<string> GetFilePaths(string path, bool recursive = false);
+        IEnumerable<string> GetFilePaths(string path, string[] extensions, bool enableCaseSensitiveExtensions, bool recursive);
 
         /// <summary>
         /// Gets the file system entry paths.
@@ -307,10 +313,10 @@ namespace MediaBrowser.Model.IO
         IEnumerable<string> GetFileSystemEntryPaths(string path, bool recursive = false);
 
         void SetHidden(string path, bool isHidden);
-        void SetReadOnly(string path, bool isHidden);
+        void SetReadOnly(string path, bool readOnly);
+        void SetAttributes(string path, bool isHidden, bool readOnly);
 
         char DirectorySeparatorChar { get; }
-        char PathSeparator { get; }
 
         string GetFullPath(string path);
 
@@ -351,24 +357,7 @@ namespace MediaBrowser.Model.IO
         //     permission is required. If the file is opened with FileAccess.ReadWrite, both
         //     System.Security.Permissions.FileIOPermissionAccess.Read and System.Security.Permissions.FileIOPermissionAccess.Write
         //     permissions are required.
-        OpenOrCreate = 4,
-        //
-        // Summary:
-        //     Specifies that the operating system should open an existing file. When the file
-        //     is opened, it should be truncated so that its size is zero bytes. This requires
-        //     System.Security.Permissions.FileIOPermissionAccess.Write permission. Attempts
-        //     to read from a file opened with FileMode.Truncate cause an System.ArgumentException
-        //     exception.
-        Truncate = 5,
-        //
-        // Summary:
-        //     Opens the file if it exists and seeks to the end of the file, or creates a new
-        //     file. This requires System.Security.Permissions.FileIOPermissionAccess.Append
-        //     permission. FileMode.Append can be used only in conjunction with FileAccess.Write.
-        //     Trying to seek to a position before the end of the file throws an System.IO.IOException
-        //     exception, and any attempt to read fails and throws a System.NotSupportedException
-        //     exception.
-        Append = 6
+        OpenOrCreate = 4
     }
 
     public enum FileAccessMode
@@ -382,11 +371,7 @@ namespace MediaBrowser.Model.IO
         // Summary:
         //     Write access to the file. Data can be written to the file. Combine with Read
         //     for read/write access.
-        Write = 2,
-        //
-        // Summary:
-        //     Read and write access to the file. Data can be written to and read from the file.
-        ReadWrite = 3
+        Write = 2
     }
 
     public enum FileShareMode
@@ -420,4 +405,46 @@ namespace MediaBrowser.Model.IO
         ReadWrite = 3
     }
 
+    //
+    // Summary:
+    //     Represents advanced options for creating a System.IO.FileStream object.
+    [Flags]
+    public enum FileOpenOptions
+    {
+        //
+        // Summary:
+        //     Indicates that the system should write through any intermediate cache and go
+        //     directly to disk.
+        WriteThrough = int.MinValue,
+        //
+        // Summary:
+        //     Indicates that no additional options should be used when creating a System.IO.FileStream
+        //     object.
+        None = 0,
+        //
+        // Summary:
+        //     Indicates that a file is encrypted and can be decrypted only by using the same
+        //     user account used for encryption.
+        Encrypted = 16384,
+        //
+        // Summary:
+        //     Indicates that a file is automatically deleted when it is no longer in use.
+        DeleteOnClose = 67108864,
+        //
+        // Summary:
+        //     Indicates that the file is to be accessed sequentially from beginning to end.
+        //     The system can use this as a hint to optimize file caching. If an application
+        //     moves the file pointer for random access, optimum caching may not occur; however,
+        //     correct operation is still guaranteed.
+        SequentialScan = 134217728,
+        //
+        // Summary:
+        //     Indicates that the file is accessed randomly. The system can use this as a hint
+        //     to optimize file caching.
+        RandomAccess = 268435456,
+        //
+        // Summary:
+        //     Indicates that a file can be used for asynchronous reading and writing.
+        Asynchronous = 1073741824
+    }
 }

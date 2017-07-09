@@ -33,11 +33,6 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release Mono|AnyCPU' ">
-    <Optimize>false</Optimize>
-    <OutputPath>bin\Release Mono</OutputPath>
-    <WarningLevel>4</WarningLevel>
-  </PropertyGroup>
   <ItemGroup>
     <Compile Include="Console\OSHConsole.cs" />
     <Compile Include="Interfaces\IMethodResponse.cs" />
@@ -111,9 +106,6 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="XML-RPC\Docs\XML-RPC.txt" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="project.json" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

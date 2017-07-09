@@ -57,6 +57,14 @@ namespace MediaBrowser.Controller.Entities
             }
         }
 
+        public override double? GetDefaultPrimaryImageAspectRatio()
+        {
+            double value = 16;
+            value /= 9;
+
+            return value;
+        }
+
         public override bool CanDelete()
         {
             return false;
@@ -80,16 +88,6 @@ namespace MediaBrowser.Controller.Entities
             }
         }
 
-        public IEnumerable<BaseItem> GetTaggedItems(IEnumerable<BaseItem> inputItems)
-        {
-            return inputItems.Where(GetItemFilter());
-        }
-
-        public Func<BaseItem, bool> GetItemFilter()
-        {
-            return i => i.Studios.Contains(Name, StringComparer.OrdinalIgnoreCase);
-        }
-
         public IEnumerable<BaseItem> GetTaggedItems(InternalItemsQuery query)
         {
             query.StudioIds = new[] { Id.ToString("N") };
@@ -106,7 +104,12 @@ namespace MediaBrowser.Controller.Entities
             }
         }
 
-        public static string GetPath(string name, bool normalizeName = true)
+        public static string GetPath(string name)
+        {
+            return GetPath(name, true);
+        }
+
+        public static string GetPath(string name, bool normalizeName)
         {
             // Trim the period at the end because windows will have a hard time with that
             var validName = normalizeName ?

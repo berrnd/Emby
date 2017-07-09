@@ -6,7 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Common.Events;
-using MediaBrowser.Common.IO;
+
 using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.IO;
@@ -34,8 +34,9 @@ namespace Emby.Server.Implementations.IO
 
         public event EventHandler<EventArgs> Completed;
         private readonly IEnvironmentInfo _environmentInfo;
+        private readonly ILibraryManager _libraryManager;
 
-        public FileRefresher(string path, IFileSystem fileSystem, IServerConfigurationManager configurationManager, ILibraryManager libraryManager, ITaskManager taskManager, ILogger logger, ITimerFactory timerFactory, IEnvironmentInfo environmentInfo)
+        public FileRefresher(string path, IFileSystem fileSystem, IServerConfigurationManager configurationManager, ILibraryManager libraryManager, ITaskManager taskManager, ILogger logger, ITimerFactory timerFactory, IEnvironmentInfo environmentInfo, ILibraryManager libraryManager1)
         {
             logger.Debug("New file refresher created for {0}", path);
             Path = path;
@@ -47,6 +48,7 @@ namespace Emby.Server.Implementations.IO
             Logger = logger;
             _timerFactory = timerFactory;
             _environmentInfo = environmentInfo;
+            _libraryManager = libraryManager1;
             AddPath(path);
         }
 
@@ -160,10 +162,10 @@ namespace Emby.Server.Implementations.IO
                 .DistinctBy(i => i.Id)
                 .ToList();
 
-            foreach (var p in paths)
-            {
-                Logger.Info(p + " reports change.");
-            }
+            //foreach (var p in paths)
+            //{
+            //    Logger.Info(p + " reports change.");
+            //}
 
             // If the root folder changed, run the library task so the user can see it
             if (itemsToRefresh.Any(i => i is AggregateFolder))
@@ -178,7 +180,7 @@ namespace Emby.Server.Implementations.IO
 
                 try
                 {
-                    await item.ChangedExternally().ConfigureAwait(false);
+                    item.ChangedExternally();
                 }
                 catch (IOException ex)
                 {
@@ -207,7 +209,7 @@ namespace Emby.Server.Implementations.IO
             {
                 item = LibraryManager.FindByPath(path, null);
 
-                path = System.IO.Path.GetDirectoryName(path);
+                path = _fileSystem.GetDirectoryName(path);
             }
 
             if (item != null)
@@ -229,9 +231,15 @@ namespace Emby.Server.Implementations.IO
 
         private bool IsFileLocked(string path)
         {
-            if (_environmentInfo.OperatingSystem != OperatingSystem.Windows)
+            if (_environmentInfo.OperatingSystem != MediaBrowser.Model.System.OperatingSystem.Windows)
             {
                 // Causing lockups on linux
+                return false;
+            }
+
+            // Only try to open video files
+            if (!_libraryManager.IsVideoFile(path))
+            {
                 return false;
             }
 
@@ -274,11 +282,11 @@ namespace Emby.Server.Implementations.IO
                     return false;
                 }
             }
-            //catch (DirectoryNotFoundException)
-            //{
-            //    // File may have been deleted
-            //    return false;
-            //}
+            catch (DirectoryNotFoundException)
+            {
+                // File may have been deleted
+                return false;
+            }
             catch (FileNotFoundException)
             {
                 // File may have been deleted

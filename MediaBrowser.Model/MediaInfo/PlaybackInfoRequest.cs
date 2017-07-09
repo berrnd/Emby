@@ -23,5 +23,23 @@ namespace MediaBrowser.Model.MediaInfo
         public string LiveStreamId { get; set; }
         
         public DeviceProfile DeviceProfile { get; set; }
+
+        public bool EnableDirectPlay { get; set; }
+        public bool EnableDirectStream { get; set; }
+        public bool EnableTranscoding { get; set; }
+        public bool ForceDirectPlayRemoteMediaSource { get; set; }
+        public bool AllowVideoStreamCopy { get; set; }
+        public bool AllowAudioStreamCopy { get; set; }
+        public bool AutoOpenLiveStream { get; set; }
+
+        public PlaybackInfoRequest()
+        {
+            ForceDirectPlayRemoteMediaSource = true;
+            EnableDirectPlay = true;
+            EnableDirectStream = true;
+            EnableTranscoding = true;
+            AllowVideoStreamCopy = true;
+            AllowAudioStreamCopy = true;
+        }
     }
 }

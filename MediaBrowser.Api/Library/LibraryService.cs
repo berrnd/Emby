@@ -21,13 +21,13 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using MediaBrowser.Common.IO;
+
 using MediaBrowser.Model.IO;
 using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Controller.IO;
 using MediaBrowser.Model.Globalization;
 using MediaBrowser.Model.Services;
-using MediaBrowser.Common.Events;
+using MediaBrowser.Common.Extensions;
 
 namespace MediaBrowser.Api.Library
 {
@@ -265,20 +265,20 @@ namespace MediaBrowser.Api.Library
 
 	//myproduction-change-start
 	//Added activity logging of external player streaming actions
-    [Route("/Items/{Id}/NotifyStreamedExternalInPlayer", "GET", Summary = "Just logs an activity entry that the given media element was streamed in an external player")]
-    [Authenticated(Roles = "download")]
-    public class NotifyStreamedExternalInPlayer
-    {
-        /// <summary>
-        /// Gets or sets the id.
-        /// </summary>
-        /// <value>The id.</value>
-        [ApiMember(Name = "Id", Description = "Item Id", IsRequired = true, DataType = "string", ParameterType = "path", Verb = "GET")]
-        public string Id { get; set; }
-    }
+	[Route("/Items/{Id}/NotifyStreamedExternalInPlayer", "GET", Summary = "Just logs an activity entry that the given media element was streamed in an external player")]
+	[Authenticated(Roles = "download")]
+	public class NotifyStreamedExternalInPlayer
+	{
+		/// <summary>
+		/// Gets or sets the id.
+		/// </summary>
+		/// <value>The id.</value>
+		[ApiMember(Name = "Id", Description = "Item Id", IsRequired = true, DataType = "string", ParameterType = "path", Verb = "GET")]
+		public string Id { get; set; }
+	}
 	//myproduction-change-end
 
-    [Route("/Items/{Id}/Similar", "GET", Summary = "Gets similar items")]
+	[Route("/Items/{Id}/Similar", "GET", Summary = "Gets similar items")]
     [Authenticated]
     public class GetSimilarItems : BaseGetSimilarItemsFromItem
     {
@@ -443,7 +443,11 @@ namespace MediaBrowser.Api.Library
         {
             var series = _libraryManager.GetItemList(new InternalItemsQuery
             {
-                IncludeItemTypes = new[] { typeof(Series).Name }
+                IncludeItemTypes = new[] { typeof(Series).Name },
+                DtoOptions = new DtoOptions(false)
+                {
+                    EnableImages = false
+                }
 
             }).Where(i => string.Equals(request.TvdbId, i.GetProviderId(MetadataProviders.Tvdb), StringComparison.OrdinalIgnoreCase)).ToArray();
 
@@ -464,7 +468,11 @@ namespace MediaBrowser.Api.Library
         {
             var movies = _libraryManager.GetItemList(new InternalItemsQuery
             {
-                IncludeItemTypes = new[] { typeof(Movie).Name }
+                IncludeItemTypes = new[] { typeof(Movie).Name },
+                DtoOptions = new DtoOptions(false)
+                {
+                    EnableImages = false
+                }
 
             }).ToArray();
 
@@ -534,63 +542,63 @@ namespace MediaBrowser.Api.Library
             });
         }
 
-        //myproduction-change-start
+		//myproduction-change-start
 		//Added activity logging of external player streaming actions
 		public object Get(NotifyStreamedExternalInPlayer request)
-        {
-            var item = _libraryManager.GetItemById(request.Id);
-            var auth = _authContext.GetAuthorizationInfo(Request);
+		{
+			var item = _libraryManager.GetItemById(request.Id);
+			var auth = _authContext.GetAuthorizationInfo(Request);
 
-            var user = _userManager.GetUserById(auth.UserId);
+			var user = _userManager.GetUserById(auth.UserId);
 
-            if (user != null)
-            {
-                if (!item.CanDownload(user))
-                {
-                    throw new ArgumentException("Item does not support downloading");
-                }
-            }
-            else
-            {
-                if (!item.CanDownload())
-                {
-                    throw new ArgumentException("Item does not support downloading");
-                }
-            }
+			if (user != null)
+			{
+				if (!item.CanDownload(user))
+				{
+					throw new ArgumentException("Item does not support downloading");
+				}
+			}
+			else
+			{
+				if (!item.CanDownload())
+				{
+					throw new ArgumentException("Item does not support downloading");
+				}
+			}
 
-            if (user != null)
-            {
-                LogNotifyStreamedExternalInPlayer(item, user, auth);
-            }
+			if (user != null)
+			{
+				LogNotifyStreamedExternalInPlayer(item, user, auth);
+			}
 
-            return null;
-        }
+			return null;
+		}
 
 		private async void LogNotifyStreamedExternalInPlayer(BaseItem item, User user, AuthorizationInfo auth)
-        {
-            try
-            {
-                await _activityManager.Create(new ActivityLogEntry
-                {
-                    Name = string.Format(_localization.GetLocalizedString("{0} is streaming {1} in an external player"), user.Name, item.Name),
-                    Type = "UserStreamingContentExternalPlayer",
-                    ShortOverview = string.Format(_localization.GetLocalizedString("AppDeviceValues"), auth.Client, auth.Device),
-                    UserId = auth.UserId
+		{
+			try
+			{
+				await _activityManager.Create(new ActivityLogEntry
+				{
+					Name = string.Format(_localization.GetLocalizedString("{0} is streaming {1} in an external player"), user.Name, item.Name),
+					Type = "UserStreamingContentExternalPlayer",
+					ShortOverview = string.Format(_localization.GetLocalizedString("AppDeviceValues"), auth.Client, auth.Device),
+					UserId = auth.UserId
 
-                }).ConfigureAwait(false);
-				
+				}).ConfigureAwait(false);
+
 				//myproduction-change-start
 				this._libraryManager.ReportItemStreamedInExternalPlayer(item, user, auth.Client, auth.Device);
 				//myproduction-change-end
 			}
-            catch
-            {
-                // Logged at lower levels
-            }
-        }
+			catch
+			{
+				// Logged at lower levels
+			}
+		}
 		//myproduction-change-end
 
-        private async void LogDownload(BaseItem item, User user, AuthorizationInfo auth)
+		private async void LogDownload(BaseItem item, User user, AuthorizationInfo auth)
         {
             try
             {
@@ -731,11 +739,11 @@ namespace MediaBrowser.Api.Library
                 BoxSetCount = GetCount(typeof(BoxSet), user, request),
                 BookCount = GetCount(typeof(Book), user, request),
 
-                //myproduction-change-start
-                //Added LibraryStatistics
-                LibraryStatistics = _libraryManager.Statistics,
-                //myproduction-change-end
-            };
+				//myproduction-change-start
+				//Added LibraryStatistics
+				LibraryStatistics = _libraryManager.Statistics,
+				//myproduction-change-end
+			};
 
             return ToOptimizedSerializedResultUsingCache(counts);
         }
@@ -748,8 +756,11 @@ namespace MediaBrowser.Api.Library
                 Limit = 0,
                 Recursive = true,
                 IsVirtualItem = false,
-                SourceTypes = new[] { SourceType.Library },
-                IsFavorite = request.IsFavorite
+                IsFavorite = request.IsFavorite,
+                DtoOptions = new DtoOptions(false)
+                {
+                    EnableImages = false
+                }
             };
 
             return _libraryManager.GetItemsResult(query).TotalRecordCount;
@@ -900,6 +911,11 @@ namespace MediaBrowser.Api.Library
                                   : (Folder)_libraryManager.RootFolder)
                            : _libraryManager.GetItemById(request.Id);
 
+            if (item == null)
+            {
+                throw new ResourceNotFoundException("Item not found.");
+            }
+
             while (item.ThemeSongIds.Count == 0 && request.InheritFromParent && item.GetParent() != null)
             {
                 item = item.GetParent();
@@ -944,6 +960,11 @@ namespace MediaBrowser.Api.Library
                                   : (Folder)_libraryManager.RootFolder)
                            : _libraryManager.GetItemById(request.Id);
 
+            if (item == null)
+            {
+                throw new ResourceNotFoundException("Item not found.");
+            }
+
             while (item.ThemeVideoIds.Count == 0 && request.InheritFromParent && item.GetParent() != null)
             {
                 item = item.GetParent();
@@ -979,7 +1000,11 @@ namespace MediaBrowser.Api.Library
             var query = new InternalItemsQuery(user)
             {
                 IncludeItemTypes = includeTypes,
-                Recursive = true
+                Recursive = true,
+                DtoOptions = new DtoOptions(false)
+                {
+                    EnableImages = false
+                }
             };
 
             var items = _libraryManager.GetItemList(query);

@@ -13,7 +13,7 @@ using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
-using MediaBrowser.Common.IO;
+
 using MediaBrowser.Controller.IO;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Extensions;
@@ -94,7 +94,7 @@ namespace MediaBrowser.Providers.Movies
                     tmdbId = movieInfo.id.ToString(_usCulture);
 
                     dataFilePath = MovieDbProvider.Current.GetDataFilePath(tmdbId, language);
-                    _fileSystem.CreateDirectory(Path.GetDirectoryName(dataFilePath));
+                    _fileSystem.CreateDirectory(_fileSystem.GetDirectoryName(dataFilePath));
                     _jsonSerializer.SerializeToFile(movieInfo, dataFilePath);
                 }
             }
@@ -136,13 +136,6 @@ namespace MediaBrowser.Providers.Movies
 
             movie.HomePageUrl = movieData.homepage;
 
-            var hasBudget = movie as IHasBudget;
-            if (hasBudget != null)
-            {
-                hasBudget.Budget = movieData.budget;
-                hasBudget.Revenue = movieData.revenue;
-            }
-
             if (!string.IsNullOrEmpty(movieData.tagline))
             {
                 movie.Tagline = movieData.tagline;
@@ -180,7 +173,7 @@ namespace MediaBrowser.Providers.Movies
                 movie.CommunityRating = rating;
             }
 
-            movie.VoteCount = movieData.vote_count;
+            //movie.VoteCount = movieData.vote_count;
 
             //release date and certification are retrieved based on configured country and we fall back on US if not there and to minimun release date if still no match
             if (movieData.releases != null && movieData.releases.countries != null)
@@ -271,7 +264,12 @@ namespace MediaBrowser.Providers.Movies
             //and the rest from crew
             if (movieData.casts != null && movieData.casts.crew != null)
             {
-                var keepTypes = new[] { PersonType.Director, PersonType.Writer, PersonType.Producer };
+                var keepTypes = new[]
+                {
+                    PersonType.Director,
+                    PersonType.Writer,
+                    //PersonType.Producer
+                };
 
                 foreach (var person in movieData.casts.crew)
                 {

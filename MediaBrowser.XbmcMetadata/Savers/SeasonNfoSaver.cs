@@ -7,7 +7,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Xml;
-using MediaBrowser.Common.IO;
+
 using MediaBrowser.Controller.IO;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Xml;
@@ -51,11 +51,13 @@ namespace MediaBrowser.XbmcMetadata.Savers
             }
         }
 
-        protected override List<string> GetTagsUsed()
+        protected override List<string> GetTagsUsed(IHasMetadata item)
         {
-            var list = base.GetTagsUsed();
-
-            list.Add("seasonnumber");
+            var list = base.GetTagsUsed(item);
+            list.AddRange(new string[]
+            {
+                "seasonnumber"
+            });
 
             return list;
         }

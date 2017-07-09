@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Logging;
+using MediaBrowser.Model.System;
 
 namespace Emby.Common.Implementations.IO
 {
@@ -18,17 +19,25 @@ namespace Emby.Common.Implementations.IO
         private readonly bool _supportsAsyncFileStreams;
         private char[] _invalidFileNameChars;
         private readonly List<IShortcutHandler> _shortcutHandlers = new List<IShortcutHandler>();
-        private bool EnableFileSystemRequestConcat = true;
+        private bool EnableFileSystemRequestConcat;
 
         private string _tempPath;
 
-        public ManagedFileSystem(ILogger logger, bool supportsAsyncFileStreams, bool enableManagedInvalidFileNameChars, bool enableFileSystemRequestConcat, string tempPath)
+        private SharpCifsFileSystem _sharpCifsFileSystem;
+
+        public ManagedFileSystem(ILogger logger, IEnvironmentInfo environmentInfo, string tempPath)
         {
             Logger = logger;
-            _supportsAsyncFileStreams = supportsAsyncFileStreams;
+            _supportsAsyncFileStreams = true;
             _tempPath = tempPath;
-            EnableFileSystemRequestConcat = enableFileSystemRequestConcat;
-            SetInvalidFileNameChars(enableManagedInvalidFileNameChars);
+
+            // On Linux, this needs to be true or symbolic links are ignored
+            EnableFileSystemRequestConcat = environmentInfo.OperatingSystem != MediaBrowser.Model.System.OperatingSystem.Windows &&
+                environmentInfo.OperatingSystem != MediaBrowser.Model.System.OperatingSystem.OSX;
+
+            SetInvalidFileNameChars(environmentInfo.OperatingSystem == MediaBrowser.Model.System.OperatingSystem.Windows);
+
+            _sharpCifsFileSystem = new SharpCifsFileSystem(environmentInfo.OperatingSystem);
         }
 
         public void AddShortcutHandler(IShortcutHandler handler)
@@ -57,14 +66,6 @@ namespace Emby.Common.Implementations.IO
             get
             {
                 return Path.DirectorySeparatorChar;
-            }
-        }
-
-        public char PathSeparator
-        {
-            get
-            {
-                return Path.PathSeparator;
             }
         }
 
@@ -163,6 +164,11 @@ namespace Emby.Common.Implementations.IO
                 throw new ArgumentNullException("path");
             }
 
+            if (_sharpCifsFileSystem.IsEnabledForPath(path))
+            {
+                return _sharpCifsFileSystem.GetFileSystemInfo(path);
+            }
+
             // Take a guess to try and avoid two file system hits, but we'll double-check by calling Exists
             if (Path.HasExtension(path))
             {
@@ -203,6 +209,11 @@ namespace Emby.Common.Implementations.IO
                 throw new ArgumentNullException("path");
             }
 
+            if (_sharpCifsFileSystem.IsEnabledForPath(path))
+            {
+                return _sharpCifsFileSystem.GetFileInfo(path);
+            }
+
             var fileInfo = new FileInfo(path);
 
             return GetFileSystemMetadata(fileInfo);
@@ -221,6 +232,11 @@ namespace Emby.Common.Implementations.IO
             if (string.IsNullOrEmpty(path))
             {
                 throw new ArgumentNullException("path");
+            }
+
+            if (_sharpCifsFileSystem.IsEnabledForPath(path))
+            {
+                return _sharpCifsFileSystem.GetDirectoryInfo(path);
             }
 
             var fileInfo = new DirectoryInfo(path);
@@ -369,20 +385,42 @@ namespace Emby.Common.Implementations.IO
         /// <returns>FileStream.</returns>
         public Stream GetFileStream(string path, FileOpenMode mode, FileAccessMode access, FileShareMode share, bool isAsync = false)
         {
-            if (_supportsAsyncFileStreams && isAsync)
+            if (_sharpCifsFileSystem.IsEnabledForPath(path))
             {
-                return new FileStream(path, GetFileMode(mode), GetFileAccess(access), GetFileShare(share), 262144, true);
+                return _sharpCifsFileSystem.GetFileStream(path, mode, access, share);
             }
 
-            return new FileStream(path, GetFileMode(mode), GetFileAccess(access), GetFileShare(share), 262144);
+            if (_supportsAsyncFileStreams && isAsync)
+            {
+                return GetFileStream(path, mode, access, share, FileOpenOptions.Asynchronous);
+            }
+
+            return GetFileStream(path, mode, access, share, FileOpenOptions.None);
+        }
+
+        public Stream GetFileStream(string path, FileOpenMode mode, FileAccessMode access, FileShareMode share, FileOpenOptions fileOpenOptions)
+        {
+            if (_sharpCifsFileSystem.IsEnabledForPath(path))
+            {
+                return _sharpCifsFileSystem.GetFileStream(path, mode, access, share);
+            }
+
+            var defaultBufferSize = 4096;
+            return new FileStream(path, GetFileMode(mode), GetFileAccess(access), GetFileShare(share), defaultBufferSize, GetFileOptions(fileOpenOptions));
+        }
+
+        private FileOptions GetFileOptions(FileOpenOptions mode)
+        {
+            var val = (int)mode;
+            return (FileOptions)val;
         }
 
         private FileMode GetFileMode(FileOpenMode mode)
         {
             switch (mode)
             {
-                case FileOpenMode.Append:
-                    return FileMode.Append;
+                //case FileOpenMode.Append:
+                //    return FileMode.Append;
                 case FileOpenMode.Create:
                     return FileMode.Create;
                 case FileOpenMode.CreateNew:
@@ -391,8 +429,8 @@ namespace Emby.Common.Implementations.IO
                     return FileMode.Open;
                 case FileOpenMode.OpenOrCreate:
                     return FileMode.OpenOrCreate;
-                case FileOpenMode.Truncate:
-                    return FileMode.Truncate;
+                //case FileOpenMode.Truncate:
+                //    return FileMode.Truncate;
                 default:
                     throw new Exception("Unrecognized FileOpenMode");
             }
@@ -402,8 +440,8 @@ namespace Emby.Common.Implementations.IO
         {
             switch (mode)
             {
-                case FileAccessMode.ReadWrite:
-                    return FileAccess.ReadWrite;
+                //case FileAccessMode.ReadWrite:
+                //    return FileAccess.ReadWrite;
                 case FileAccessMode.Write:
                     return FileAccess.Write;
                 case FileAccessMode.Read:
@@ -432,6 +470,12 @@ namespace Emby.Common.Implementations.IO
 
         public void SetHidden(string path, bool isHidden)
         {
+            if (_sharpCifsFileSystem.IsEnabledForPath(path))
+            {
+                _sharpCifsFileSystem.SetHidden(path, isHidden);
+                return;
+            }
+
             var info = GetFileInfo(path);
 
             if (info.Exists && info.IsHidden != isHidden)
@@ -451,6 +495,12 @@ namespace Emby.Common.Implementations.IO
 
         public void SetReadOnly(string path, bool isReadOnly)
         {
+            if (_sharpCifsFileSystem.IsEnabledForPath(path))
+            {
+                _sharpCifsFileSystem.SetReadOnly(path, isReadOnly);
+                return;
+            }
+
             var info = GetFileInfo(path);
 
             if (info.Exists && info.IsReadOnly != isReadOnly)
@@ -466,6 +516,49 @@ namespace Emby.Common.Implementations.IO
                     File.SetAttributes(path, attributes);
                 }
             }
+        }
+
+        public void SetAttributes(string path, bool isHidden, bool isReadOnly)
+        {
+            if (_sharpCifsFileSystem.IsEnabledForPath(path))
+            {
+                _sharpCifsFileSystem.SetAttributes(path, isHidden, isReadOnly);
+                return;
+            }
+
+            var info = GetFileInfo(path);
+
+            if (!info.Exists)
+            {
+                return;
+            }
+
+            if (info.IsReadOnly == isReadOnly && info.IsHidden == isHidden)
+            {
+                return;
+            }
+
+            var attributes = File.GetAttributes(path);
+
+            if (isReadOnly)
+            {
+                attributes = attributes | FileAttributes.ReadOnly;
+            }
+            else
+            {
+                attributes = RemoveAttribute(attributes, FileAttributes.ReadOnly);
+            }
+
+            if (isHidden)
+            {
+                attributes = attributes | FileAttributes.Hidden;
+            }
+            else
+            {
+                attributes = RemoveAttribute(attributes, FileAttributes.Hidden);
+            }
+
+            File.SetAttributes(path, attributes);
         }
 
         private static FileAttributes RemoveAttribute(FileAttributes attributes, FileAttributes attributesToRemove)
@@ -503,22 +596,14 @@ namespace Emby.Common.Implementations.IO
             CopyFile(temp1, file2, true);
         }
 
-        public bool AreEqual(string path1, string path2)
+        private char GetDirectorySeparatorChar(string path)
         {
-            if (path1 == null && path2 == null)
+            if (_sharpCifsFileSystem.IsEnabledForPath(path))
             {
-                return true;
+                return _sharpCifsFileSystem.GetDirectorySeparatorChar(path);
             }
 
-            if (path1 == null || path2 == null)
-            {
-                return false;
-            }
-
-            path1 = path1.TrimEnd(DirectorySeparatorChar);
-            path2 = path2.TrimEnd(DirectorySeparatorChar);
-
-            return string.Equals(path1, path2, StringComparison.OrdinalIgnoreCase);
+            return Path.DirectorySeparatorChar;
         }
 
         public bool ContainsSubPath(string parentPath, string path)
@@ -533,7 +618,9 @@ namespace Emby.Common.Implementations.IO
                 throw new ArgumentNullException("path");
             }
 
-            return path.IndexOf(parentPath.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) != -1;
+            var separatorChar = GetDirectorySeparatorChar(parentPath);
+
+            return path.IndexOf(parentPath.TrimEnd(separatorChar) + separatorChar, StringComparison.OrdinalIgnoreCase) != -1;
         }
 
         public bool IsRootPath(string path)
@@ -543,7 +630,7 @@ namespace Emby.Common.Implementations.IO
                 throw new ArgumentNullException("path");
             }
 
-            var parent = Path.GetDirectoryName(path);
+            var parent = GetDirectoryName(path);
 
             if (!string.IsNullOrEmpty(parent))
             {
@@ -553,6 +640,16 @@ namespace Emby.Common.Implementations.IO
             return true;
         }
 
+        public string GetDirectoryName(string path)
+        {
+            if (_sharpCifsFileSystem.IsEnabledForPath(path))
+            {
+                return _sharpCifsFileSystem.GetDirectoryName(path);
+            }
+
+            return Path.GetDirectoryName(path);
+        }
+
         public string NormalizePath(string path)
         {
             if (string.IsNullOrEmpty(path))
@@ -560,12 +657,32 @@ namespace Emby.Common.Implementations.IO
                 throw new ArgumentNullException("path");
             }
 
+            if (_sharpCifsFileSystem.IsEnabledForPath(path))
+            {
+                return _sharpCifsFileSystem.NormalizePath(path);
+            }
+
             if (path.EndsWith(":\\", StringComparison.OrdinalIgnoreCase))
             {
                 return path;
             }
 
-            return path.TrimEnd(Path.DirectorySeparatorChar);
+            return path.TrimEnd(GetDirectorySeparatorChar(path));
+        }
+
+        public bool AreEqual(string path1, string path2)
+        {
+            if (path1 == null && path2 == null)
+            {
+                return true;
+            }
+
+            if (path1 == null || path2 == null)
+            {
+                return false;
+            }
+
+            return string.Equals(NormalizePath(path1), NormalizePath(path2), StringComparison.OrdinalIgnoreCase);
         }
 
         public string GetFileNameWithoutExtension(FileSystemMetadata info)
@@ -592,11 +709,17 @@ namespace Emby.Common.Implementations.IO
 
             // Cannot use Path.IsPathRooted because it returns false under mono when using windows-based paths, e.g. C:\\
 
+            if (_sharpCifsFileSystem.IsEnabledForPath(path))
+            {
+                return true;
+            }
+
             if (path.IndexOf("://", StringComparison.OrdinalIgnoreCase) != -1 &&
                 !path.StartsWith("file://", StringComparison.OrdinalIgnoreCase))
             {
                 return false;
             }
+
             return true;
 
             //return Path.IsPathRooted(path);
@@ -604,30 +727,35 @@ namespace Emby.Common.Implementations.IO
 
         public void DeleteFile(string path)
         {
-            var fileInfo = GetFileInfo(path);
-
-            if (fileInfo.Exists)
+            if (_sharpCifsFileSystem.IsEnabledForPath(path))
             {
-                if (fileInfo.IsHidden)
-                {
-                    SetHidden(path, false);
-                }
-                if (fileInfo.IsReadOnly)
-                {
-                    SetReadOnly(path, false);
-                }
+                _sharpCifsFileSystem.DeleteFile(path);
+                return;
             }
 
+            SetAttributes(path, false, false);
             File.Delete(path);
         }
 
         public void DeleteDirectory(string path, bool recursive)
         {
+            if (_sharpCifsFileSystem.IsEnabledForPath(path))
+            {
+                _sharpCifsFileSystem.DeleteDirectory(path, recursive);
+                return;
+            }
+
             Directory.Delete(path, recursive);
         }
 
         public void CreateDirectory(string path)
         {
+            if (_sharpCifsFileSystem.IsEnabledForPath(path))
+            {
+                _sharpCifsFileSystem.CreateDirectory(path);
+                return;
+            }
+
             Directory.CreateDirectory(path);
         }
 
@@ -650,128 +778,280 @@ namespace Emby.Common.Implementations.IO
 
         public IEnumerable<FileSystemMetadata> GetDirectories(string path, bool recursive = false)
         {
+            if (_sharpCifsFileSystem.IsEnabledForPath(path))
+            {
+                return _sharpCifsFileSystem.GetDirectories(path, recursive);
+            }
+
             var searchOption = recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
 
-            return ToMetadata(path, new DirectoryInfo(path).EnumerateDirectories("*", searchOption));
+            return ToMetadata(new DirectoryInfo(path).EnumerateDirectories("*", searchOption));
         }
 
         public IEnumerable<FileSystemMetadata> GetFiles(string path, bool recursive = false)
         {
+            return GetFiles(path, null, false, recursive);
+        }
+
+        public IEnumerable<FileSystemMetadata> GetFiles(string path, string[] extensions, bool enableCaseSensitiveExtensions, bool recursive = false)
+        {
+            if (_sharpCifsFileSystem.IsEnabledForPath(path))
+            {
+                return _sharpCifsFileSystem.GetFiles(path, extensions, enableCaseSensitiveExtensions, recursive);
+            }
+
             var searchOption = recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
 
-            return ToMetadata(path, new DirectoryInfo(path).EnumerateFiles("*", searchOption));
+            // On linux and osx the search pattern is case sensitive
+            // If we're OK with case-sensitivity, and we're only filtering for one extension, then use the native method
+            if (enableCaseSensitiveExtensions && extensions != null && extensions.Length == 1)
+            {
+                return ToMetadata(new DirectoryInfo(path).EnumerateFiles("*" + extensions[0], searchOption));
+            }
+
+            var files = new DirectoryInfo(path).EnumerateFiles("*", searchOption);
+
+            if (extensions != null && extensions.Length > 0)
+            {
+                files = files.Where(i =>
+                {
+                    var ext = i.Extension;
+                    if (ext == null)
+                    {
+                        return false;
+                    }
+                    return extensions.Contains(ext, StringComparer.OrdinalIgnoreCase);
+                });
+            }
+
+            return ToMetadata(files);
         }
 
         public IEnumerable<FileSystemMetadata> GetFileSystemEntries(string path, bool recursive = false)
         {
+            if (_sharpCifsFileSystem.IsEnabledForPath(path))
+            {
+                return _sharpCifsFileSystem.GetFileSystemEntries(path, recursive);
+            }
+
             var directoryInfo = new DirectoryInfo(path);
             var searchOption = recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
 
             if (EnableFileSystemRequestConcat)
             {
-                return ToMetadata(path, directoryInfo.EnumerateDirectories("*", searchOption))
-                                .Concat(ToMetadata(path, directoryInfo.EnumerateFiles("*", searchOption)));
+                return ToMetadata(directoryInfo.EnumerateDirectories("*", searchOption))
+                                .Concat(ToMetadata(directoryInfo.EnumerateFiles("*", searchOption)));
             }
 
-            return ToMetadata(path, directoryInfo.EnumerateFileSystemInfos("*", searchOption));
+            return ToMetadata(directoryInfo.EnumerateFileSystemInfos("*", searchOption));
         }
 
-        private IEnumerable<FileSystemMetadata> ToMetadata(string parentPath, IEnumerable<FileSystemInfo> infos)
+        private IEnumerable<FileSystemMetadata> ToMetadata(IEnumerable<FileSystemInfo> infos)
         {
             return infos.Select(GetFileSystemMetadata);
         }
 
         public string[] ReadAllLines(string path)
         {
+            if (_sharpCifsFileSystem.IsEnabledForPath(path))
+            {
+                return _sharpCifsFileSystem.ReadAllLines(path);
+            }
             return File.ReadAllLines(path);
         }
 
         public void WriteAllLines(string path, IEnumerable<string> lines)
         {
+            if (_sharpCifsFileSystem.IsEnabledForPath(path))
+            {
+                _sharpCifsFileSystem.WriteAllLines(path, lines);
+                return;
+            }
             File.WriteAllLines(path, lines);
         }
 
         public Stream OpenRead(string path)
         {
+            if (_sharpCifsFileSystem.IsEnabledForPath(path))
+            {
+                return _sharpCifsFileSystem.OpenRead(path);
+            }
             return File.OpenRead(path);
         }
 
         public void CopyFile(string source, string target, bool overwrite)
         {
+            if (_sharpCifsFileSystem.IsEnabledForPath(source))
+            {
+                _sharpCifsFileSystem.CopyFile(source, target, overwrite);
+                return;
+            }
             File.Copy(source, target, overwrite);
         }
 
         public void MoveFile(string source, string target)
         {
+            if (_sharpCifsFileSystem.IsEnabledForPath(source))
+            {
+                _sharpCifsFileSystem.MoveFile(source, target);
+                return;
+            }
             File.Move(source, target);
         }
 
         public void MoveDirectory(string source, string target)
         {
+            if (_sharpCifsFileSystem.IsEnabledForPath(source))
+            {
+                _sharpCifsFileSystem.MoveDirectory(source, target);
+                return;
+            }
             Directory.Move(source, target);
         }
 
         public bool DirectoryExists(string path)
         {
+            if (_sharpCifsFileSystem.IsEnabledForPath(path))
+            {
+                return _sharpCifsFileSystem.DirectoryExists(path);
+            }
             return Directory.Exists(path);
         }
 
         public bool FileExists(string path)
         {
+            if (_sharpCifsFileSystem.IsEnabledForPath(path))
+            {
+                return _sharpCifsFileSystem.FileExists(path);
+            }
             return File.Exists(path);
         }
 
         public string ReadAllText(string path)
         {
+            if (_sharpCifsFileSystem.IsEnabledForPath(path))
+            {
+                return _sharpCifsFileSystem.ReadAllText(path);
+            }
             return File.ReadAllText(path);
         }
 
         public byte[] ReadAllBytes(string path)
         {
+            if (_sharpCifsFileSystem.IsEnabledForPath(path))
+            {
+                return _sharpCifsFileSystem.ReadAllBytes(path);
+            }
             return File.ReadAllBytes(path);
         }
 
         public void WriteAllText(string path, string text, Encoding encoding)
         {
+            if (_sharpCifsFileSystem.IsEnabledForPath(path))
+            {
+                _sharpCifsFileSystem.WriteAllText(path, text, encoding);
+                return;
+            }
+
             File.WriteAllText(path, text, encoding);
         }
 
         public void WriteAllText(string path, string text)
         {
+            if (_sharpCifsFileSystem.IsEnabledForPath(path))
+            {
+                _sharpCifsFileSystem.WriteAllText(path, text);
+                return;
+            }
+
             File.WriteAllText(path, text);
         }
 
         public void WriteAllBytes(string path, byte[] bytes)
         {
+            if (_sharpCifsFileSystem.IsEnabledForPath(path))
+            {
+                _sharpCifsFileSystem.WriteAllBytes(path, bytes);
+                return;
+            }
+
             File.WriteAllBytes(path, bytes);
         }
 
         public string ReadAllText(string path, Encoding encoding)
         {
+            if (_sharpCifsFileSystem.IsEnabledForPath(path))
+            {
+                return _sharpCifsFileSystem.ReadAllText(path, encoding);
+            }
+
             return File.ReadAllText(path, encoding);
         }
 
         public IEnumerable<string> GetDirectoryPaths(string path, bool recursive = false)
         {
+            if (_sharpCifsFileSystem.IsEnabledForPath(path))
+            {
+                return _sharpCifsFileSystem.GetDirectoryPaths(path, recursive);
+            }
+
             var searchOption = recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
             return Directory.EnumerateDirectories(path, "*", searchOption);
         }
 
         public IEnumerable<string> GetFilePaths(string path, bool recursive = false)
         {
+            return GetFilePaths(path, null, false, recursive);
+        }
+
+        public IEnumerable<string> GetFilePaths(string path, string[] extensions, bool enableCaseSensitiveExtensions, bool recursive = false)
+        {
+            if (_sharpCifsFileSystem.IsEnabledForPath(path))
+            {
+                return _sharpCifsFileSystem.GetFilePaths(path, extensions, enableCaseSensitiveExtensions, recursive);
+            }
+
             var searchOption = recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
-            return Directory.EnumerateFiles(path, "*", searchOption);
+
+            // On linux and osx the search pattern is case sensitive
+            // If we're OK with case-sensitivity, and we're only filtering for one extension, then use the native method
+            if (enableCaseSensitiveExtensions && extensions != null && extensions.Length == 1)
+            {
+                return Directory.EnumerateFiles(path, "*" + extensions[0], searchOption);
+            }
+
+            var files = Directory.EnumerateFiles(path, "*", searchOption);
+
+            if (extensions != null && extensions.Length > 0)
+            {
+                files = files.Where(i =>
+                {
+                    var ext = Path.GetExtension(i);
+                    if (ext == null)
+                    {
+                        return false;
+                    }
+                    return extensions.Contains(ext, StringComparer.OrdinalIgnoreCase);
+                });
+            }
+
+            return files;
         }
 
         public IEnumerable<string> GetFileSystemEntryPaths(string path, bool recursive = false)
         {
+            if (_sharpCifsFileSystem.IsEnabledForPath(path))
+            {
+                return _sharpCifsFileSystem.GetFileSystemEntryPaths(path, recursive);
+            }
+
             var searchOption = recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
             return Directory.EnumerateFileSystemEntries(path, "*", searchOption);
         }
 
         public virtual void SetExecutable(string path)
         {
-            
+
         }
     }
 }

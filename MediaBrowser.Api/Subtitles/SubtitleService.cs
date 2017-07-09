@@ -14,7 +14,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using MediaBrowser.Common.IO;
+
 using MediaBrowser.Controller.IO;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Services;
@@ -288,7 +288,7 @@ namespace MediaBrowser.Api.Subtitles
                     await _subtitleManager.DownloadSubtitles(video, request.SubtitleId, CancellationToken.None)
                         .ConfigureAwait(false);
 
-                    _providerManager.QueueRefresh(video.Id, new MetadataRefreshOptions(_fileSystem));
+                    _providerManager.QueueRefresh(video.Id, new MetadataRefreshOptions(_fileSystem), RefreshPriority.High);
                 }
                 catch (Exception ex)
                 {

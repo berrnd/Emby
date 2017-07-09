@@ -21,7 +21,8 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using MediaBrowser.Common.IO;
+
+using MediaBrowser.Controller.Dto;
 using MediaBrowser.Controller.Extensions;
 using MediaBrowser.Controller.IO;
 using MediaBrowser.Controller.Sorting;
@@ -53,7 +54,6 @@ namespace MediaBrowser.Controller.Entities
             ImageInfos = new List<ItemImageInfo>();
             InheritedTags = new List<string>();
             ProductionLocations = new List<string>();
-            SourceType = SourceType.Library;
         }
 
         public static readonly char[] SlugReplaceChars = { '?', '/', '&' };
@@ -84,7 +84,7 @@ namespace MediaBrowser.Controller.Entities
 
         public long? Size { get; set; }
         public string Container { get; set; }
-        public string ShortOverview { get; set; }
+
         [IgnoreDataMember]
         public string Tagline { get; set; }
 
@@ -157,7 +157,7 @@ namespace MediaBrowser.Controller.Entities
         {
             if (SupportsIsInMixedFolderDetection)
             {
-                    
+
             }
 
             return IsInMixedFolder;
@@ -273,7 +273,18 @@ namespace MediaBrowser.Controller.Entities
         public virtual string Path { get; set; }
 
         [IgnoreDataMember]
-        public virtual SourceType SourceType { get; set; }
+        public virtual SourceType SourceType
+        {
+            get
+            {
+                if (!string.IsNullOrWhiteSpace(ChannelId))
+                {
+                    return SourceType.Channel;
+                }
+
+                return SourceType.Library;
+            }
+        }
 
         /// <summary>
         /// Returns the folder containing the item.
@@ -289,7 +300,7 @@ namespace MediaBrowser.Controller.Entities
                     return Path;
                 }
 
-                return System.IO.Path.GetDirectoryName(Path);
+                return FileSystem.GetDirectoryName(Path);
             }
         }
 
@@ -836,20 +847,6 @@ namespace MediaBrowser.Controller.Entities
         public float? CriticRating { get; set; }
 
         /// <summary>
-        /// Gets or sets the critic rating summary.
-        /// </summary>
-        /// <value>The critic rating summary.</value>
-        [IgnoreDataMember]
-        public string CriticRatingSummary { get; set; }
-
-        /// <summary>
-        /// Gets or sets the official rating description.
-        /// </summary>
-        /// <value>The official rating description.</value>
-        [IgnoreDataMember]
-        public string OfficialRatingDescription { get; set; }
-
-        /// <summary>
         /// Gets or sets the custom rating.
         /// </summary>
         /// <value>The custom rating.</value>
@@ -900,13 +897,6 @@ namespace MediaBrowser.Controller.Entities
         /// <value>The community rating.</value>
         [IgnoreDataMember]
         public float? CommunityRating { get; set; }
-
-        /// <summary>
-        /// Gets or sets the community rating vote count.
-        /// </summary>
-        /// <value>The community rating vote count.</value>
-        [IgnoreDataMember]
-        public int? VoteCount { get; set; }
 
         /// <summary>
         /// Gets or sets the run time ticks.
@@ -1259,6 +1249,11 @@ namespace MediaBrowser.Controller.Entities
         public virtual Folder LatestItemsIndexContainer
         {
             get { return null; }
+        }
+
+        public virtual double? GetDefaultPrimaryImageAspectRatio()
+        {
+            return null;
         }
 
         public virtual string CreatePresentationUniqueKey()
@@ -1689,7 +1684,7 @@ namespace MediaBrowser.Controller.Entities
 
         private BaseItem FindLinkedChild(LinkedChild info)
         {
-            if (!string.IsNullOrEmpty(info.Path))
+            if (!string.IsNullOrWhiteSpace(info.Path))
             {
                 var itemByPath = LibraryManager.FindByPath(info.Path, null);
 
@@ -1818,10 +1813,13 @@ namespace MediaBrowser.Controller.Entities
         /// Do whatever refreshing is necessary when the filesystem pertaining to this item has changed.
         /// </summary>
         /// <returns>Task.</returns>
-        public virtual Task ChangedExternally()
+        public virtual void ChangedExternally()
         {
-            ProviderManager.QueueRefresh(Id, new MetadataRefreshOptions(FileSystem));
-            return Task.FromResult(true);
+            ProviderManager.QueueRefresh(Id, new MetadataRefreshOptions(FileSystem)
+            {
+                ValidateChildren = true,
+
+            }, RefreshPriority.High);
         }
 
         /// <summary>
@@ -1920,10 +1918,9 @@ namespace MediaBrowser.Controller.Entities
         {
             var allFiles = ImageInfos
                 .Where(i => i.IsLocalFile)
-                .Select(i => System.IO.Path.GetDirectoryName(i.Path))
+                .Select(i => FileSystem.GetDirectoryName(i.Path))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
-                .SelectMany(directoryService.GetFiles)
-                .Select(i => i.FullName)
+                .SelectMany(directoryService.GetFilePaths)
                 .ToList();
 
             var deletedImages = ImageInfos
@@ -2074,9 +2071,31 @@ namespace MediaBrowser.Controller.Entities
         /// Gets the file system path to delete when the item is to be deleted
         /// </summary>
         /// <returns></returns>
-        public virtual IEnumerable<string> GetDeletePaths()
+        public virtual IEnumerable<FileSystemMetadata> GetDeletePaths()
         {
-            return new[] { Path };
+            return new[] {
+                new FileSystemMetadata
+                {
+                    FullName = Path,
+                    IsDirectory = IsFolder
+                }
+            }.Concat(GetLocalMetadataFilesToDelete());
+        }
+
+        protected List<FileSystemMetadata> GetLocalMetadataFilesToDelete()
+        {
+            if (IsFolder || !IsInMixedFolder)
+            {
+                return new List<FileSystemMetadata>();
+            }
+
+            var filename = System.IO.Path.GetFileNameWithoutExtension(Path);
+            var extensions = new[] { ".nfo", ".xml", ".srt" }.ToList();
+            extensions.AddRange(SupportedImageExtensionsList);
+
+            return FileSystem.GetFiles(FileSystem.GetDirectoryName(Path), extensions.ToArray(), false, false)
+                .Where(i => System.IO.Path.GetFileNameWithoutExtension(i.FullName).StartsWith(filename, StringComparison.OrdinalIgnoreCase))
+                .ToList();
         }
 
         public bool AllowsMultipleImages(ImageType type)
@@ -2198,7 +2217,7 @@ namespace MediaBrowser.Controller.Entities
             return path;
         }
 
-        public virtual Task FillUserDataDtoValues(UserItemDataDto dto, UserItemData userData, BaseItemDto itemDto, User user, List<ItemFields> itemFields)
+        public virtual void FillUserDataDtoValues(UserItemDataDto dto, UserItemData userData, BaseItemDto itemDto, User user, List<ItemFields> fields)
         {
             if (RunTimeTicks.HasValue)
             {
@@ -2214,8 +2233,6 @@ namespace MediaBrowser.Controller.Entities
                     }
                 }
             }
-
-            return Task.FromResult(true);
         }
 
         protected Task RefreshMetadataForOwnedItem(BaseItem ownedItem, bool copyTitleMetadata, MetadataRefreshOptions options, CancellationToken cancellationToken)
@@ -2263,11 +2280,6 @@ namespace MediaBrowser.Controller.Entities
                     ownedItem.Overview = item.Overview;
                     newOptions.ForceSave = true;
                 }
-                if (!string.Equals(item.ShortOverview, ownedItem.ShortOverview, StringComparison.Ordinal))
-                {
-                    ownedItem.ShortOverview = item.ShortOverview;
-                    newOptions.ForceSave = true;
-                }
                 if (!string.Equals(item.OfficialRating, ownedItem.OfficialRating, StringComparison.Ordinal))
                 {
                     ownedItem.OfficialRating = item.OfficialRating;
@@ -2276,16 +2288,6 @@ namespace MediaBrowser.Controller.Entities
                 if (!string.Equals(item.CustomRating, ownedItem.CustomRating, StringComparison.Ordinal))
                 {
                     ownedItem.CustomRating = item.CustomRating;
-                    newOptions.ForceSave = true;
-                }
-                if (!string.Equals(item.CriticRatingSummary, ownedItem.CriticRatingSummary, StringComparison.Ordinal))
-                {
-                    ownedItem.CriticRatingSummary = item.CriticRatingSummary;
-                    newOptions.ForceSave = true;
-                }
-                if (!string.Equals(item.OfficialRatingDescription, ownedItem.OfficialRatingDescription, StringComparison.Ordinal))
-                {
-                    ownedItem.OfficialRatingDescription = item.OfficialRatingDescription;
                     newOptions.ForceSave = true;
                 }
             }

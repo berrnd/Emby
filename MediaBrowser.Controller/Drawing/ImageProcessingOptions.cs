@@ -10,6 +10,8 @@ namespace MediaBrowser.Controller.Drawing
 {
     public class ImageProcessingOptions
     {
+        public string ItemId { get; set; }
+        public string ItemType { get; set; }
         public IHasImages Item { get; set; }
 
         public ItemImageInfo Image { get; set; }
@@ -86,6 +88,7 @@ namespace MediaBrowser.Controller.Drawing
                 PercentPlayed.Equals(0) &&
                 !UnplayedCount.HasValue &&
                 !Blur.HasValue &&
+                !CropWhiteSpace &&
                 string.IsNullOrEmpty(BackgroundColor) &&
                 string.IsNullOrEmpty(ForegroundLayer);
         }

@@ -65,20 +65,6 @@ namespace MediaBrowser.Controller.Entities
             return true;
         }
 
-        public IEnumerable<BaseItem> GetTaggedItems(IEnumerable<BaseItem> inputItems)
-        {
-            int year;
-
-            var usCulture = new CultureInfo("en-US");
-
-            if (!int.TryParse(Name, NumberStyles.Integer, usCulture, out year))
-            {
-                return inputItems;
-            }
-
-            return inputItems.Where(i => i.ProductionYear.HasValue && i.ProductionYear.Value == year);
-        }
-
         public IEnumerable<BaseItem> GetTaggedItems(InternalItemsQuery query)
         {
             int year;
@@ -107,12 +93,6 @@ namespace MediaBrowser.Controller.Entities
             return null;
         }
 
-        public Func<BaseItem, bool> GetItemFilter()
-        {
-            var val = GetYearValue();
-            return i => i.ProductionYear.HasValue && val.HasValue && i.ProductionYear.Value == val.Value;
-        }
-
         [IgnoreDataMember]
         public override bool SupportsPeople
         {
@@ -122,7 +102,12 @@ namespace MediaBrowser.Controller.Entities
             }
         }
 
-        public static string GetPath(string name, bool normalizeName = true)
+        public static string GetPath(string name)
+        {
+            return GetPath(name, true);
+        }
+
+        public static string GetPath(string name, bool normalizeName)
         {
             // Trim the period at the end because windows will have a hard time with that
             var validName = normalizeName ?

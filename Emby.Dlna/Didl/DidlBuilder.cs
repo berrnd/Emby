@@ -18,6 +18,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 using System.Xml;
 using MediaBrowser.Controller.MediaEncoding;
 using MediaBrowser.Model.Configuration;
@@ -111,14 +112,14 @@ namespace Emby.Dlna.Didl
             }
         }
 
-        public void WriteItemElement(DlnaOptions options, 
-            XmlWriter writer, 
-            BaseItem item, 
+        public void WriteItemElement(DlnaOptions options,
+            XmlWriter writer,
+            BaseItem item,
             User user,
-            BaseItem context, 
-            StubType? contextStubType, 
-            string deviceId, 
-            Filter filter, 
+            BaseItem context,
+            StubType? contextStubType,
+            string deviceId,
+            Filter filter,
             StreamInfo streamInfo = null)
         {
             var clientId = GetClientId(item, null);
@@ -208,7 +209,7 @@ namespace Emby.Dlna.Didl
             var targetHeight = streamInfo.TargetHeight;
 
             var contentFeatureList = new ContentFeatureBuilder(_profile).BuildVideoHeader(streamInfo.Container,
-                streamInfo.VideoCodec,
+                streamInfo.TargetVideoCodec,
                 streamInfo.TargetAudioCodec,
                 targetWidth,
                 targetHeight,
@@ -223,6 +224,7 @@ namespace Emby.Dlna.Didl
                 streamInfo.TargetPacketLength,
                 streamInfo.TranscodeSeekInfo,
                 streamInfo.IsTargetAnamorphic,
+                streamInfo.IsTargetInterlaced,
                 streamInfo.TargetRefFrames,
                 streamInfo.TargetVideoStreamCount,
                 streamInfo.TargetAudioStreamCount,
@@ -352,7 +354,7 @@ namespace Emby.Dlna.Didl
 
             var mediaProfile = _profile.GetVideoMediaProfile(streamInfo.Container,
                 streamInfo.TargetAudioCodec,
-                streamInfo.VideoCodec,
+                streamInfo.TargetVideoCodec,
                 streamInfo.TargetAudioBitrate,
                 targetWidth,
                 targetHeight,
@@ -363,6 +365,7 @@ namespace Emby.Dlna.Didl
                 streamInfo.TargetPacketLength,
                 streamInfo.TargetTimestamp,
                 streamInfo.IsTargetAnamorphic,
+                streamInfo.IsTargetInterlaced,
                 streamInfo.TargetRefFrames,
                 streamInfo.TargetVideoStreamCount,
                 streamInfo.TargetAudioStreamCount,
@@ -488,7 +491,8 @@ namespace Emby.Dlna.Didl
             var mediaProfile = _profile.GetAudioMediaProfile(streamInfo.Container,
                 streamInfo.TargetAudioCodec,
                 targetChannels,
-                targetAudioBitrate);
+                targetAudioBitrate,
+                targetSampleRate);
 
             var filename = url.Substring(0, url.IndexOf('?'));
 
@@ -645,11 +649,6 @@ namespace Emby.Dlna.Didl
             if (filter.Contains("dc:description"))
             {
                 var desc = item.Overview;
-
-                if (!string.IsNullOrEmpty(item.ShortOverview))
-                {
-                    desc = item.ShortOverview;
-                }
 
                 if (!string.IsNullOrWhiteSpace(desc))
                 {
@@ -924,7 +923,7 @@ namespace Emby.Dlna.Didl
 
             if (item is Video)
             {
-                var userData = _userDataManager.GetUserDataDto(item, _user).Result;
+                var userData = _userDataManager.GetUserDataDto(item, _user);
 
                 playbackPercentage = Convert.ToInt32(userData.PlayedPercentage ?? 0);
                 if (playbackPercentage >= 100 || userData.Played)
@@ -934,7 +933,7 @@ namespace Emby.Dlna.Didl
             }
             else if (item is Series || item is Season || item is BoxSet)
             {
-                var userData = _userDataManager.GetUserDataDto(item, _user).Result;
+                var userData = _userDataManager.GetUserDataDto(item, _user);
 
                 if (userData.Played)
                 {

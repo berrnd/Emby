@@ -35,15 +35,14 @@ namespace MediaBrowser.Controller.Channels
         public override SourceType SourceType
         {
             get { return SourceType.Channel; }
-            set { }
         }
 
-        protected override async Task<QueryResult<BaseItem>> GetItemsInternal(InternalItemsQuery query)
+        protected override QueryResult<BaseItem> GetItemsInternal(InternalItemsQuery query)
         {
             try
             {
                 // Don't blow up here because it could cause parent screens with other content to fail
-                return await ChannelManager.GetChannelItemsInternal(new ChannelItemQuery
+                return ChannelManager.GetChannelItemsInternal(new ChannelItemQuery
                 {
                     ChannelId = Id.ToString("N"),
                     Limit = query.Limit,
@@ -52,7 +51,7 @@ namespace MediaBrowser.Controller.Channels
                     SortBy = query.SortBy,
                     SortOrder = query.SortOrder
 
-                }, new Progress<double>(), CancellationToken.None);
+                }, new Progress<double>(), CancellationToken.None).Result;
             }
             catch
             {

@@ -284,19 +284,12 @@ namespace MediaBrowser.Controller.LiveTv
         /// <summary>
         /// Gets the internal channels.
         /// </summary>
-        /// <param name="query">The query.</param>
-        /// <param name="cancellationToken">The cancellation token.</param>
-        /// <returns>Task&lt;QueryResult&lt;LiveTvChannel&gt;&gt;.</returns>
-        Task<QueryResult<LiveTvChannel>> GetInternalChannels(LiveTvChannelQuery query,
-            CancellationToken cancellationToken);
+        Task<QueryResult<LiveTvChannel>> GetInternalChannels(LiveTvChannelQuery query, DtoOptions dtoOptions, CancellationToken cancellationToken);
 
         /// <summary>
         /// Gets the internal recordings.
         /// </summary>
-        /// <param name="query">The query.</param>
-        /// <param name="cancellationToken">The cancellation token.</param>
-        /// <returns>Task&lt;QueryResult&lt;BaseItem&gt;&gt;.</returns>
-        Task<QueryResult<BaseItem>> GetInternalRecordings(RecordingQuery query, CancellationToken cancellationToken);
+        Task<QueryResult<BaseItem>> GetInternalRecordings(RecordingQuery query, DtoOptions options, CancellationToken cancellationToken);
 
         /// <summary>
         /// Gets the recording media sources.
@@ -367,7 +360,7 @@ namespace MediaBrowser.Controller.LiveTv
         /// <param name="items">The items.</param>
         /// <param name="options">The options.</param>
         /// <param name="user">The user.</param>
-        void AddChannelInfo(List<Tuple<BaseItemDto, LiveTvChannel>> items, DtoOptions options, User user);
+        Task AddChannelInfo(List<Tuple<BaseItemDto, LiveTvChannel>> items, DtoOptions options, User user);
 
         /// <summary>
         /// Called when [recording file deleted].
@@ -376,18 +369,13 @@ namespace MediaBrowser.Controller.LiveTv
         /// <returns>Task.</returns>
         Task OnRecordingFileDeleted(BaseItem recording);
 
-        /// <summary>
-        /// Gets the sat ini mappings.
-        /// </summary>
-        /// <returns>List&lt;NameValuePair&gt;.</returns>
-        List<NameValuePair> GetSatIniMappings();
-
-        Task<List<ChannelInfo>> GetSatChannelScanResult(TunerHostInfo info, CancellationToken cancellationToken);
-
         Task<List<ChannelInfo>> GetChannelsForListingsProvider(string id, CancellationToken cancellationToken);
         Task<List<ChannelInfo>> GetChannelsFromListingsProviderData(string id, CancellationToken cancellationToken);
 
         List<IListingsProvider> ListingProviders { get; }
+
+        List<NameIdPair> GetTunerHostTypes();
+        Task<List<TunerHostInfo>> DiscoverTuners(bool newDevicesOnly, CancellationToken cancellationToken);
 
         event EventHandler<GenericEventArgs<TimerEventInfo>> SeriesTimerCancelled;
         event EventHandler<GenericEventArgs<TimerEventInfo>> TimerCancelled;

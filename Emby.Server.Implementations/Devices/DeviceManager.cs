@@ -16,7 +16,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using MediaBrowser.Common.IO;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Controller.IO;
@@ -158,7 +157,7 @@ namespace Emby.Server.Implementations.Devices
 
             _libraryMonitor.ReportFileSystemChangeBeginning(path);
 
-            _fileSystem.CreateDirectory(Path.GetDirectoryName(path));
+            _fileSystem.CreateDirectory(_fileSystem.GetDirectoryName(path));
 
             try
             {
@@ -195,12 +194,11 @@ namespace Emby.Server.Implementations.Devices
             }
 
             var config = _config.GetUploadOptions();
-            if (!string.IsNullOrWhiteSpace(config.CameraUploadPath))
+            var path = config.CameraUploadPath;
+            if (string.IsNullOrWhiteSpace(path))
             {
-                return config.CameraUploadPath;
+                path = DefaultCameraUploadsPath;
             }
-
-            var path = DefaultCameraUploadsPath;
 
             if (config.EnableCameraUploadSubfolders)
             {

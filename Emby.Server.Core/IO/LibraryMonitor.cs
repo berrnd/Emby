@@ -166,7 +166,11 @@ namespace Emby.Server.Core.IO
         private void Restart()
         {
             Stop();
-            Start();
+
+            if (!_disposed)
+            {
+                Start();
+            }
         }
 
         private bool IsLibraryMonitorEnabaled(BaseItem item)
@@ -283,18 +287,33 @@ namespace Emby.Server.Core.IO
         /// <param name="path">The path.</param>
         private void StartWatchingPath(string path)
         {
+            if (!_fileSystem.DirectoryExists(path))
+            {
+                // Seeing a crash in the mono runtime due to an exception being thrown on a different thread
+                Logger.Info("Skipping realtime monitor for {0} because the path does not exist", path);
+                return;
+            }
+
+            if (_environmentInfo.OperatingSystem != MediaBrowser.Model.System.OperatingSystem.Windows)
+            {
+                if (path.StartsWith("\\\\", StringComparison.OrdinalIgnoreCase) || path.StartsWith("smb://", StringComparison.OrdinalIgnoreCase))
+                {
+                    // not supported
+                    return;
+                }
+            }
+
+            // Already being watched
+            if (_fileSystemWatchers.ContainsKey(path))
+            {
+                return;
+            }
+
             // Creating a FileSystemWatcher over the LAN can take hundreds of milliseconds, so wrap it in a Task to do them all in parallel
             Task.Run(() =>
             {
                 try
                 {
-                    if (!_fileSystem.DirectoryExists(path))
-                    {
-                        // Seeing a crash in the mono runtime due to an exception being thrown on a different thread
-                        Logger.Info("Skipping realtime monitor for {0} because the path does not exist", path);
-                        return;
-                    }
-
                     var newWatcher = new FileSystemWatcher(path, "*")
                     {
                         IncludeSubdirectories = true
@@ -313,7 +332,13 @@ namespace Emby.Server.Core.IO
                         NotifyFilters.Attributes;
 
                     newWatcher.Created += watcher_Changed;
-                    newWatcher.Deleted += watcher_Changed;
+
+                    // Seeing mono crashes on background threads we can't catch, testing if this might help
+                    if (_environmentInfo.OperatingSystem == MediaBrowser.Model.System.OperatingSystem.Windows)
+                    {
+                        newWatcher.Deleted += watcher_Changed;
+                    }
+
                     newWatcher.Renamed += watcher_Changed;
                     newWatcher.Changed += watcher_Changed;
 
@@ -326,7 +351,6 @@ namespace Emby.Server.Core.IO
                     }
                     else
                     {
-                        Logger.Info("Unable to add directory watcher for {0}. It already exists in the dictionary.", path);
                         newWatcher.Dispose();
                     }
 
@@ -412,20 +436,9 @@ namespace Emby.Server.Core.IO
         {
             try
             {
-                Logger.Debug("Changed detected of type " + e.ChangeType + " to " + e.FullPath);
+                //Logger.Debug("Changed detected of type " + e.ChangeType + " to " + e.FullPath);
 
                 var path = e.FullPath;
-
-                // For deletes, use the parent path
-                if (e.ChangeType == WatcherChangeTypes.Deleted)
-                {
-                    var parentPath = Path.GetDirectoryName(path);
-
-                    if (!string.IsNullOrWhiteSpace(parentPath))
-                    {
-                        path = parentPath;
-                    }
-                }
 
                 ReportFileSystemChanged(path);
             }
@@ -455,7 +468,7 @@ namespace Emby.Server.Core.IO
             // If the parent of an ignored path has a change event, ignore that too
             if (tempIgnorePaths.Any(i =>
             {
-                if (string.Equals(i, path, StringComparison.OrdinalIgnoreCase))
+                if (_fileSystem.AreEqual(i, path))
                 {
                     Logger.Debug("Ignoring change to {0}", path);
                     return true;
@@ -468,10 +481,10 @@ namespace Emby.Server.Core.IO
                 }
 
                 // Go up a level
-                var parent = Path.GetDirectoryName(i);
+                var parent = _fileSystem.GetDirectoryName(i);
                 if (!string.IsNullOrEmpty(parent))
                 {
-                    if (string.Equals(parent, path, StringComparison.OrdinalIgnoreCase))
+                    if (_fileSystem.AreEqual(parent, path))
                     {
                         Logger.Debug("Ignoring change to {0}", path);
                         return true;
@@ -494,7 +507,7 @@ namespace Emby.Server.Core.IO
 
         private void CreateRefresher(string path)
         {
-            var parentPath = Path.GetDirectoryName(path);
+            var parentPath = _fileSystem.GetDirectoryName(path);
 
             lock (_activeRefreshers)
             {
@@ -502,7 +515,7 @@ namespace Emby.Server.Core.IO
                 foreach (var refresher in refreshers)
                 {
                     // Path is already being refreshed
-                    if (string.Equals(path, refresher.Path, StringComparison.Ordinal))
+                    if (_fileSystem.AreEqual(path, refresher.Path))
                     {
                         refresher.RestartTimer();
                         return;
@@ -523,14 +536,14 @@ namespace Emby.Server.Core.IO
                     }
 
                     // They are siblings. Rebase the refresher to the parent folder.
-                    if (string.Equals(parentPath, Path.GetDirectoryName(refresher.Path), StringComparison.Ordinal))
+                    if (string.Equals(parentPath, _fileSystem.GetDirectoryName(refresher.Path), StringComparison.Ordinal))
                     {
                         refresher.ResetPath(parentPath, path);
                         return;
                     }
                 }
 
-                var newRefresher = new FileRefresher(path, _fileSystem, ConfigurationManager, LibraryManager, TaskManager, Logger, _timerFactory, _environmentInfo);
+                var newRefresher = new FileRefresher(path, _fileSystem, ConfigurationManager, LibraryManager, TaskManager, Logger, _timerFactory, _environmentInfo, LibraryManager);
                 newRefresher.Completed += NewRefresher_Completed;
                 _activeRefreshers.Add(newRefresher);
             }
@@ -595,11 +608,13 @@ namespace Emby.Server.Core.IO
             }
         }
 
+        private bool _disposed;
         /// <summary>
         /// Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
         /// </summary>
         public void Dispose()
         {
+            _disposed = true;
             Dispose(true);
             GC.SuppressFinalize(this);
         }

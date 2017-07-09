@@ -109,13 +109,6 @@ namespace MediaBrowser.Api.UserLibrary
         [ApiMember(Name = "CanSeek", Description = "Indicates if the client can seek", IsRequired = false, DataType = "boolean", ParameterType = "query", Verb = "POST")]
         public bool CanSeek { get; set; }
 
-        /// <summary>
-        /// Gets or sets the id.
-        /// </summary>
-        /// <value>The id.</value>
-        [ApiMember(Name = "QueueableMediaTypes", Description = "A list of media types that can be queued from this item, comma delimited. Audio,Video,Book,Game", IsRequired = true, DataType = "string", ParameterType = "query", Verb = "POST", AllowMultiple = true)]
-        public string QueueableMediaTypes { get; set; }
-
         [ApiMember(Name = "AudioStreamIndex", IsRequired = false, DataType = "int", ParameterType = "query", Verb = "POST")]
         public int? AudioStreamIndex { get; set; }
 
@@ -213,6 +206,9 @@ namespace MediaBrowser.Api.UserLibrary
         [ApiMember(Name = "MediaSourceId", Description = "The id of the MediaSource", IsRequired = true, DataType = "string", ParameterType = "query", Verb = "DELETE")]
         public string MediaSourceId { get; set; }
 
+        [ApiMember(Name = "NextMediaType", Description = "The next media type that will play", IsRequired = true, DataType = "string", ParameterType = "query", Verb = "DELETE")]
+        public string NextMediaType { get; set; }
+
         /// <summary>
         /// Gets or sets the position ticks.
         /// </summary>
@@ -283,19 +279,30 @@ namespace MediaBrowser.Api.UserLibrary
             return dto;
         }
 
+        private PlayMethod ValidatePlayMethod(PlayMethod method, string playSessionId)
+        {
+            if (method == PlayMethod.Transcode)
+            {
+                var job = string.IsNullOrWhiteSpace(playSessionId) ? null : ApiEntryPoint.Instance.GetTranscodingJob(playSessionId);
+                if (job == null)
+                {
+                    return PlayMethod.DirectPlay;
+                }
+            }
+
+            return method;
+        }
+
         /// <summary>
         /// Posts the specified request.
         /// </summary>
         /// <param name="request">The request.</param>
         public void Post(OnPlaybackStart request)
         {
-            var queueableMediaTypes = request.QueueableMediaTypes ?? string.Empty;
-
             Post(new ReportPlaybackStart
             {
                 CanSeek = request.CanSeek,
                 ItemId = request.Id,
-                QueueableMediaTypes = queueableMediaTypes.Split(',').ToList(),
                 MediaSourceId = request.MediaSourceId,
                 AudioStreamIndex = request.AudioStreamIndex,
                 SubtitleStreamIndex = request.SubtitleStreamIndex,
@@ -307,6 +314,8 @@ namespace MediaBrowser.Api.UserLibrary
 
         public void Post(ReportPlaybackStart request)
         {
+            request.PlayMethod = ValidatePlayMethod(request.PlayMethod, request.PlaySessionId);
+
             request.SessionId = GetSession(_sessionContext).Result.Id;
 
             var task = _sessionManager.OnPlaybackStart(request);
@@ -339,6 +348,8 @@ namespace MediaBrowser.Api.UserLibrary
 
         public void Post(ReportPlaybackProgress request)
         {
+            request.PlayMethod = ValidatePlayMethod(request.PlayMethod, request.PlaySessionId);
+
             request.SessionId = GetSession(_sessionContext).Result.Id;
 
             var task = _sessionManager.OnPlaybackProgress(request);
@@ -363,7 +374,8 @@ namespace MediaBrowser.Api.UserLibrary
                 PositionTicks = request.PositionTicks,
                 MediaSourceId = request.MediaSourceId,
                 PlaySessionId = request.PlaySessionId,
-                LiveStreamId = request.LiveStreamId
+                LiveStreamId = request.LiveStreamId,
+                NextMediaType = request.NextMediaType
             });
         }
 
@@ -433,7 +445,7 @@ namespace MediaBrowser.Api.UserLibrary
                 await item.MarkUnplayed(user).ConfigureAwait(false);
             }
 
-            return await _userDataRepository.GetUserDataDto(item, user).ConfigureAwait(false);
+            return _userDataRepository.GetUserDataDto(item, user);
         }
     }
 }

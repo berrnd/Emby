@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Serialization;
 
 namespace MediaBrowser.Controller.Entities.TV
@@ -56,13 +57,10 @@ namespace MediaBrowser.Controller.Entities.TV
         /// <value>The index number.</value>
         public int? IndexNumberEnd { get; set; }
 
-        [IgnoreDataMember]
-        public string SeriesSortName { get; set; }
-
         public string FindSeriesSortName()
         {
             var series = Series;
-            return series == null ? SeriesSortName : series.SortName;
+            return series == null ? SeriesName : series.SortName;
         }
 
         [IgnoreDataMember]
@@ -114,6 +112,14 @@ namespace MediaBrowser.Controller.Entities.TV
             {
                 return false;
             }
+        }
+
+        public override double? GetDefaultPrimaryImageAspectRatio()
+        {
+            double value = 16;
+            value /= 9;
+
+            return value;
         }
 
         public override List<string> GetUserDataKeys()
@@ -311,9 +317,15 @@ namespace MediaBrowser.Controller.Entities.TV
             return list;
         }
 
-        public override IEnumerable<string> GetDeletePaths()
+        public override IEnumerable<FileSystemMetadata> GetDeletePaths()
         {
-            return new[] { Path };
+            return new[] {
+                new FileSystemMetadata
+                {
+                    FullName = Path,
+                    IsDirectory = IsFolder
+                }
+            }.Concat(GetLocalMetadataFilesToDelete());
         }
 
         public override UnratedItem GetBlockUnratedType()
@@ -330,7 +342,6 @@ namespace MediaBrowser.Controller.Entities.TV
             if (series != null)
             {
                 id.SeriesProviderIds = series.ProviderIds;
-                id.AnimeSeriesIndex = series.AnimeSeriesIndex;
             }
 
             id.IsMissingEpisode = IsMissingEpisode;

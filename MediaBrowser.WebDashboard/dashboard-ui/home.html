@@ -1,28 +1,6 @@
-﻿<div id="indexPage" style="outline: none;" data-role="page" data-dom-cache="true" class="page homePage libraryPage allLibraryPage backdropPage pageWithAbsoluteTabs" data-title="${ButtonHome}" data-backdroptype="movie,series,game,book">
+﻿<div id="indexPage" style="outline: none;" data-role="page" data-dom-cache="true" class="page homePage libraryPage allLibraryPage backdropPage pageWithAbsoluteTabs withTabs" data-backdroptype="movie,series,game,book">
 
-    <div is="emby-tabs" class="libraryViewNav">
-        <div class="emby-tabs-slider">
-            <button is="emby-button" class="emby-tab-button emby-tab-button-active" data-index="0">
-                <div class="emby-button-foreground">${TabHome}</div>
-            </button>
-			<!--myproduction-change-start-->
-            <!--Hided button-->
-            <button is="emby-button" class="emby-tab-button hide" data-index="1">
-                <div class="emby-button-foreground">${TabNextUp}</div>
-            </button>
-			<!--myproduction-change-end-->
-            <button is="emby-button" class="emby-tab-button" data-index="2">
-                <div class="emby-button-foreground">${TabFavorites}</div>
-            </button>
-			<!--myproduction-change-start-->
-            <!--Hided button-->
-            <button is="emby-button" class="emby-tab-button hide" data-index="3">
-                <div class="emby-button-foreground">${TabUpcoming}</div>
-            </button>
-			<!--myproduction-change-end-->
-        </div>
-    </div>
-    <div class="is-active pageTabContent ehsContent fullWidth" id="homeTab" data-index="0">
+    <div class="pageTabContent" id="homeTab" data-index="0">
         <div class="ui-bar-b readOnlyContent welcomeMessage hide" style="padding: 2em; border-radius: 10px; margin: 2em auto; font-weight: normal;">
             <h1 style="margin-top: 0;" class="tourHeader"></h1>
             <p>
@@ -30,9 +8,9 @@
             </p>
         </div>
 
-        <!--myproduction-change-start-->
+		<!--myproduction-change-start-->
         <!--Added statistics overview-->
-        <div class="homePageSection">
+        <div class="homePageSection verticalSection" style="padding-left: 10px">
           <h1 class="listHeader" style="padding-left: 2.4vw;">Statistik</h1>
           <div style="padding-left: 2.4vw;">
 			<h2>
@@ -44,7 +22,7 @@
         
         <!--myproduction-change-start-->
         <!--Added wish button-->
-        <div class="homePageSection">
+        <div class="homePageSection verticalSection" style="padding-left: 10px">
           <h1 class="listHeader" style="padding-left: 2.4vw;">Wunschecke</h1>
 		  <div style="padding-left: 2.4vw;">
 			<h3>Eine Serie ist unvollständig, du hättest gerne was Neues oder irgendwas geht nicht?</h3>
@@ -59,7 +37,6 @@
             var wunsch = prompt("Was hättest denn gern?");
             if (wunsch != null)
             {
-              Dashboard.showLoadingMsg();
               ApiClient.getCurrentUser().then(function (user)
               {
                 var piwikTracker = Piwik.getAsyncTracker();
@@ -84,45 +61,30 @@
                       message: "Bitte versuche es nochmal, oder lass mir deinen Wunsch auf einem anderem Weg zukommen."
                     });
                   }
-                  Dashboard.hideLoadingMsg();
                 });
               });
             }
           }
         </script>
         <!--myproduction-change-end-->
-		
-		<div class="sections"></div>
+
+        <div class="sections"></div>
     </div>
-    <div class="pageTabContent ehsContent fullWidth" id="nextUpTab" data-index="1">
-        <div class="homePageSection">
-            <div>
-                <h1 class="listHeader nextUpHeader" style="display: inline-block; vertical-align: middle;">${HeaderNextUp}</h1>
-                <button is="emby-button" type="button" class="raised submit mini categorySyncButton button-accent" data-category="NextUp">
-                    <span>${ButtonSync}</span>
-                </button>
-            </div>
-            <div is="emby-itemscontainer" id="nextUpItems" class="itemsContainer vertical-wrap">
-            </div>
-        </div>
-        <p class="noNextUpItems hide">${NoNextUpItemsMessage}</p>
+    <div class="pageTabContent" id="downloadsTab" data-index="1">
     </div>
-    <div class="pageTabContent ehsContent fullWidth" id="favoritesTab" data-index="2">
+    <div class="pageTabContent" id="favoritesTab" data-index="2">
         <div class="favoriteSections"></div>
     </div>
-    <div class="pageTabContent ehsContent fullWidth" id="upcomingTab" data-index="3">
+    <div class="pageTabContent" id="upcomingTab" data-index="3">
         <div id="upcomingItems">
         </div>
-        <div class="noItemsMessage hide">
+        <div class="noItemsMessage hide padded-left padded-right">
             <p>${MessageNothingHere}</p>
             <p>
                 <a href="metadata.html">${MessagePleaseEnsureInternetMetadata}</a>
             </p>
         </div>
-
     </div>
-
-    <div data-role="content">
-
+    <div class="pageTabContent" style="padding-top:1em;" data-index="4">
     </div>
 </div>

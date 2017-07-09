@@ -15,12 +15,6 @@ namespace MediaBrowser.Controller.Entities
     /// </summary>
     public class Person : BaseItem, IItemByName, IHasLookupInfo<PersonLookupInfo>
     {
-        /// <summary>
-        /// Gets or sets the place of birth.
-        /// </summary>
-        /// <value>The place of birth.</value>
-        public string PlaceOfBirth { get; set; }
-
         public override List<string> GetUserDataKeys()
         {
             var list = base.GetUserDataKeys();
@@ -36,6 +30,14 @@ namespace MediaBrowser.Controller.Entities
         public PersonLookupInfo GetLookupInfo()
         {
             return GetItemLookupInfo<PersonLookupInfo>();
+        }
+
+        public override double? GetDefaultPrimaryImageAspectRatio()
+        {
+            double value = 2;
+            value /= 3;
+
+            return value;
         }
 
         public IEnumerable<BaseItem> GetTaggedItems(InternalItemsQuery query)
@@ -91,22 +93,6 @@ namespace MediaBrowser.Controller.Entities
             }
         }
 
-        public IEnumerable<BaseItem> GetTaggedItems(IEnumerable<BaseItem> inputItems)
-        {
-            var itemsWithPerson = LibraryManager.GetItemIds(new InternalItemsQuery
-            {
-                PersonIds = new[] { Id.ToString("N") }
-            });
-
-            return inputItems.Where(i => itemsWithPerson.Contains(i.Id));
-        }
-
-
-        public Func<BaseItem, bool> GetItemFilter()
-        {
-            return i => LibraryManager.GetPeople(i).Any(p => string.Equals(p.Name, Name, StringComparison.OrdinalIgnoreCase));
-        }
-
         [IgnoreDataMember]
         public override bool SupportsPeople
         {
@@ -125,7 +111,12 @@ namespace MediaBrowser.Controller.Entities
             }
         }
 
-        public static string GetPath(string name, bool normalizeName = true)
+        public static string GetPath(string name)
+        {
+            return GetPath(name, true);
+        }
+
+        public static string GetPath(string name, bool normalizeName)
         {
             // Trim the period at the end because windows will have a hard time with that
             var validFilename = normalizeName ?

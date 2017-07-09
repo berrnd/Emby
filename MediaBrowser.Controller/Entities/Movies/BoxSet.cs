@@ -57,6 +57,14 @@ namespace MediaBrowser.Controller.Entities.Movies
             return config.BlockUnratedItems.Contains(UnratedItem.Movie);
         }
 
+        public override double? GetDefaultPrimaryImageAspectRatio()
+        {
+            double value = 2;
+            value /= 3;
+
+            return value;
+        }
+
         public override UnratedItem GetBlockUnratedType()
         {
             return UnratedItem.Movie;
@@ -71,7 +79,7 @@ namespace MediaBrowser.Controller.Entities.Movies
             return new List<BaseItem>();
         }
 
-        protected override IEnumerable<BaseItem> LoadChildren()
+        protected override List<BaseItem> LoadChildren()
         {
             if (IsLegacyBoxSet)
             {
@@ -144,9 +152,7 @@ namespace MediaBrowser.Controller.Entities.Movies
             var currentOfficialRating = OfficialRating;
 
             // Gather all possible ratings
-            var ratings = GetRecursiveChildren()
-                .Concat(GetLinkedChildren())
-                .Where(i => i is Movie || i is Series || i is MusicAlbum || i is Game)
+            var ratings = GetLinkedChildren()
                 .Select(i => i.OfficialRating)
                 .Where(i => !string.IsNullOrEmpty(i))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -197,7 +203,7 @@ namespace MediaBrowser.Controller.Entities.Movies
 
             if (base.IsVisible(user))
             {
-                return GetChildren(user, true).Any();
+                return base.GetChildren(user, true).Any();
             }
 
             return false;

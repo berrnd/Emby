@@ -11,7 +11,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using MediaBrowser.Common.IO;
 using MediaBrowser.Controller.Entities.Audio;
 using MediaBrowser.Controller.IO;
 using MediaBrowser.Model.IO;
@@ -225,7 +224,7 @@ namespace MediaBrowser.Api.UserLibrary
         [ApiMember(Name = "ParentId", Description = "Specify this to localize the search to a specific item or folder. Omit to use the root", IsRequired = false, DataType = "string", ParameterType = "query", Verb = "GET")]
         public string ParentId { get; set; }
 
-        [ApiMember(Name = "Fields", Description = "Optional. Specify additional fields of information to return in the output. This allows multiple, comma delimeted. Options: Budget, Chapters, CriticRatingSummary, DateCreated, Genres, HomePageUrl, IndexOptions, MediaStreams, Overview, ParentId, Path, People, ProviderIds, PrimaryImageAspectRatio, Revenue, SortName, Studios, Taglines", IsRequired = false, DataType = "string", ParameterType = "query", Verb = "GET", AllowMultiple = true)]
+        [ApiMember(Name = "Fields", Description = "Optional. Specify additional fields of information to return in the output. This allows multiple, comma delimeted. Options: Budget, Chapters, DateCreated, Genres, HomePageUrl, IndexOptions, MediaStreams, Overview, ParentId, Path, People, ProviderIds, PrimaryImageAspectRatio, Revenue, SortName, Studios, Taglines", IsRequired = false, DataType = "string", ParameterType = "query", Verb = "GET", AllowMultiple = true)]
         public string Fields { get; set; }
 
         [ApiMember(Name = "IncludeItemTypes", Description = "Optional. If specified, results will be filtered based on item type. This allows multiple, comma delimeted.", IsRequired = false, DataType = "string", ParameterType = "query", Verb = "GET", AllowMultiple = true)]
@@ -308,6 +307,8 @@ namespace MediaBrowser.Api.UserLibrary
                 }
             }
 
+            var dtoOptions = GetDtoOptions(_authContext, request);
+
             var list = _userViewManager.GetLatestItems(new LatestItemsQuery
             {
                 GroupItems = request.GroupItems,
@@ -315,10 +316,8 @@ namespace MediaBrowser.Api.UserLibrary
                 IsPlayed = request.IsPlayed,
                 Limit = request.Limit,
                 ParentId = request.ParentId,
-                UserId = request.UserId
-            });
-
-            var dtoOptions = GetDtoOptions(_authContext, request);
+                UserId = request.UserId,
+            }, dtoOptions);
 
             var dtos = list.Select(i =>
             {
@@ -360,21 +359,8 @@ namespace MediaBrowser.Api.UserLibrary
                 var currentUser = user;
 
                 var dtos = series
-                    .GetRecursiveChildren(i => i is Episode && i.ParentIndexNumber.HasValue && i.ParentIndexNumber.Value == 0)
-                    .OrderBy(i =>
-                    {
-                        if (i.PremiereDate.HasValue)
-                        {
-                            return i.PremiereDate.Value;
-                        }
-
-                        if (i.ProductionYear.HasValue)
-                        {
-                            return new DateTime(i.ProductionYear.Value, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-                        }
-                        return DateTime.MinValue;
-                    })
-                    .ThenBy(i => i.SortName)
+                    .GetEpisodes(user, dtoOptions)
+                    .Where(i => i.ParentIndexNumber.HasValue && i.ParentIndexNumber.Value == 0)
                     .Select(i => _dtoService.GetBaseItemDto(i, dtoOptions, currentUser));
 
                 return dtos.ToList();
@@ -555,7 +541,7 @@ namespace MediaBrowser.Api.UserLibrary
 
             await _userDataRepository.SaveUserData(user.Id, item, data, UserDataSaveReason.UpdateUserRating, CancellationToken.None).ConfigureAwait(false);
 
-            return await _userDataRepository.GetUserDataDto(item, user).ConfigureAwait(false);
+            return _userDataRepository.GetUserDataDto(item, user);
         }
 
         /// <summary>
@@ -600,7 +586,7 @@ namespace MediaBrowser.Api.UserLibrary
 
             await _userDataRepository.SaveUserData(user.Id, item, data, UserDataSaveReason.UpdateUserRating, CancellationToken.None).ConfigureAwait(false);
 
-            return await _userDataRepository.GetUserDataDto(item, user).ConfigureAwait(false);
+            return _userDataRepository.GetUserDataDto(item, user);
         }
     }
 }
