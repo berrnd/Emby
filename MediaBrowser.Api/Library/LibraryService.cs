@@ -28,6 +28,7 @@ using MediaBrowser.Controller.IO;
 using MediaBrowser.Model.Globalization;
 using MediaBrowser.Model.Services;
 using MediaBrowser.Common.Extensions;
+using MediaBrowser.Common.Progress;
 
 namespace MediaBrowser.Api.Library
 {
@@ -460,7 +461,7 @@ namespace MediaBrowser.Api.Library
             }
             else
             {
-                Task.Run(() => _libraryManager.ValidateMediaLibrary(new Progress<double>(), CancellationToken.None));
+                Task.Run(() => _libraryManager.ValidateMediaLibrary(new SimpleProgress<double>(), CancellationToken.None));
             }
         }
 
@@ -498,7 +499,7 @@ namespace MediaBrowser.Api.Library
             }
             else
             {
-                Task.Run(() => _libraryManager.ValidateMediaLibrary(new Progress<double>(), CancellationToken.None));
+                Task.Run(() => _libraryManager.ValidateMediaLibrary(new SimpleProgress<double>(), CancellationToken.None));
             }
         }
 
@@ -776,7 +777,7 @@ namespace MediaBrowser.Api.Library
             {
                 try
                 {
-                    _libraryManager.ValidateMediaLibrary(new Progress<double>(), CancellationToken.None);
+                    _libraryManager.ValidateMediaLibrary(new SimpleProgress<double>(), CancellationToken.None);
                 }
                 catch (Exception ex)
                 {

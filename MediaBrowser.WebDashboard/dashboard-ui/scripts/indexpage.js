@@ -108,7 +108,7 @@ define(["loading", "libraryBrowser", "libraryMenu", "playbackManager", "mainTabs
 						document.getElementById("statisticsTotalRunTime").textContent = germanDuration(itemCounts.LibraryStatistics.TotalRunTimeTicks);
 						document.getElementById("statisticsTotalFileSize").textContent = humanFileSize(itemCounts.LibraryStatistics.TotalFileSize);
 					});
-				//myproduction-change-end
+					//myproduction-change-end
 				})
 			}), AppInfo.isNativeApp || getDisplayPreferences(apiClient, "home", userId).then(function (displayPreferences) {
 				showWelcomeIfNeeded(page, displayPreferences)
@@ -172,9 +172,6 @@ define(["loading", "libraryBrowser", "libraryMenu", "playbackManager", "mainTabs
 		return [{
 			name: globalize.translate("TabHome")
 		}, {
-			name: globalize.translate("Downloads"),
-			enabled: appHost.supports("sync")
-		}, {
 			name: globalize.translate("TabFavorites")
 		}, {
 			name: globalize.translate("TabUpcoming")
@@ -193,12 +190,18 @@ define(["loading", "libraryBrowser", "libraryMenu", "playbackManager", "mainTabs
 			loadTab(view, parseInt(e.detail.selectedTabIndex))
 		}
 
+		function setTabsEnabled(viewTabs) {
+			Dashboard.getCurrentUser().then(function (user) {
+				viewTabs.setTabEnabled(1, appHost.supports("sync") && user.Policy.EnableContentDownloading)
+			})
+		}
+
 		function initTabs() {
 			var tabsReplaced = mainTabsManager.setTabs(view, currentTabIndex, getTabs);
 			if (tabsReplaced) {
 				var viewTabs = document.querySelector(".tabs-viewmenubar");
-				viewTabs.addEventListener("beforetabchange", onBeforeTabChange), viewTabs.addEventListener("tabchange", onTabChange), libraryBrowser.configurePaperLibraryTabs(view, viewTabs, view.querySelectorAll(".pageTabContent"), [0, 1, 2, 3], !0), viewTabs.triggerBeforeTabChange || viewTabs.addEventListener("ready", function () {
-					viewTabs.triggerBeforeTabChange()
+				viewTabs.addEventListener("beforetabchange", onBeforeTabChange), viewTabs.addEventListener("tabchange", onTabChange), libraryBrowser.configurePaperLibraryTabs(view, viewTabs, view.querySelectorAll(".pageTabContent"), [0, 1, 2, 3], !0), viewTabs.triggerBeforeTabChange ? setTabsEnabled(viewTabs) : viewTabs.addEventListener("ready", function () {
+					setTabsEnabled(viewTabs), viewTabs.triggerBeforeTabChange()
 				})
 			}
 		}
@@ -209,14 +212,12 @@ define(["loading", "libraryBrowser", "libraryMenu", "playbackManager", "mainTabs
 				case 0:
 					break;
 				case 1:
-					break;
-				case 2:
 					depends.push("scripts/homefavorites");
 					break;
-				case 3:
+				case 2:
 					depends.push("scripts/tvupcoming");
 					break;
-				case 4:
+				case 3:
 					depends.push("scripts/searchtab");
 					break;
 				default:
@@ -226,7 +227,7 @@ define(["loading", "libraryBrowser", "libraryMenu", "playbackManager", "mainTabs
 				var tabContent;
 				0 == index && (tabContent = view.querySelector(".pageTabContent[data-index='" + index + "']"), self.tabContent = tabContent);
 				var controller = tabControllers[index];
-				controller || (tabContent = view.querySelector(".pageTabContent[data-index='" + index + "']"), controller = 0 === index ? self : 4 === index ? new controllerFactory(view, tabContent, {}) : new controllerFactory(view, params, tabContent), tabControllers[index] = controller, controller.initTab && controller.initTab()), callback(controller)
+				controller || (tabContent = view.querySelector(".pageTabContent[data-index='" + index + "']"), controller = 0 === index ? self : 3 === index ? new controllerFactory(view, tabContent, {}) : new controllerFactory(view, params, tabContent), tabControllers[index] = controller, controller.initTab && controller.initTab()), callback(controller)
 			})
 		}
 

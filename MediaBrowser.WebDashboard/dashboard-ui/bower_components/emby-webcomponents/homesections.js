@@ -28,16 +28,18 @@ define(["cardBuilder", "appSettings", "dom", "apphost", "layoutManager", "imageL
 	}
 
 	function loadSections(elem, apiClient, user, userSettings) {
-		var i, length, sectionCount = 7,
-			html = "";
-		for (i = 0, length = sectionCount; i < length; i++) html += '<div class="verticalSection section' + i + '"></div>';
-		elem.innerHTML = html, elem.classList.add("homeSectionsContainer");
-		var promises = [];
-		for (i = 0, length = sectionCount; i < length; i++) promises.push(loadSection(elem, apiClient, user, userSettings, i));
-		return Promise.all(promises)
+		return getUserViews(apiClient, user.Id).then(function (userViews) {
+			var i, length, sectionCount = 7,
+				html = "";
+			for (i = 0, length = sectionCount; i < length; i++) html += '<div class="verticalSection section' + i + '"></div>';
+			elem.innerHTML = html, elem.classList.add("homeSectionsContainer");
+			var promises = [];
+			for (i = 0, length = sectionCount; i < length; i++) promises.push(loadSection(elem, apiClient, user, userSettings, userViews, i));
+			return Promise.all(promises)
+		})
 	}
 
-	function loadSection(page, apiClient, user, userSettings, index) {
+	function loadSection(page, apiClient, user, userSettings, userViews, index) {
 		var userId = user.Id;
 
 		//myproduction-change-start
@@ -48,7 +50,7 @@ define(["cardBuilder", "appSettings", "dom", "apphost", "layoutManager", "imageL
 
 		"folders" === section && (section = getDefaultSection()[0]);
 		var elem = page.querySelector(".section" + index);
-		return "latestmedia" === section ? loadRecentlyAdded(elem, apiClient, user) : "librarytiles" === section || "smalllibrarytiles" === section || "smalllibrarytiles-automobile" === section || "librarytiles-automobile" === section ? loadLibraryTiles(elem, apiClient, user, userSettings, "smallBackdrop") : "librarybuttons" === section ? loadlibraryButtons(elem, apiClient, userId, userSettings) : "resume" === section ? loadResumeVideo(elem, apiClient, userId) : "resumeaudio" === section ? loadResumeAudio(elem, apiClient, userId) : "activerecordings" === section ? loadActiveRecordings(elem, apiClient, userId) : "nextup" === section ? loadNextUp(elem, apiClient, userId) : "onnow" === section ? loadOnNow(elem, apiClient, user) : "latesttvrecordings" === section ? loadLatestLiveTvRecordings(elem, apiClient, userId) : "latestchannelmedia" === section ? loadLatestChannelMedia(elem, apiClient, userId) : (elem.innerHTML = "", Promise.resolve())
+		return "latestmedia" === section ? loadRecentlyAdded(elem, apiClient, user, userViews) : "librarytiles" === section || "smalllibrarytiles" === section || "smalllibrarytiles-automobile" === section || "librarytiles-automobile" === section ? loadLibraryTiles(elem, apiClient, user, userSettings, "smallBackdrop", userViews) : "librarybuttons" === section ? loadlibraryButtons(elem, apiClient, user, userSettings, userViews) : "resume" === section ? loadResumeVideo(elem, apiClient, userId) : "resumeaudio" === section ? loadResumeAudio(elem, apiClient, userId) : "activerecordings" === section ? loadActiveRecordings(elem, apiClient, userId) : "nextup" === section ? loadNextUp(elem, apiClient, userId) : "onnow" === section || "livetv" === section ? loadOnNow(elem, apiClient, user) : "latesttvrecordings" === section ? loadLatestLiveTvRecordings(elem, apiClient, userId) : "latestchannelmedia" === section ? loadLatestChannelMedia(elem, apiClient, userId) : (elem.innerHTML = "", Promise.resolve())
 	}
 
 	function getUserViews(apiClient, userId) {
@@ -75,7 +77,7 @@ define(["cardBuilder", "appSettings", "dom", "apphost", "layoutManager", "imageL
 
 	function getLibraryButtonsHtml(items) {
 		var html = "";
-		html += '<div class="sectionTitleContainer">', html += '<h2 class="sectionTitle sectionTitle-cards padded-left">' + globalize.translate("sharedcomponents#HeaderMyMedia") + "</h2>", layoutManager.tv || (html += '<button type="button" is="paper-icon-button-light" class="sectionTitleIconButton btnHomeScreenSettings"><i class="md-icon">&#xE8B8;</i></button>'), html += "</div>", html += '<div is="emby-itemscontainer" class="itemsContainer padded-left padded-right vertical-wrap focuscontainer-x" data-multiselect="false">';
+		html += '<div class="verticalSection">', html += '<div class="sectionTitleContainer">', html += '<h2 class="sectionTitle sectionTitle-cards padded-left">' + globalize.translate("sharedcomponents#HeaderMyMedia") + "</h2>", layoutManager.tv || (html += '<button type="button" is="paper-icon-button-light" class="sectionTitleIconButton btnHomeScreenSettings"><i class="md-icon">&#xE8B8;</i></button>'), html += "</div>", html += '<div is="emby-itemscontainer" class="itemsContainer padded-left padded-right vertical-wrap focuscontainer-x" data-multiselect="false">';
 		for (var i = 0, length = items.length; i < length; i++) {
 			var icon, item = items[i];
 			switch (item.CollectionType) {
@@ -120,15 +122,16 @@ define(["cardBuilder", "appSettings", "dom", "apphost", "layoutManager", "imageL
 			}
 			html += '<a is="emby-linkbutton" href="' + embyRouter.getRouteUrl(item) + '" class="raised homeLibraryButton"><i class="md-icon">' + icon + "</i><span>" + item.Name + "</span></a>"
 		}
-		return html += "</div>"
+		return html += "</div>", html += "</div>"
 	}
 
-	function loadlibraryButtons(elem, apiClient, userId, userSettings) {
-		return getUserViews(apiClient, userId).then(function (items) {
-			var html = getLibraryButtonsHtml(items);
-			return getAppInfo(apiClient).then(function (infoHtml) {
-				elem.innerHTML = html + infoHtml, bindHomeScreenSettingsIcon(elem, apiClient, userId, userSettings), infoHtml && bindAppInfoEvents(elem)
-			})
+	function loadlibraryButtons(elem, apiClient, user, userSettings, userViews) {
+		return Promise.all([getAppInfo(apiClient), getDownloadsSectionHtml(apiClient, user, userSettings)]).then(function (responses) {
+			var infoHtml = responses[0],
+				downloadsHtml = responses[1];
+			elem.classList.remove("verticalSection");
+			var html = getLibraryButtonsHtml(userViews);
+			elem.innerHTML = html + downloadsHtml + infoHtml, bindHomeScreenSettingsIcon(elem, apiClient, user.Id, userSettings), infoHtml && bindAppInfoEvents(elem)
 		})
 	}
 
@@ -181,7 +184,7 @@ define(["cardBuilder", "appSettings", "dom", "apphost", "layoutManager", "imageL
 
 	function renderLatestSection(elem, apiClient, user, parent) {
 		var limit = 12;
-		enableScrollX() || (limit = "tvshows" === parent.CollectionType ? 5 : "music" === parent.CollectionType ? 9 : 8);
+		enableScrollX() ? "music" === parent.CollectionType && (limit = 30) : limit = "tvshows" === parent.CollectionType ? 5 : "music" === parent.CollectionType ? 9 : 8;
 		var options = {
 			Limit: limit,
 			Fields: "PrimaryImageAspectRatio,BasicSyncInfo",
@@ -203,7 +206,7 @@ define(["cardBuilder", "appSettings", "dom", "apphost", "layoutManager", "imageL
 				html += cardBuilder.getCardsHtml({
 					items: items,
 					shape: shape,
-					preferThumb: "movies" !== viewType && "music" !== viewType,
+					preferThumb: "movies" !== viewType && "music" !== viewType ? "auto" : null,
 					showUnplayedIndicator: !1,
 					showChildCountIndicator: !0,
 					context: "home",
@@ -212,7 +215,7 @@ define(["cardBuilder", "appSettings", "dom", "apphost", "layoutManager", "imageL
 					overlayPlayButton: "photos" !== viewType,
 					allowBottomPadding: !enableScrollX() && !cardLayout,
 					cardLayout: cardLayout,
-					showTitle: "music" === viewType || "tvshows" === viewType || "movies" === viewType || !viewType || cardLayout,
+					showTitle: "photos" !== viewType,
 					showYear: "movies" === viewType || "tvshows" === viewType || !viewType,
 					showParentTitle: "music" === viewType || "tvshows" === viewType || !viewType || cardLayout && "tvshows" === viewType,
 					vibrant: supportsImageAnalysis && cardLayout,
@@ -223,16 +226,15 @@ define(["cardBuilder", "appSettings", "dom", "apphost", "layoutManager", "imageL
 		})
 	}
 
-	function loadRecentlyAdded(elem, apiClient, user) {
-		return elem.classList.remove("verticalSection"), getUserViews(apiClient, user.Id).then(function (items) {
-			for (var excludeViewTypes = ["playlists", "livetv", "boxsets", "channels"], excludeItemTypes = ["Channel"], i = 0, length = items.length; i < length; i++) {
-				var item = items[i];
-				if (user.Configuration.LatestItemsExcludes.indexOf(item.Id) === -1 && excludeViewTypes.indexOf(item.CollectionType || []) === -1 && excludeItemTypes.indexOf(item.Type) === -1) {
-					var frag = document.createElement("div");
-					frag.classList.add("verticalSection"), elem.appendChild(frag), renderLatestSection(frag, apiClient, user, item)
-				}
+	function loadRecentlyAdded(elem, apiClient, user, userViews) {
+		elem.classList.remove("verticalSection");
+		for (var excludeViewTypes = ["playlists", "livetv", "boxsets", "channels"], excludeItemTypes = ["Channel"], i = 0, length = userViews.length; i < length; i++) {
+			var item = userViews[i];
+			if (user.Configuration.LatestItemsExcludes.indexOf(item.Id) === -1 && excludeViewTypes.indexOf(item.CollectionType || []) === -1 && excludeItemTypes.indexOf(item.Type) === -1) {
+				var frag = document.createElement("div");
+				frag.classList.add("verticalSection"), elem.appendChild(frag), renderLatestSection(frag, apiClient, user, item)
 			}
-		})
+		}
 	}
 
 	function loadLatestChannelMedia(elem, apiClient, userId) {
@@ -284,29 +286,35 @@ define(["cardBuilder", "appSettings", "dom", "apphost", "layoutManager", "imageL
 		})
 	}
 
-	function loadLibraryTiles(elem, apiClient, user, userSettings, shape) {
-		return getUserViews(apiClient, user.Id).then(function (items) {
-			var html = "";
-			if (html += "<div>", items.length) {
-				//myproduction-change-start
-				//Changed headline to "Medien"
-				html += '<div class="sectionTitleContainer">', html += '<h2 class="sectionTitle sectionTitle-cards padded-left">' + globalize.translate("Medien") + "</h2>", layoutManager.tv || (html += '<button type="button" is="paper-icon-button-light" class="sectionTitleIconButton btnHomeScreenSettings"><i class="md-icon">&#xE8B8;</i></button>'), html += "</div>";
-				//myproduction-change-end
-				var scrollX = enableScrollX();
-				html += enableScrollX() ? '<div is="emby-scroller" class="padded-top-focusscale padded-bottom-focusscale" data-mousewheel="false" data-centerfocus="true"><div is="emby-itemscontainer" class="scrollSlider focuscontainer-x padded-left padded-right">' : '<div is="emby-itemscontainer" class="itemsContainer padded-left padded-right vertical-wrap focuscontainer-x">', html += cardBuilder.getCardsHtml({
-					items: items,
-					shape: scrollX ? "overflowSmallBackdrop" : shape,
-					showTitle: !0,
-					centerText: !0,
-					overlayText: !1,
-					lazy: !0,
-					transition: !1,
-					allowBottomPadding: !scrollX
-				}), enableScrollX() && (html += "</div>"), html += "</div>"
-			}
-			return html += "</div>", getAppInfo(apiClient).then(function (infoHtml) {
-				elem.innerHTML = html + infoHtml, bindHomeScreenSettingsIcon(elem, apiClient, user.Id, userSettings), infoHtml && bindAppInfoEvents(elem), imageLoader.lazyChildren(elem)
-			})
+	function getDownloadsSectionHtml(apiClient, user, userSettings) {
+		var html = "";
+		return appHost.supports("sync") && user.Policy.EnableContentDownloading ? (html += '<div class="verticalSection">', html += '<div class="sectionTitleContainer padded-left">', html += '<h2 class="sectionTitle">' + globalize.translate("sharedcomponents#HeaderMyDownloads") + "</h2>", html += "</div>", enableScrollX() ? (html += '<div is="emby-scroller" class="padded-top-focusscale padded-bottom-focusscale" data-mousewheel="false" data-centerfocus="true">', html += '<div class="scrollSlider padded-left padded-right padded-top focuscontainer-x">') : html += '<div class="padded-left padded-right padded-top focuscontainer-x">', html += '<a style="margin:0;padding:.9em 1em;" is="emby-linkbutton" href="' + embyRouter.getRouteUrl("downloads") + '" class="raised"><i class="md-icon">&#xE2C7;</i><span>' + globalize.translate("sharedcomponents#Browse") + "</span></a>", user.Policy.EnableContentDownloading && (html += '<a style="margin:0 0 0 1em;padding:.9em 1em;" is="emby-linkbutton" href="' + embyRouter.getRouteUrl("managedownloads") + '" class="raised"><i class="md-icon">&#xE8B8;</i><span>' + globalize.translate("sharedcomponents#Manage") + "</span></a>"), html += "</div>", enableScrollX() && (html += "</div>"), html += "</div>", html += "</div>", Promise.resolve(html)) : Promise.resolve(html)
+	}
+
+	function loadLibraryTiles(elem, apiClient, user, userSettings, shape, userViews) {
+		elem.classList.remove("verticalSection");
+		var html = "";
+		if (userViews.length) {
+			//myproduction-change-start
+			//Changed headline to "Medien"
+			html += '<div class="sectionTitleContainer">', html += '<h2 class="sectionTitle sectionTitle-cards padded-left">' + globalize.translate("Medien") + "</h2>", layoutManager.tv || (html += '<button type="button" is="paper-icon-button-light" class="sectionTitleIconButton btnHomeScreenSettings"><i class="md-icon">&#xE8B8;</i></button>'), html += "</div>";
+			//myproduction-change-end
+			var scrollX = enableScrollX();
+			html += enableScrollX() ? '<div is="emby-scroller" class="padded-top-focusscale padded-bottom-focusscale" data-mousewheel="false" data-centerfocus="true"><div is="emby-itemscontainer" class="scrollSlider focuscontainer-x padded-left padded-right">' : '<div is="emby-itemscontainer" class="itemsContainer padded-left padded-right vertical-wrap focuscontainer-x">', html += cardBuilder.getCardsHtml({
+				items: userViews,
+				shape: scrollX ? "overflowSmallBackdrop" : shape,
+				showTitle: !0,
+				centerText: !0,
+				overlayText: !1,
+				lazy: !0,
+				transition: !1,
+				allowBottomPadding: !scrollX
+			}), enableScrollX() && (html += "</div>"), html += "</div>", html += "</div>"
+		}
+		return Promise.all([getAppInfo(apiClient), getDownloadsSectionHtml(apiClient, user, userSettings)]).then(function (responses) {
+			var infoHtml = responses[0],
+				downloadsHtml = responses[1];
+			elem.innerHTML = html + downloadsHtml + infoHtml, bindHomeScreenSettingsIcon(elem, apiClient, user.Id, userSettings), infoHtml && bindAppInfoEvents(elem), imageLoader.lazyChildren(elem)
 		})
 	}
 
@@ -419,14 +427,15 @@ define(["cardBuilder", "appSettings", "dom", "apphost", "layoutManager", "imageL
 					items: result.Items,
 					lazy: !0,
 					allowBottomPadding: !enableScrollX(),
-					shape: getThumbShape(),
+					shape: enableScrollX() ? "autooverflow" : "auto",
+					defaultShape: getThumbShape(),
 					showTitle: !1,
 					showParentTitleOrTitle: !0,
 					showAirTime: !0,
 					showAirEndTime: !0,
 					showChannelName: !0,
 					cardLayout: cardLayout,
-					preferThumb: !0,
+					preferThumb: "auto",
 					coverImage: !0,
 					overlayText: !1,
 					centerText: !cardLayout,
@@ -439,40 +448,49 @@ define(["cardBuilder", "appSettings", "dom", "apphost", "layoutManager", "imageL
 
 	function loadOnNow(elem, apiClient, user) {
 		if (!user.Policy.EnableLiveTvAccess) return Promise.resolve("");
+		elem.classList.remove("verticalSection");
 		user.Id;
 		return apiClient.getLiveTvRecommendedPrograms({
 			userId: apiClient.getCurrentUserId(),
 			IsAiring: !0,
-			limit: enableScrollX() ? 18 : 5,
+			limit: enableScrollX() ? 18 : 8,
 			ImageTypeLimit: 1,
 			EnableImageTypes: "Primary,Thumb,Backdrop",
 			EnableTotalRecordCount: !1,
-			Fields: "ChannelInfo"
+			Fields: "ChannelInfo,PrimaryImageAspectRatio"
 		}).then(function (result) {
 			var html = "";
-			result.Items.length && (html += '<div class="sectionTitleContainer padded-left">', layoutManager.tv ? html += '<h2 class="sectionTitle sectionTitle-cards">' + globalize.translate("sharedcomponents#HeaderOnNow") + "</h2>" : (html += '<a is="emby-linkbutton" href="' + embyRouter.getRouteUrl("livetv", {
-				serverId: apiClient.serverId(),
-				section: "onnow"
-			}) + '" class="more button-flat button-flat-mini sectionTitleTextButton">', html += '<h2 class="sectionTitle sectionTitle-cards">', html += globalize.translate("sharedcomponents#HeaderOnNow"), html += "</h2>", html += '<i class="md-icon">&#xE5CC;</i>', html += "</a>", html += '<a is="emby-linkbutton" href="' + embyRouter.getRouteUrl("livetv", {
+			result.Items.length && (html += '<div class="verticalSection">', html += '<div class="sectionTitleContainer padded-left">', html += '<h2 class="sectionTitle">' + globalize.translate("sharedcomponents#LiveTV") + "</h2>", html += "</div>", enableScrollX() ? (html += '<div is="emby-scroller" class="padded-top-focusscale padded-bottom-focusscale" data-mousewheel="false" data-centerfocus="true">', html += '<div class="scrollSlider padded-left padded-right padded-top focuscontainer-x">') : html += '<div class="padded-left padded-right padded-top focuscontainer-x">', html += '<a style="margin:0;padding:.9em 1em;" is="emby-linkbutton" href="' + embyRouter.getRouteUrl("livetv", {
+				serverId: apiClient.serverId()
+			}) + '" class="raised"><i class="md-icon">&#xE639;</i><span>' + globalize.translate("sharedcomponents#Programs") + "</span></a>", html += '<a style="margin:0 0 0 1em;padding:.9em 1em;" is="emby-linkbutton" href="' + embyRouter.getRouteUrl("livetv", {
 				serverId: apiClient.serverId(),
 				section: "guide"
-			}) + '" class="raised raised-mini sectionTitleButton btnMore">' + globalize.translate("sharedcomponents#Guide") + "</a>"), html += "</div>", html += enableScrollX() ? '<div is="emby-scroller" class="padded-top-focusscale padded-bottom-focusscale" data-mousewheel="false" data-centerfocus="true"><div is="emby-itemscontainer" class="scrollSlider focuscontainer-x padded-left padded-right">' : '<div is="emby-itemscontainer" class="itemsContainer padded-left padded-right vertical-wrap focuscontainer-x">', html += cardBuilder.getCardsHtml({
+			}) + '" class="raised"><i class="md-icon">&#xE1B2;</i><span>' + globalize.translate("sharedcomponents#Guide") + "</span></a>", html += '<a style="margin:0 0 0 1em;padding:.9em 1em;" is="emby-linkbutton" href="' + embyRouter.getRouteUrl("recordedtv", {
+				serverId: apiClient.serverId()
+			}) + '" class="raised"><i class="md-icon">&#xE333;</i><span>' + globalize.translate("sharedcomponents#Recordings") + "</span></a>", html += '<a style="margin:0 0 0 1em;padding:.9em 1em;" is="emby-linkbutton" href="' + embyRouter.getRouteUrl("livetv", {
+				serverId: apiClient.serverId(),
+				section: "dvrschedule"
+			}) + '" class="raised"><i class="md-icon">&#xE916;</i><span>' + globalize.translate("sharedcomponents#Schedule") + "</span></a>", html += "</div>", enableScrollX() && (html += "</div>"), html += "</div>", html += "</div>", html += '<div class="verticalSection">', html += '<div class="sectionTitleContainer padded-left">', layoutManager.tv ? html += '<h2 class="sectionTitle sectionTitle-cards">' + globalize.translate("sharedcomponents#HeaderOnNow") + "</h2>" : (html += '<a is="emby-linkbutton" href="' + embyRouter.getRouteUrl("livetv", {
+				serverId: apiClient.serverId(),
+				section: "onnow"
+			}) + '" class="more button-flat button-flat-mini sectionTitleTextButton">', html += '<h2 class="sectionTitle sectionTitle-cards">', html += globalize.translate("sharedcomponents#HeaderOnNow"), html += "</h2>", html += '<i class="md-icon">&#xE5CC;</i>', html += "</a>"), html += "</div>", html += enableScrollX() ? '<div is="emby-scroller" class="padded-top-focusscale padded-bottom-focusscale" data-mousewheel="false" data-centerfocus="true"><div is="emby-itemscontainer" class="scrollSlider focuscontainer-x padded-left padded-right">' : '<div is="emby-itemscontainer" class="itemsContainer padded-left padded-right vertical-wrap focuscontainer-x">', html += cardBuilder.getCardsHtml({
 				items: result.Items,
-				preferThumb: !0,
+				preferThumb: "auto",
 				inheritThumb: !1,
-				shape: enableScrollX() ? "overflowBackdrop" : "backdrop",
+				shape: enableScrollX() ? "autooverflow" : "auto",
 				showParentTitleOrTitle: !0,
-				showTitle: !1,
+				showTitle: !0,
 				centerText: !0,
 				coverImage: !0,
 				overlayText: !1,
 				overlayPlayButton: !0,
 				allowBottomPadding: !enableScrollX(),
 				showAirTime: !0,
-				showChannelName: !0,
+				showChannelName: !1,
 				showAirDateTime: !1,
-				showAirEndTime: !0
-			}), enableScrollX() && (html += "</div>"), html += "</div>"), elem.innerHTML = html, imageLoader.lazyChildren(elem)
+				showAirEndTime: !0,
+				defaultShape: getThumbShape()
+			}), enableScrollX() && (html += "</div>"), html += "</div>", html += "</div>"), elem.innerHTML = html, imageLoader.lazyChildren(elem)
 		})
 	}
 
@@ -587,7 +605,6 @@ define(["cardBuilder", "appSettings", "dom", "apphost", "layoutManager", "imageL
 		})
 	}
 	return {
-		loadRecentlyAdded: loadRecentlyAdded,
 		loadLatestChannelMedia: loadLatestChannelMedia,
 		loadLibraryTiles: loadLibraryTiles,
 		loadResumeVideo: loadResumeVideo,
@@ -596,8 +613,6 @@ define(["cardBuilder", "appSettings", "dom", "apphost", "layoutManager", "imageL
 		loadNextUp: loadNextUp,
 		loadLatestChannelItems: loadLatestChannelItems,
 		loadLatestLiveTvRecordings: loadLatestLiveTvRecordings,
-		loadlibraryButtons: loadlibraryButtons,
-		loadSection: loadSection,
 		getDefaultSection: getDefaultSection,
 		loadSections: loadSections
 	}

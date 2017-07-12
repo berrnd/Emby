@@ -57,20 +57,20 @@ namespace Emby.Server.Implementations.Library.Resolvers.TV
                     {
                         episode.SeriesId = series.Id;
                         episode.SeriesName = series.Name;
-                    }
-                    if (season != null)
+
+						//myproduction-change-start
+						//OV series handling
+						if (series.Tags.Contains("OV"))
+						{
+							episode.Tags.Add("OV");
+						}
+						//myproduction-change-end
+					}
+					if (season != null)
                     {
                         episode.SeasonId = season.Id;
                         episode.SeasonName = season.Name;
                     }
-
-					//myproduction-change-start
-					//OV series handling
-					if (series.Tags.Contains("OV"))
-					{
-						episode.Tags.Add("OV");
-					}
-					//myproduction-change-end
 
 					// Assume season 1 if there's no season folder and a season number could not be determined
 					if (season == null && !episode.ParentIndexNumber.HasValue && (episode.IndexNumber.HasValue || episode.PremiereDate.HasValue))

@@ -89,10 +89,12 @@ define(["appSettings", "dom", "browser", "datetime", "embyRouter", "events", "sc
 				})
 			},
 			getArtistLinksHtml: function (artists, cssClass) {
-				for (var html = [], i = 0, length = artists.length; i < length; i++) {
+				var html = [];
+				cssClass = cssClass ? cssClass + " button-link" : "button-link";
+				for (var i = 0, length = artists.length; i < length; i++) {
 					var artist = artists[i],
 						css = cssClass ? ' class="' + cssClass + '"' : "";
-					html.push("<a" + css + ' href="itemdetails.html?id=' + artist.Id + '">' + artist.Name + "</a>")
+					html.push("<a" + css + ' is="emby-linkbutton" href="itemdetails.html?id=' + artist.Id + '">' + artist.Name + "</a>")
 				}
 				return html = html.join(" / ")
 			},
@@ -113,7 +115,7 @@ define(["appSettings", "dom", "browser", "datetime", "embyRouter", "events", "sc
 					var name = itemHelper.getDisplayName(item, {
 						includeParentInfo: !1
 					});
-					linkToElement ? nameElem.innerHTML = '<a class="detailPageParentLink" href="' + embyRouter.getRouteUrl(item, {
+					linkToElement ? nameElem.innerHTML = '<a class="detailPageParentLink button-link" is="emby-linkbutton" href="' + embyRouter.getRouteUrl(item, {
 						context: context
 					}) + '">' + name + "</a>" : nameElem.innerHTML = name
 				})
@@ -121,7 +123,7 @@ define(["appSettings", "dom", "browser", "datetime", "embyRouter", "events", "sc
 			renderParentName: function (item, parentNameElem, context) {
 				var html = [],
 					contextParam = context ? "&context=" + context : "";
-				item.AlbumArtists ? html.push(libraryBrowser.getArtistLinksHtml(item.AlbumArtists, "detailPageParentLink")) : item.ArtistItems && item.ArtistItems.length && "MusicVideo" == item.Type ? html.push(libraryBrowser.getArtistLinksHtml(item.ArtistItems, "detailPageParentLink")) : item.SeriesName && "Episode" == item.Type && html.push('<a class="detailPageParentLink" href="itemdetails.html?id=' + item.SeriesId + contextParam + '">' + item.SeriesName + "</a>"), item.SeriesName && "Season" == item.Type ? html.push('<a class="detailPageParentLink" href="itemdetails.html?id=' + item.SeriesId + contextParam + '">' + item.SeriesName + "</a>") : null != item.ParentIndexNumber && "Episode" == item.Type ? html.push('<a class="detailPageParentLink" href="itemdetails.html?id=' + item.SeasonId + contextParam + '">' + item.SeasonName + "</a>") : item.Album && "Audio" == item.Type && (item.AlbumId || item.ParentId) ? html.push('<a class="detailPageParentLink" href="itemdetails.html?id=' + (item.AlbumId || item.ParentId) + contextParam + '">' + item.Album + "</a>") : item.Album && "MusicVideo" == item.Type && item.AlbumId ? html.push('<a class="detailPageParentLink" href="itemdetails.html?id=' + item.AlbumId + contextParam + '">' + item.Album + "</a>") : item.Album ? html.push(item.Album) : (item.IsSeries || item.EpisodeTitle) && html.push(item.Name), html.length ? (parentNameElem.classList.remove("hide"), parentNameElem.innerHTML = html.join(" - ")) : parentNameElem.classList.add("hide")
+				item.AlbumArtists ? html.push(libraryBrowser.getArtistLinksHtml(item.AlbumArtists, "detailPageParentLink")) : item.ArtistItems && item.ArtistItems.length && "MusicVideo" == item.Type ? html.push(libraryBrowser.getArtistLinksHtml(item.ArtistItems, "detailPageParentLink")) : item.SeriesName && "Episode" == item.Type && html.push('<a class="detailPageParentLink button-link" is="emby-linkbutton" href="itemdetails.html?id=' + item.SeriesId + contextParam + '">' + item.SeriesName + "</a>"), item.SeriesName && "Season" == item.Type ? html.push('<a class="detailPageParentLink button-link" is="emby-linkbutton" href="itemdetails.html?id=' + item.SeriesId + contextParam + '">' + item.SeriesName + "</a>") : null != item.ParentIndexNumber && "Episode" == item.Type ? html.push('<a class="detailPageParentLink button-link" is="emby-linkbutton" href="itemdetails.html?id=' + item.SeasonId + contextParam + '">' + item.SeasonName + "</a>") : item.Album && "Audio" == item.Type && (item.AlbumId || item.ParentId) ? html.push('<a class="detailPageParentLink button-link" is="emby-linkbutton" href="itemdetails.html?id=' + (item.AlbumId || item.ParentId) + contextParam + '">' + item.Album + "</a>") : item.Album && "MusicVideo" == item.Type && item.AlbumId ? html.push('<a class="detailPageParentLink button-link" is="emby-linkbutton" href="itemdetails.html?id=' + item.AlbumId + contextParam + '">' + item.Album + "</a>") : item.Album ? html.push(item.Album) : (item.IsSeries || item.EpisodeTitle) && html.push(item.Name), html.length ? (parentNameElem.classList.remove("hide"), parentNameElem.innerHTML = html.join(" - ")) : parentNameElem.classList.add("hide")
 			},
 			showLayoutMenu: function (button, currentLayout, views) {
 				var dispatchEvent = !0;
@@ -158,21 +160,13 @@ define(["appSettings", "dom", "browser", "datetime", "embyRouter", "events", "sc
 				} catch (e) { }
 				var html = "",
 					recordsEnd = Math.min(startIndex + limit, totalRecordCount),
-					showControls = totalRecordCount > 20 || limit < totalRecordCount;
+					showControls = limit < totalRecordCount;
 				if (html += '<div class="listPaging">', showControls) {
 					html += '<span style="vertical-align:middle;">';
 					var startAtDisplay = totalRecordCount ? startIndex + 1 : 0;
 					html += startAtDisplay + "-" + recordsEnd + " of " + totalRecordCount, html += "</span>"
 				}
-				if ((showControls || options.viewButton || options.filterButton || options.sortButton || options.addLayoutButton) && (html += '<div style="display:inline-block;">', showControls && (html += '<button is="paper-icon-button-light" class="btnPreviousPage autoSize" ' + (startIndex ? "" : "disabled") + '><i class="md-icon">&#xE5C4;</i></button>', html += '<button is="paper-icon-button-light" class="btnNextPage autoSize" ' + (startIndex + limit >= totalRecordCount ? "disabled" : "") + '><i class="md-icon">arrow_forward</i></button>'), options.addLayoutButton && (html += '<button is="paper-icon-button-light" title="' + Globalize.translate("ButtonSelectView") + '" class="btnChangeLayout autoSize" data-layouts="' + (options.layouts || "") + '" onclick="LibraryBrowser.showLayoutMenu(this, \'' + (options.currentLayout || "") + '\');"><i class="md-icon">view_comfy</i></button>'), options.sortButton && (html += '<button is="paper-icon-button-light" class="btnSort autoSize" title="' + Globalize.translate("ButtonSort") + '"><i class="md-icon">sort_by_alpha</i></button>'), options.filterButton && (html += '<button is="paper-icon-button-light" class="btnFilter autoSize" title="' + Globalize.translate("ButtonFilter") + '"><i class="md-icon">filter_list</i></button>'), html += "</div>", showControls && options.showLimit)) {
-					var id = "selectPageSize",
-						pageSizes = options.pageSizes || [20, 50, 100, 200, 300, 400, 500],
-						optionsHtml = pageSizes.map(function (val) {
-							return limit == val ? '<option value="' + val + '" selected="selected">' + val + "</option>" : '<option value="' + val + '">' + val + "</option>"
-						}).join("");
-					html += '<div class="pageSizeContainer"><label class="labelPageSize" for="' + id + '">' + Globalize.translate("LabelLimit") + '</label><select style="width:auto;" class="selectPageSize" id="' + id + '" data-inline="true" data-mini="true">' + optionsHtml + "</select></div>"
-				}
-				return html += "</div>"
+				return (showControls || options.viewButton || options.filterButton || options.sortButton || options.addLayoutButton) && (html += '<div style="display:inline-block;">', showControls && (html += '<button is="paper-icon-button-light" class="btnPreviousPage autoSize" ' + (startIndex ? "" : "disabled") + '><i class="md-icon">&#xE5C4;</i></button>', html += '<button is="paper-icon-button-light" class="btnNextPage autoSize" ' + (startIndex + limit >= totalRecordCount ? "disabled" : "") + '><i class="md-icon">arrow_forward</i></button>'), options.addLayoutButton && (html += '<button is="paper-icon-button-light" title="' + Globalize.translate("ButtonSelectView") + '" class="btnChangeLayout autoSize" data-layouts="' + (options.layouts || "") + '" onclick="LibraryBrowser.showLayoutMenu(this, \'' + (options.currentLayout || "") + '\');"><i class="md-icon">view_comfy</i></button>'), options.sortButton && (html += '<button is="paper-icon-button-light" class="btnSort autoSize" title="' + Globalize.translate("ButtonSort") + '"><i class="md-icon">sort_by_alpha</i></button>'), options.filterButton && (html += '<button is="paper-icon-button-light" class="btnFilter autoSize" title="' + Globalize.translate("ButtonFilter") + '"><i class="md-icon">filter_list</i></button>'), html += "</div>"), html += "</div>"
 			},
 			showSortMenu: function (options) {
 				require(["dialogHelper", "emby-radio"], function (dialogHelper) {
@@ -213,8 +207,9 @@ define(["appSettings", "dom", "browser", "datetime", "embyRouter", "events", "sc
 					for (i = 0, length = sortOrders.length; i < length; i++) sortOrders[i].addEventListener("change", onSortOrderChange)
 				})
 			},
-			renderDetailImage: function (page, elem, item, editable, preferThumb, imageLoader, indicators) {
-				"SeriesTimer" === item.Type && (editable = !1), "Video" === item.MediaType && "Movie" !== item.Type && "Trailer" !== item.Type || item.MediaType && "Video" !== item.MediaType ? (elem.classList.add("detailimg-hidemobile"), page.querySelector(".detailPageContent").classList.add("detailPageContent-nodetailimg")) : page.querySelector(".detailPageContent").classList.remove("detailPageContent-nodetailimg");
+			renderDetailImage: function (page, elem, item, editable, imageLoader, indicators) {
+				var preferThumb = !1;
+				"SeriesTimer" !== item.Type && "Program" !== item.Type || (editable = !1), "Person" !== item.Type ? (elem.classList.add("detailimg-hidemobile"), page.querySelector(".detailPageContent").classList.add("detailPageContent-nodetailimg")) : page.querySelector(".detailPageContent").classList.remove("detailPageContent-nodetailimg");
 				var imageTags = item.ImageTags || {};
 				item.PrimaryImageTag && (imageTags.Primary = item.PrimaryImageTag);
 				var url, html = "",
@@ -253,7 +248,7 @@ define(["appSettings", "dom", "browser", "datetime", "embyRouter", "events", "sc
 					type: "Primary",
 					maxHeight: imageHeight,
 					tag: item.ParentPrimaryImageTag
-				})), html += '<div style="position:relative;">', editable && (html += "<a class='itemDetailGalleryLink' href='#'>"), detectRatio && item.PrimaryImageAspectRatio && (item.PrimaryImageAspectRatio >= 1.48 ? shape = "thumb" : item.PrimaryImageAspectRatio >= .85 && item.PrimaryImageAspectRatio <= 1.34 && (shape = "square")), html += "<img class='itemDetailImage lazy' src='css/images/empty.png' />", editable && (html += "</a>");
+				})), html += '<div style="position:relative;">', editable && (html += "<a class='itemDetailGalleryLink' is='emby-linkbutton' style='display:block;padding:2px;margin:0;' href='#'>"), detectRatio && item.PrimaryImageAspectRatio && (item.PrimaryImageAspectRatio >= 1.48 ? shape = "thumb" : item.PrimaryImageAspectRatio >= .85 && item.PrimaryImageAspectRatio <= 1.34 && (shape = "square")), html += "<img class='itemDetailImage lazy' src='css/images/empty.png' />", editable && (html += "</a>");
 				var progressHtml = item.IsFolder || !item.UserData ? "" : indicators.getProgressBarHtml(item);
 				if (html += '<div class="detailImageProgressContainer">', progressHtml && (html += progressHtml), html += "</div>", html += "</div>", elem.innerHTML = html, "thumb" == shape ? (elem.classList.add("thumbDetailImageContainer"), elem.classList.remove("portraitDetailImageContainer"), elem.classList.remove("squareDetailImageContainer")) : "square" == shape ? (elem.classList.remove("thumbDetailImageContainer"), elem.classList.remove("portraitDetailImageContainer"), elem.classList.add("squareDetailImageContainer")) : (elem.classList.remove("thumbDetailImageContainer"), elem.classList.add("portraitDetailImageContainer"), elem.classList.remove("squareDetailImageContainer")), url) {
 					var img = elem.querySelector("img");
@@ -267,17 +262,17 @@ define(["appSettings", "dom", "browser", "datetime", "embyRouter", "events", "sc
 					hasbackdrop = !1,
 					itemBackdropElement = page.querySelector("#itemBackdrop"),
 					usePrimaryImage = "Video" === item.MediaType && "Movie" !== item.Type && "Trailer" !== item.Type || item.MediaType && "Video" !== item.MediaType,
-					useThumbImage = !1;
-				usePrimaryImage && item.ImageTags && item.ImageTags.Primary ? (imgUrl = ApiClient.getScaledImageUrl(item.Id, {
-					type: "Primary",
-					index: 0,
-					maxWidth: screenWidth,
-					tag: item.ImageTags.Primary
-				}), itemBackdropElement.classList.remove("noBackdrop"), imageLoader.lazyImage(itemBackdropElement, imgUrl, !1), hasbackdrop = !0) : useThumbImage && item.ImageTags && item.ImageTags.Thumb ? (imgUrl = ApiClient.getScaledImageUrl(item.Id, {
+					useThumbImage = "Program" === item.Type;
+				return useThumbImage && item.ImageTags && item.ImageTags.Thumb ? (imgUrl = ApiClient.getScaledImageUrl(item.Id, {
 					type: "Thumb",
 					index: 0,
 					maxWidth: screenWidth,
 					tag: item.ImageTags.Thumb
+				}), itemBackdropElement.classList.remove("noBackdrop"), imageLoader.lazyImage(itemBackdropElement, imgUrl, !1), hasbackdrop = !0) : usePrimaryImage && item.ImageTags && item.ImageTags.Primary ? (imgUrl = ApiClient.getScaledImageUrl(item.Id, {
+					type: "Primary",
+					index: 0,
+					maxWidth: screenWidth,
+					tag: item.ImageTags.Primary
 				}), itemBackdropElement.classList.remove("noBackdrop"), imageLoader.lazyImage(itemBackdropElement, imgUrl, !1), hasbackdrop = !0) : item.BackdropImageTags && item.BackdropImageTags.length ? (imgUrl = ApiClient.getScaledImageUrl(item.Id, {
 					type: "Backdrop",
 					index: 0,
@@ -293,15 +288,7 @@ define(["appSettings", "dom", "browser", "datetime", "embyRouter", "events", "sc
 					index: 0,
 					maxWidth: screenWidth,
 					tag: item.ImageTags.Thumb
-				}), itemBackdropElement.classList.remove("noBackdrop"), imageLoader.lazyImage(itemBackdropElement, imgUrl, !1), hasbackdrop = !0) : (itemBackdropElement.classList.add("noBackdrop"), itemBackdropElement.style.backgroundImage = "");
-				var progress = itemBackdropElement.querySelector(".itemBackdropProgress");
-				if (progress && progress.parentNode.removeChild(progress), usePrimaryImage) {
-					var progressHtml = indicators.getProgressBarHtml(item, {
-						containerClass: "itemBackdropProgressBar"
-					});
-					progressHtml && itemBackdropElement.insertAdjacentHTML("beforeend", progressHtml)
-				}
-				return hasbackdrop
+				}), itemBackdropElement.classList.remove("noBackdrop"), imageLoader.lazyImage(itemBackdropElement, imgUrl, !1), hasbackdrop = !0) : (itemBackdropElement.classList.add("noBackdrop"), itemBackdropElement.style.backgroundImage = ""), hasbackdrop
 			},
 
 			//myproduction-change-start

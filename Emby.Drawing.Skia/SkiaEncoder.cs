@@ -63,15 +63,15 @@ namespace Emby.Drawing.Skia
 
         private void LogVersion()
         {
+            // test an operation that requires the native library
+            SKPMColor.PreMultiply(SKColors.Black);
+
             _logger.Info("SkiaSharp version: " + GetVersion());
         }
 
         public static string GetVersion()
         {
-            using (var bitmap = new SKBitmap())
-            {
-                return typeof(SKBitmap).GetTypeInfo().Assembly.GetName().Version.ToString();
-            }
+            return typeof(SKBitmap).GetTypeInfo().Assembly.GetName().Version.ToString();
         }
 
         private static bool IsWhiteSpace(SKColor color)
@@ -183,8 +183,8 @@ namespace Emby.Drawing.Skia
             }
         }
 
-        private string[] TransparentImageTypes = new string[] { ".png", ".gif", ".webp" };
-        private SKBitmap Decode(string path, bool forceCleanBitmap, out SKCodecOrigin origin)
+        private static string[] TransparentImageTypes = new string[] { ".png", ".gif", ".webp" };
+        internal static SKBitmap Decode(string path, bool forceCleanBitmap, out SKCodecOrigin origin)
         {
             var requiresTransparencyHack = TransparentImageTypes.Contains(Path.GetExtension(path) ?? string.Empty);
 

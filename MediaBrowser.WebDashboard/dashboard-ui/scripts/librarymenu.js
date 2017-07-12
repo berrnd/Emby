@@ -1,4 +1,4 @@
-define(["layoutManager", "events", "viewManager", "libraryBrowser", "embyRouter", "apphost", "playbackManager", "browser", "paper-icon-button-light", "material-icons", "scrollStyles", "flexStyles"], function (layoutManager, events, viewManager, libraryBrowser, embyRouter, appHost, playbackManager, browser) {
+define(["layoutManager", "connectionManager", "events", "viewManager", "libraryBrowser", "embyRouter", "apphost", "playbackManager", "browser", "globalize", "paper-icon-button-light", "material-icons", "scrollStyles", "flexStyles"], function (layoutManager, connectionManager, events, viewManager, libraryBrowser, embyRouter, appHost, playbackManager, browser, globalize) {
 	"use strict";
 
 	function renderHeader() {
@@ -107,9 +107,9 @@ define(["layoutManager", "events", "viewManager", "libraryBrowser", "embyRouter"
 		var html = "";
 		html += '<div style="height:.5em;"></div>';
 		var homeHref = window.ApiClient ? "home.html" : "selectserver.html?showuser=1";
-		html += '<a class="sidebarLink lnkMediaFolder" href="' + homeHref + '" onclick="return LibraryMenu.onLinkClicked(event, this);"><span class="sidebarLinkText">' + Globalize.translate("ButtonHome") + "</span></a>", html += '<div class="sidebarDivider"></div>', html += '<div class="libraryMenuOptions">', html += "</div>";
+		html += '<a class="sidebarLink lnkMediaFolder" href="' + homeHref + '" onclick="return LibraryMenu.onLinkClicked(event, this);"><i class="md-icon sidebarLinkIcon">home</i><span class="sidebarLinkText">' + globalize.translate("ButtonHome") + "</span></a>", html += '<div class="libraryMenuDownloads">', html += '<div class="sidebarDivider"></div>', html += '<div class="sidebarHeader">', html += globalize.translate("sharedcomponents#HeaderMyDownloads"), html += "</div>", html += '<a class="sidebarLink lnkMediaFolder" data-itemid="manageoffline" onclick="return LibraryMenu.onLinkClicked(event, this);" href="offline/offline.html"><i class="md-icon sidebarLinkIcon">folder</i><span class="sidebarLinkText">' + globalize.translate("sharedcomponents#Browse") + "</span></a>", html += '<a class="sidebarLink lnkMediaFolder" data-itemid="manageoffline" onclick="return LibraryMenu.onLinkClicked(event, this);" href="managedownloads.html"><i class="md-icon sidebarLinkIcon">edit</i><span class="sidebarLinkText">' + globalize.translate("sharedcomponents#Manage") + "</span></a>", html += "</div>", html += '<div class="sidebarDivider"></div>', html += '<div class="libraryMenuOptions">', html += "</div>";
 		var localUser = user.localUser;
-		localUser && localUser.Policy.IsAdministrator && (html += '<div class="adminMenuOptions">', html += '<div class="sidebarDivider"></div>', html += '<div class="sidebarHeader">', html += Globalize.translate("HeaderAdmin"), html += "</div>", html += '<a class="sidebarLink lnkMediaFolder lnkManageServer" data-itemid="dashboard" href="#"><span class="sidebarLinkText">' + Globalize.translate("ButtonManageServer") + "</span></a>", html += '<a class="sidebarLink lnkMediaFolder editorViewMenu" data-itemid="editor" onclick="return LibraryMenu.onLinkClicked(event, this);" href="edititemmetadata.html"><span class="sidebarLinkText">' + Globalize.translate("MetadataManager") + "</span></a>", layoutManager.mobile || (html += '<a class="sidebarLink lnkMediaFolder" data-itemid="reports" onclick="return LibraryMenu.onLinkClicked(event, this);" href="reports.html"><span class="sidebarLinkText">' + Globalize.translate("ButtonReports") + "</span></a>"), html += "</div>"), html += '<div class="userMenuOptions">', html += '<div class="sidebarDivider"></div>', user.localUser && (html += '<a class="sidebarLink lnkMediaFolder lnkMySettings" onclick="return LibraryMenu.onLinkClicked(event, this);" href="mypreferencesmenu.html"><span class="sidebarLinkText">' + Globalize.translate("ButtonSettings") + "</span></a>"), html += '<a class="sidebarLink lnkMediaFolder lnkManageOffline" data-itemid="manageoffline" onclick="return LibraryMenu.onLinkClicked(event, this);" href="mysync.html?mode=offline"><span class="sidebarLinkText">' + Globalize.translate("ManageOfflineDownloads") + "</span></a>", html += '<a class="sidebarLink lnkMediaFolder lnkSyncToOtherDevices" data-itemid="syncotherdevices" onclick="return LibraryMenu.onLinkClicked(event, this);" href="mysync.html"><span class="sidebarLinkText">' + Globalize.translate("SyncToOtherDevices") + "</span></a>", Dashboard.isConnectMode() && (html += '<a class="sidebarLink lnkMediaFolder" data-itemid="selectserver" onclick="return LibraryMenu.onLinkClicked(event, this);" href="selectserver.html?showuser=1"><span class="sidebarLinkText">' + Globalize.translate("ButtonSelectServer") + "</span></a>"), user.localUser && (html += '<a class="sidebarLink lnkMediaFolder" data-itemid="logout" onclick="return LibraryMenu.onLogoutClicked(this);" href="#"><span class="sidebarLinkText">' + Globalize.translate("ButtonSignOut") + "</span></a>"), html += "</div>", navDrawerScrollContainer.innerHTML = html;
+		localUser && localUser.Policy.IsAdministrator && (html += '<div class="adminMenuOptions">', html += '<div class="sidebarDivider"></div>', html += '<div class="sidebarHeader">', html += globalize.translate("HeaderAdmin"), html += "</div>", html += '<a class="sidebarLink lnkMediaFolder lnkManageServer" data-itemid="dashboard" onclick="return LibraryMenu.onLinkClicked(event, this);" href="dashboard.html"><span class="sidebarLinkText">' + globalize.translate("ButtonManageServer") + "</span></a>", html += '<a class="sidebarLink lnkMediaFolder editorViewMenu" data-itemid="editor" onclick="return LibraryMenu.onLinkClicked(event, this);" href="edititemmetadata.html"><span class="sidebarLinkText">' + globalize.translate("MetadataManager") + "</span></a>", layoutManager.mobile || (html += '<a class="sidebarLink lnkMediaFolder" data-itemid="reports" onclick="return LibraryMenu.onLinkClicked(event, this);" href="reports.html"><span class="sidebarLinkText">' + globalize.translate("ButtonReports") + "</span></a>"), html += "</div>"), html += '<div class="userMenuOptions">', html += '<div class="sidebarDivider"></div>', user.localUser && (html += '<a class="sidebarLink lnkMediaFolder lnkMySettings" onclick="return LibraryMenu.onLinkClicked(event, this);" href="mypreferencesmenu.html"><span class="sidebarLinkText">' + globalize.translate("ButtonSettings") + "</span></a>"), html += '<a class="sidebarLink lnkMediaFolder lnkSyncToOtherDevices" data-itemid="syncotherdevices" onclick="return LibraryMenu.onLinkClicked(event, this);" href="mysync.html"><span class="sidebarLinkText">' + globalize.translate("SyncToOtherDevices") + "</span></a>", Dashboard.isConnectMode() && (html += '<a class="sidebarLink lnkMediaFolder" data-itemid="selectserver" onclick="return LibraryMenu.onLinkClicked(event, this);" href="selectserver.html?showuser=1"><span class="sidebarLinkText">' + globalize.translate("ButtonSelectServer") + "</span></a>"), user.localUser && (html += '<a class="sidebarLink lnkMediaFolder" data-itemid="logout" onclick="return LibraryMenu.onLogoutClicked(this);" href="#"><span class="sidebarLinkText">' + globalize.translate("ButtonSignOut") + "</span></a>"), html += "</div>", navDrawerScrollContainer.innerHTML = html;
 		var lnkManageServer = navDrawerScrollContainer.querySelector(".lnkManageServer");
 		lnkManageServer && lnkManageServer.addEventListener("click", onManageServerClicked)
 	}
@@ -133,9 +133,149 @@ define(["layoutManager", "events", "viewManager", "libraryBrowser", "embyRouter"
 		}
 	}
 
+	function getToolsMenuLinks() {
+		return [{
+			name: globalize.translate("TabServer")
+		}, {
+			name: globalize.translate("TabDashboard"),
+			href: "dashboard.html",
+			pageIds: ["dashboardPage"],
+			icon: "dashboard"
+		}, {
+			name: globalize.translate("TabSettings"),
+			href: "dashboardgeneral.html",
+			pageIds: ["dashboardGeneralPage"],
+			icon: "settings"
+		}, {
+			name: globalize.translate("TabUsers"),
+			href: "userprofiles.html",
+			pageIds: ["userProfilesPage", "newUserPage", "editUserPage", "userLibraryAccessPage", "userParentalControlPage", "userPasswordPage"],
+			icon: "people"
+		}, {
+			name: "Emby Premiere",
+			href: "supporterkey.html",
+			pageIds: ["supporterKeyPage"],
+			icon: "star"
+		}, {
+			name: globalize.translate("TabLibrary"),
+			href: "library.html",
+			pageIds: ["mediaLibraryPage", "librarySettingsPage", "libraryDisplayPage", "metadataImagesConfigurationPage", "metadataNfoPage"],
+			icon: "folder",
+			color: "#38c"
+		}, {
+			name: globalize.translate("TabSubtitles"),
+			href: "metadatasubtitles.html",
+			pageIds: ["metadataSubtitlesPage"],
+			icon: "closed_caption"
+		}, {
+			name: globalize.translate("TabPlayback"),
+			icon: "play_circle_filled",
+			color: "#E5342E",
+			href: "cinemamodeconfiguration.html",
+			pageIds: ["cinemaModeConfigurationPage", "playbackConfigurationPage", "streamingSettingsPage"]
+		}, {
+			name: globalize.translate("TabTranscoding"),
+			icon: "transform",
+			href: "encodingsettings.html",
+			pageIds: ["encodingSettingsPage"]
+		}, {
+			divider: !0,
+			name: globalize.translate("TabDevices")
+		}, {
+			name: globalize.translate("TabDevices"),
+			href: "devices.html",
+			pageIds: ["devicesPage", "devicePage"],
+			icon: "tablet"
+		}, {
+			name: globalize.translate("HeaderDownloadSync"),
+			icon: "file_download",
+			href: "syncactivity.html",
+			pageIds: ["syncActivityPage", "syncJobPage", "syncSettingsPage"],
+			color: "#009688"
+		}, {
+			name: globalize.translate("TabCameraUpload"),
+			href: "devicesupload.html",
+			pageIds: ["devicesUploadPage"],
+			icon: "photo_camera"
+		}, {
+			divider: !0,
+			name: globalize.translate("TabExtras")
+		}, {
+			name: globalize.translate("TabAutoOrganize"),
+			color: "#01C0DD",
+			href: "autoorganizelog.html",
+			pageIds: ["libraryFileOrganizerPage", "libraryFileOrganizerSmartMatchPage", "libraryFileOrganizerLogPage"],
+			icon: "folder"
+		}, {
+			name: globalize.translate("DLNA"),
+			href: "dlnasettings.html",
+			pageIds: ["dlnaSettingsPage", "dlnaProfilesPage", "dlnaProfilePage"],
+			icon: "settings"
+		}, {
+			name: globalize.translate("TabLiveTV"),
+			href: "livetvstatus.html",
+			pageIds: ["liveTvStatusPage", "liveTvSettingsPage", "liveTvTunerPage"],
+			icon: "dvr"
+		}, {
+			name: globalize.translate("TabNotifications"),
+			icon: "notifications",
+			color: "brown",
+			href: "notificationsettings.html",
+			pageIds: ["notificationSettingsPage", "notificationSettingPage"]
+		}, {
+			name: globalize.translate("TabPlugins"),
+			icon: "add_shopping_cart",
+			color: "#9D22B1",
+			href: "plugins.html",
+			pageIds: ["pluginsPage", "pluginCatalogPage"]
+		}, {
+			divider: !0,
+			name: globalize.translate("TabExpert")
+		}, {
+			name: globalize.translate("TabAdvanced"),
+			icon: "settings",
+			href: "dashboardhosting.html",
+			color: "#F16834",
+			pageIds: ["dashboardHostingPage", "serverSecurityPage"]
+		}, {
+			name: globalize.translate("TabLogs"),
+			href: "log.html",
+			pageIds: ["logPage"],
+			icon: "folder_open"
+		}, {
+			name: globalize.translate("TabScheduledTasks"),
+			href: "scheduledtasks.html",
+			pageIds: ["scheduledTasksPage", "scheduledTaskPage"],
+			icon: "schedule"
+		}, {
+			name: globalize.translate("MetadataManager"),
+			href: "edititemmetadata.html",
+			pageIds: [],
+			icon: "mode_edit"
+		}, {
+			name: globalize.translate("ButtonReports"),
+			href: "reports.html",
+			pageIds: [],
+			icon: "insert_chart"
+		}]
+	}
+
+	function getToolsLinkHtml(item) {
+		var menuHtml = "",
+			pageIds = item.pageIds ? item.pageIds.join(",") : "";
+		return pageIds = pageIds ? ' data-pageids="' + pageIds + '"' : "", menuHtml += '<a class="sidebarLink" href="' + item.href + '"' + pageIds + ">", item.icon && (menuHtml += '<i class="md-icon sidebarLinkIcon">' + item.icon + "</i>"), menuHtml += '<span class="sidebarLinkText">', menuHtml += item.name, menuHtml += "</span>", menuHtml += "</a>"
+	}
+
+	function getToolsMenuHtml() {
+		var i, length, item, items = getToolsMenuLinks(),
+			menuHtml = "";
+		for (menuHtml += '<div class="drawerContent">', i = 0, length = items.length; i < length; i++) item = items[i], item.divider && (menuHtml += "<div class='sidebarDivider'></div>"), item.href ? menuHtml += getToolsLinkHtml(item) : item.name && (menuHtml += '<div class="sidebarHeader">', menuHtml += item.name, menuHtml += "</div>");
+		return menuHtml += "</div>"
+	}
+
 	function createDashboardMenu() {
 		var html = "";
-		html += '<a class="adminDrawerLogo clearLink" href="home.html">', html += '<img src="css/images/logoblack.png" />', html += "</a>", html += Dashboard.getToolsMenuHtml(), html = html.split("href=").join('onclick="return LibraryMenu.onLinkClicked(event, this);" href='), navDrawerScrollContainer.innerHTML = html, updateDashboardMenuSelectedItem()
+		html += '<a class="adminDrawerLogo clearLink" is="emby-linkbutton" href="home.html" style="text-align:left;">', html += '<img src="css/images/logoblack.png" />', html += "</a>", html += getToolsMenuHtml(), html = html.split("href=").join('onclick="return LibraryMenu.onLinkClicked(event, this);" href='), navDrawerScrollContainer.innerHTML = html, updateDashboardMenuSelectedItem()
 	}
 
 	function onSidebarLinkClick() {
@@ -151,7 +291,7 @@ define(["layoutManager", "events", "viewManager", "libraryBrowser", "embyRouter"
 				if (list.push(view), "livetv" == view.CollectionType) {
 					view.ImageTags = {}, view.icon = "live_tv";
 					var guideView = Object.assign({}, view);
-					guideView.Name = Globalize.translate("ButtonGuide"), guideView.ImageTags = {}, guideView.icon = "dvr", guideView.url = "livetv.html?tab=1", list.push(guideView)
+					guideView.Name = globalize.translate("ButtonGuide"), guideView.ImageTags = {}, guideView.icon = "dvr", guideView.url = "livetv.html?tab=1", list.push(guideView)
 				}
 			}
 			return list
@@ -164,15 +304,15 @@ define(["layoutManager", "events", "viewManager", "libraryBrowser", "embyRouter"
 	}
 
 	function updateLibraryMenu(user) {
-		if (!user) return showBySelector(".lnkManageOffline", !1), showBySelector(".lnkSyncToOtherDevices", !1), void showBySelector(".userMenuOptions", !1);
-		user.Policy.EnableContentDownloading ? showBySelector(".lnkSyncToOtherDevices", !0) : showBySelector(".lnkSyncToOtherDevices", !1), user.Policy.EnableContentDownloading && appHost.supports("sync") ? showBySelector(".lnkManageOffline", !0) : showBySelector(".lnkManageOffline", !1);
+		if (!user) return showBySelector(".libraryMenuDownloads", !1), showBySelector(".lnkSyncToOtherDevices", !1), void showBySelector(".userMenuOptions", !1);
+		user.Policy.EnableContentDownloading ? showBySelector(".lnkSyncToOtherDevices", !0) : showBySelector(".lnkSyncToOtherDevices", !1), user.Policy.EnableContentDownloading && appHost.supports("sync") ? showBySelector(".libraryMenuDownloads", !0) : showBySelector(".libraryMenuDownloads", !1);
 		var userId = Dashboard.getCurrentUserId(),
 			apiClient = window.ApiClient,
 			libraryMenuOptions = document.querySelector(".libraryMenuOptions");
 		libraryMenuOptions && getUserViews(apiClient, userId).then(function (result) {
 			var items = result,
 				html = "";
-			html += '<div class="sidebarHeader">', html += Globalize.translate("HeaderMedia"), html += "</div>", html += items.map(function (i) {
+			html += '<div class="sidebarHeader">', html += globalize.translate("HeaderMedia"), html += "</div>", html += items.map(function (i) {
 				var icon = "folder",
 					color = "inherit",
 					itemId = i.Id;
@@ -226,7 +366,7 @@ define(["layoutManager", "events", "viewManager", "libraryBrowser", "embyRouter"
 	}
 
 	function updateViewMenuBar(page) {
-		page.classList.contains("standalonePage") ? skinHeader.classList.add("hide") : skinHeader.classList.remove("hide"), page.classList.contains("type-interior") && !layoutManager.mobile ? skinHeader.classList.add("headroomDisabled") : skinHeader.classList.remove("headroomDisabled"), requiresUserRefresh && ConnectionManager.user(window.ApiClient).then(updateUserInHeader)
+		page.classList.contains("standalonePage") ? skinHeader.classList.add("hide") : skinHeader.classList.remove("hide"), page.classList.contains("type-interior") && !layoutManager.mobile ? skinHeader.classList.add("headroomDisabled") : skinHeader.classList.remove("headroomDisabled"), requiresUserRefresh && connectionManager.user(window.ApiClient).then(updateUserInHeader)
 	}
 
 	function updateTitle(page) {
@@ -235,8 +375,7 @@ define(["layoutManager", "events", "viewManager", "libraryBrowser", "embyRouter"
 	}
 
 	function updateBackButton(page) {
-		var backButton = document.querySelector(".headerBackButton");
-		backButton && ("true" == page.getAttribute("data-backbutton") && embyRouter.canGoBack() ? backButton.classList.remove("hide") : backButton.classList.add("hide"))
+		headerBackButton || (headerBackButton = document.querySelector(".headerBackButton")), headerBackButton && ("false" !== page.getAttribute("data-backbutton") && embyRouter.canGoBack() ? headerBackButton.classList.remove("hide") : headerBackButton.classList.add("hide"))
 	}
 
 	function initHeadRoom(elem) {
@@ -256,7 +395,7 @@ define(["layoutManager", "events", "viewManager", "libraryBrowser", "embyRouter"
 
 	function refreshLibraryDrawer(user) {
 		loadNavDrawer(), currentDrawerType = "library";
-		var promise = user ? Promise.resolve(user) : ConnectionManager.user(window.ApiClient);
+		var promise = user ? Promise.resolve(user) : connectionManager.user(window.ApiClient);
 		promise.then(function (user) {
 			refreshLibraryInfoInDrawer(user), updateLibraryMenu(user.localUser)
 		})
@@ -278,7 +417,7 @@ define(["layoutManager", "events", "viewManager", "libraryBrowser", "embyRouter"
 			})
 		}))
 	}
-	var navDrawerElement, navDrawerScrollContainer, navDrawerInstance, mainDrawerButton, btnHome, currentDrawerType, enableLibraryNavDrawer = layoutManager.desktop,
+	var navDrawerElement, navDrawerScrollContainer, navDrawerInstance, mainDrawerButton, btnHome, currentDrawerType, pageTitleElement, headerBackButton, enableLibraryNavDrawer = layoutManager.desktop,
 		skinHeader = document.querySelector(".skinHeader"),
 		requiresUserRefresh = !0,
 		lastOpenTime = (new Date).getTime();
@@ -308,18 +447,16 @@ define(["layoutManager", "events", "viewManager", "libraryBrowser", "embyRouter"
 			})
 		},
 		setDefaultTitle: function () {
-			var libraryMenuButtonText = document.querySelector(".libraryMenuButtonText");
-			libraryMenuButtonText && (libraryMenuButtonText.innerHTML = '<img src="css/images/logo.png" style="height:20px;" />'), document.title = "Emby"
+			pageTitleElement || (pageTitleElement = document.querySelector(".pageTitle")), pageTitleElement && (pageTitleElement.classList.add("pageTitleWithLogo"), pageTitleElement.classList.add("pageTitleWithDefaultLogo"), pageTitleElement.style.backgroundImage = "url(css/images/logo.png)", pageTitleElement.innerHTML = ""), document.title = "Emby"
 		},
 		setTitle: function (title) {
 			var html = title,
 				page = viewManager.currentView();
 			if (page) {
 				var helpUrl = page.getAttribute("data-helpurl");
-				helpUrl && (html += '<a href="' + helpUrl + '" target="_blank" is="emby-linkbutton" class="button-link" style="margin-left:2em;" title="' + Globalize.translate("ButtonHelp") + '"><i class="md-icon">info</i><span>' + Globalize.translate("ButtonHelp") + "</span></a>")
+				helpUrl && (html += '<a href="' + helpUrl + '" target="_blank" is="emby-linkbutton" class="button-link" style="margin-left:2em;" title="' + globalize.translate("ButtonHelp") + '"><i class="md-icon">info</i><span>' + globalize.translate("ButtonHelp") + "</span></a>")
 			}
-			var libraryMenuButtonText = document.querySelector(".libraryMenuButtonText");
-			libraryMenuButtonText && (libraryMenuButtonText.innerHTML = html), document.title = title || "Emby"
+			pageTitleElement || (pageTitleElement = document.querySelector(".pageTitle")), pageTitleElement && (pageTitleElement.classList.remove("pageTitleWithLogo"), pageTitleElement.classList.remove("pageTitleWithDefaultLogo"), pageTitleElement.style.backgroundImage = null, pageTitleElement.innerHTML = html), document.title = title || "Emby"
 		},
 		setTransparentMenu: function (transparent) {
 			transparent ? skinHeader.classList.add("semiTransparent") : skinHeader.classList.remove("semiTransparent")
@@ -332,11 +469,11 @@ define(["layoutManager", "events", "viewManager", "libraryBrowser", "embyRouter"
 		btnHome && ("indexPage" === page.id ? btnHome.classList.add("hide") : btnHome.classList.remove("hide"));
 		var isDashboardPage = page.classList.contains("type-interior");
 		isDashboardPage ? (mainDrawerButton && mainDrawerButton.classList.remove("hide"), refreshDashboardInfoInDrawer(page)) : (mainDrawerButton && (enableLibraryNavDrawer ? mainDrawerButton.classList.remove("hide") : mainDrawerButton.classList.add("hide")), "library" !== currentDrawerType && refreshLibraryDrawer()), setDrawerClass(page), updateViewMenuBar(page), e.detail.isRestored || window.scrollTo(0, 0), updateTitle(page), updateBackButton(page), page.classList.contains("libraryPage") ? (document.body.classList.add("libraryDocument"), document.body.classList.remove("dashboardDocument"), document.body.classList.remove("hideMainDrawer"), navDrawerInstance && navDrawerInstance.setEdgeSwipeEnabled(!0)) : isDashboardPage ? (document.body.classList.remove("libraryDocument"), document.body.classList.add("dashboardDocument"), document.body.classList.remove("hideMainDrawer"), navDrawerInstance && navDrawerInstance.setEdgeSwipeEnabled(!0)) : (document.body.classList.remove("libraryDocument"), document.body.classList.remove("dashboardDocument"), document.body.classList.add("hideMainDrawer"), navDrawerInstance && navDrawerInstance.setEdgeSwipeEnabled(!1)), updateLibraryNavLinks(page)
-	}), window.ApiClient && initializeApiClient(window.ApiClient), renderHeader(), events.on(ConnectionManager, "apiclientcreated", function (e, apiClient) {
+	}), window.ApiClient && initializeApiClient(window.ApiClient), renderHeader(), events.on(connectionManager, "apiclientcreated", function (e, apiClient) {
 		initializeApiClient(apiClient)
-	}), events.on(ConnectionManager, "localusersignedin", function (e, user) {
-		setDrawerClass(), ConnectionManager.user(ConnectionManager.getApiClient(user.ServerId)).then(function (user) {
+	}), events.on(connectionManager, "localusersignedin", function (e, user) {
+		currentDrawerType = null, setDrawerClass(), connectionManager.user(connectionManager.getApiClient(user.ServerId)).then(function (user) {
 			updateUserInHeader(user)
 		})
-	}), events.on(ConnectionManager, "localusersignedout", updateUserInHeader), events.on(playbackManager, "playerchange", updateCastIcon), setDrawerClass(), LibraryMenu
+	}), events.on(connectionManager, "localusersignedout", updateUserInHeader), events.on(playbackManager, "playerchange", updateCastIcon), setDrawerClass(), LibraryMenu
 });
