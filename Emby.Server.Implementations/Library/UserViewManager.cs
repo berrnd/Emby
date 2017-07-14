@@ -289,8 +289,11 @@ namespace Emby.Server.Implementations.Library
                 ExcludeItemTypes = excludeItemTypes,
                 IsVirtualItem = false,
                 Limit = limit * 5,
-                IsPlayed = isPlayed,
-                DtoOptions = options
+				//myproduction-change-start
+				//Include played items
+                //IsPlayed = isPlayed,
+				//myproduction-change-end
+				DtoOptions = options
             };
 
             if (parents.Count == 0)
