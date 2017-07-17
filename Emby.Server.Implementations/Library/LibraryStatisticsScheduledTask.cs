@@ -82,11 +82,19 @@ namespace Emby.Server.Implementations.Library
 				};
 
 				long totalFileSize = 0;
+				long totalFileSizeWithRedundancy = 0;
 				foreach (var item in _libraryManager.GetItemsResult(totalFileSizeQuery).Items)
 				{
 					if (_fileSystem.FileExists(item.Path))
 					{
-						totalFileSize += _fileSystem.GetFileInfo(item.Path).Length;
+						FileSystemMetadata fileInfo = _fileSystem.GetFileInfo(item.Path);
+						totalFileSize += fileInfo.Length;
+						totalFileSizeWithRedundancy += fileInfo.Length;
+
+						if (!item.Path.Contains(@"\ForeignMedia\"))
+						{
+							totalFileSizeWithRedundancy += fileInfo.Length;
+						}
 					}
 				}
 				_libraryManager.Statistics.TotalFileSize = totalFileSize;

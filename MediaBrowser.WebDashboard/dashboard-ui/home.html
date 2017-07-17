@@ -10,19 +10,45 @@
 
 		<!--myproduction-change-start-->
         <!--Added statistics overview-->
-        <div class="homePageSection verticalSection" style="padding-left: 10px">
+        <div class="homePageSection verticalSection" style="padding-left: 12px">
           <h1 class="listHeader" style="padding-left: 2.4vw;">Statistik</h1>
           <div style="padding-left: 2.4vw;">
 			<h2>
-				<span id="statisticsMovieCount" style="color: #F16834;">...</span> Filme, <span id="statisticsSeriesCount" style="color: #F16834;">...</span> Serien mit insgesamt <span id="statisticsEpisodesCount" style="color: #F16834;">...</span> Episoden, <span id="statisticsTotalFileSize" style="color: #F16834;">...</span> Daten, <span id="statisticsTotalRunTime" style="color: #F16834;">...</span> Spieldauer
+				<span id="statisticsMovieCount" style="color: #F16834;">...</span> Filme, <span id="statisticsSeriesCount" style="color: #F16834;">...</span> Serien mit insgesamt <span id="statisticsEpisodesCount" style="color: #F16834;">...</span> Episoden, <span id="statisticsTotalFileSize" style="color: #F16834;">...</span> Daten (<span id="statisticsTotalFileSizeWithRedundancy" style="color: #F16834;">...</span> inkl. Redundanz), <span id="statisticsTotalRunTime" style="color: #F16834;">...</span> Spieldauer
 			</h2>
           </div>
         </div>
         <!--myproduction-change-end-->
-        
+		
+		<!--myproduction-change-start-->
+        <!--Added DownloadPreconfiguredKodi button-->
+        <div class="homePageSection verticalSection" style="padding-left: 12px">
+          <h1 class="listHeader" style="padding-left: 2.4vw;">Direkt streamen</h1>
+		  <div style="padding-left: 2.4vw;">
+			<h3>Das hier alles kannst du auch direkt abspielen, ohne Downloadumweg - komfortabel mit einer vorkonfigurierten <a href="https://kodi.tv/" target="_blank">Kodi</a>-Instanz (ein Open Source Mediacenter).<br />
+			Funktioniert auf jedem Windows-PC, einfach runterladen, doppelklicken und du hast eine entsprechende Verknüpfung auf deinem Desktop.</h3>
+		  </div>
+		  <div style="display:flex;flex-wrap:wrap;padding-left: 2.4vw;">
+			<button is="emby-button" type="button" class="raised subdued emby-button emby-button-noflex" onclick="DownloadPreconfiguredKodi();"><i class="md-icon">file_download</i><span>Kodi herunterladen</span></button>
+		  </div>
+		</div>
+        <script>
+          function DownloadPreconfiguredKodi()
+          {
+            var piwikTracker = Piwik.getAsyncTracker();
+            piwikTracker.trackEvent("Misc", "DownloadedPreconfiguredKodi");
+			
+			var downloadUrl = ApiClient.getUrl("/Users/" + ApiClient._currentUser.Id + "/DownloadPreconfiguredKodi");
+			setTimeout(function () {
+				window.location.href = downloadUrl;
+			}, 500);
+          }
+        </script>
+        <!--myproduction-change-end-->
+          
         <!--myproduction-change-start-->
         <!--Added wish button-->
-        <div class="homePageSection verticalSection" style="padding-left: 10px">
+        <div class="homePageSection verticalSection" style="padding-left: 12px">
           <h1 class="listHeader" style="padding-left: 2.4vw;">Wunschecke</h1>
 		  <div style="padding-left: 2.4vw;">
 			<h3>Eine Serie ist unvollständig, du hättest gerne was Neues oder irgendwas geht nicht?</h3>

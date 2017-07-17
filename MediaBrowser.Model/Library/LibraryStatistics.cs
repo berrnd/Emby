@@ -16,6 +16,7 @@ namespace MediaBrowser.Model.Library
 		public long? TotalRunTimeTicks { get; set; }
 		public DateTime? NewestItemDate { get; set; }
 		public long? TotalFileSize { get; set; }
+		public long? TotalFileSizeWithRedundancy { get; set; }
 		public bool NeedsRecalculation { get; set; }
 	}
 }

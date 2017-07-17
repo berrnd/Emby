@@ -107,6 +107,7 @@ define(["loading", "libraryBrowser", "libraryMenu", "playbackManager", "mainTabs
 
 						document.getElementById("statisticsTotalRunTime").textContent = germanDuration(itemCounts.LibraryStatistics.TotalRunTimeTicks);
 						document.getElementById("statisticsTotalFileSize").textContent = humanFileSize(itemCounts.LibraryStatistics.TotalFileSize);
+						document.getElementById("statisticsTotalFileSizeWithRedundancy").textContent = humanFileSize(itemCounts.LibraryStatistics.TotalFileSizeWithRedundancy);
 					});
 					//myproduction-change-end
 				})
