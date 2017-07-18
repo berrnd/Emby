@@ -184,7 +184,10 @@ define(["cardBuilder", "appSettings", "dom", "apphost", "layoutManager", "imageL
 
 	function renderLatestSection(elem, apiClient, user, parent) {
 		var limit = 12;
-		enableScrollX() ? "music" === parent.CollectionType && (limit = 30) : limit = "tvshows" === parent.CollectionType ? 5 : "music" === parent.CollectionType ? 9 : 8;
+		//myproduction-change-start
+		//Changed limit for tvshows to 50
+		enableScrollX() ? "music" === parent.CollectionType && (limit = 30) : limit = "tvshows" === parent.CollectionType ? 50 : "music" === parent.CollectionType ? 9 : 8;
+		//myproduction-change-end
 		var options = {
 			Limit: limit,
 			Fields: "PrimaryImageAspectRatio,BasicSyncInfo",
@@ -195,16 +198,22 @@ define(["cardBuilder", "appSettings", "dom", "apphost", "layoutManager", "imageL
 		return apiClient.getJSON(apiClient.getUrl("Users/" + user.Id + "/Items/Latest", options)).then(function (items) {
 			var html = "";
 			if (items.length) {
-				html += '<div class="sectionTitleContainer padded-left">', layoutManager.tv ? html += '<h2 class="sectionTitle sectionTitle-cards">' + globalize.translate("sharedcomponents#LatestFromLibrary", parent.Name) + "</h2>" : (html += '<a is="emby-linkbutton" href="' + embyRouter.getRouteUrl(parent, {
+				//myproduction-change-start
+				//Changed headline to "Neues in xxLIBRARYxx"
+				html += '<div class="sectionTitleContainer padded-left">', layoutManager.tv ? html += '<h2 class="sectionTitle sectionTitle-cards">' + "Neues in " + parent.Name + "</h2>" : (html += '<a is="emby-linkbutton" href="' + embyRouter.getRouteUrl(parent, {
 					section: "latest"
-				}) + '" class="more button-flat button-flat-mini sectionTitleTextButton">', html += '<h2 class="sectionTitle sectionTitle-cards">', html += globalize.translate("sharedcomponents#LatestFromLibrary", parent.Name), html += "</h2>", html += '<i class="md-icon">&#xE5CC;</i>', html += "</a>"), html += "</div>", html += enableScrollX() ? '<div is="emby-scroller" class="padded-top-focusscale padded-bottom-focusscale" data-mousewheel="false" data-centerfocus="true"><div is="emby-itemscontainer" class="scrollSlider focuscontainer-x padded-left padded-right">' : '<div is="emby-itemscontainer" class="itemsContainer padded-left padded-right vertical-wrap focuscontainer-x">';
+				}) + '" class="more button-flat button-flat-mini sectionTitleTextButton">', html += '<h2 class="sectionTitle sectionTitle-cards">', html += "Neues in " + parent.Name, html += "</h2>", html += '<i class="md-icon">&#xE5CC;</i>', html += "</a>"), html += "</div>", html += enableScrollX() ? '<div is="emby-scroller" class="padded-top-focusscale padded-bottom-focusscale" data-mousewheel="false" data-centerfocus="true"><div is="emby-itemscontainer" class="scrollSlider focuscontainer-x padded-left padded-right">' : '<div is="emby-itemscontainer" class="itemsContainer padded-left padded-right vertical-wrap focuscontainer-x">';
+				//myproduction-change-end	
 				var viewType = parent.CollectionType,
 					shape = "movies" === viewType ? getPortraitShape() : "music" === viewType ? getSquareShape() : getThumbShape(),
 					supportsImageAnalysis = appHost.supports("imageanalysis");
 				supportsImageAnalysis = !1;
 				var cardLayout = supportsImageAnalysis && ("music" === viewType || "movies" === viewType || "tvshows" === viewType || "musicvideos" === viewType || !viewType);
 				html += cardBuilder.getCardsHtml({
-					items: items,
+					//myproduction-change-start
+					//Just use the first 8 elements, tvhshows maybe contain more
+					items: items.slice(0, 8),
+					//myproduction-change-end
 					shape: shape,
 					preferThumb: "movies" !== viewType && "music" !== viewType ? "auto" : null,
 					showUnplayedIndicator: !1,

@@ -82,10 +82,15 @@ namespace Emby.Server.Implementations.Library.Resolvers.TV
                         };
 
 						//myproduction-change-start
-						//OV series handling
+						//OV & ForeignMedia series handling
 						if (args.Path.Contains("SerienOV"))
 						{
 							series.Tags.Add("OV");
+						}
+
+						if (args.Path.Contains("ForeignMedia"))
+						{
+							series.Tags.Add("ForeignMedia");
 						}
 
 						return series;

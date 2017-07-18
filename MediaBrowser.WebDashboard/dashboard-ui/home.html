@@ -1,5 +1,15 @@
 ﻿<div id="indexPage" style="outline: none;" data-role="page" data-dom-cache="true" class="page homePage libraryPage allLibraryPage backdropPage pageWithAbsoluteTabs withTabs" data-backdroptype="movie,series,game,book">
 
+<!--myproduction-change-start-->
+<!--Hide upcoming tab-->
+<style>
+button.emby-tab-button:nth-child(3)
+{
+	display: none !important;
+}
+</style>
+<!--myproduction-change-end-->
+
     <div class="pageTabContent" id="homeTab" data-index="0">
         <div class="ui-bar-b readOnlyContent welcomeMessage hide" style="padding: 2em; border-radius: 10px; margin: 2em auto; font-weight: normal;">
             <h1 style="margin-top: 0;" class="tourHeader"></h1>
@@ -10,7 +20,7 @@
 
 		<!--myproduction-change-start-->
         <!--Added statistics overview-->
-        <div class="homePageSection verticalSection" style="padding-left: 12px">
+        <div class="homePageSection verticalSection" style="padding-left: 16px">
           <h1 class="listHeader" style="padding-left: 2.4vw;">Statistik</h1>
           <div style="padding-left: 2.4vw;">
 			<h2>
@@ -22,7 +32,7 @@
 		
 		<!--myproduction-change-start-->
         <!--Added DownloadPreconfiguredKodi button-->
-        <div class="homePageSection verticalSection" style="padding-left: 12px">
+        <div class="homePageSection verticalSection" style="padding-left: 16px">
           <h1 class="listHeader" style="padding-left: 2.4vw;">Direkt streamen</h1>
 		  <div style="padding-left: 2.4vw;">
 			<h3>Das hier alles kannst du auch direkt abspielen, ohne Downloadumweg - komfortabel mit einer vorkonfigurierten <a href="https://kodi.tv/" target="_blank">Kodi</a>-Instanz (ein Open Source Mediacenter).<br />
@@ -36,19 +46,42 @@
           function DownloadPreconfiguredKodi()
           {
             var piwikTracker = Piwik.getAsyncTracker();
-            piwikTracker.trackEvent("Misc", "DownloadedPreconfiguredKodi");
 			
-			var downloadUrl = ApiClient.getUrl("/Users/" + ApiClient._currentUser.Id + "/DownloadPreconfiguredKodi");
-			setTimeout(function () {
-				window.location.href = downloadUrl;
-			}, 500);
+			var accessToken = ApiClient.accessToken();
+			var downloadCheckUrl = ApiClient.getUrl("/Users/" + ApiClient._currentUser.Id + "/DownloadPreconfiguredKodiCheck?api_key=" + accessToken);
+			var downloadUrl = ApiClient.getUrl("/Users/" + ApiClient._currentUser.Id + "/DownloadPreconfiguredKodi?api_key=" + accessToken);
+			
+			ApiClient.ajax(
+			{
+			  url: downloadCheckUrl,
+			  type: 'GET'
+			}).then(function(result)
+			{
+			  if (result.indexOf("true") > -1)
+			  {
+				piwikTracker.trackEvent("Misc", "DownloadedPreconfiguredKodi", "success");
+				
+				setTimeout(function () {
+					window.location.href = downloadUrl;
+				}, 500);
+			  }
+			  else
+			  {
+				piwikTracker.trackEvent("Misc", "DownloadedPreconfiguredKodi", "error");
+				
+				Dashboard.alert({
+				  title: "Da ging leider etwas schief",
+				  message: "Anscheinend ist für dich noch keine vorkonfigurierte Kodi-Instanz bereitgestellt oder etwas anderes passt nicht - sag mir doch bitte kurz Bescheid, falls du Kodi ausprobieren willst."
+				});
+			  }
+			});
           }
         </script>
         <!--myproduction-change-end-->
           
         <!--myproduction-change-start-->
         <!--Added wish button-->
-        <div class="homePageSection verticalSection" style="padding-left: 12px">
+        <div class="homePageSection verticalSection" style="padding-left: 16px">
           <h1 class="listHeader" style="padding-left: 2.4vw;">Wunschecke</h1>
 		  <div style="padding-left: 2.4vw;">
 			<h3>Eine Serie ist unvollständig, du hättest gerne was Neues oder irgendwas geht nicht?</h3>
@@ -60,36 +93,53 @@
         <script>
           function WuenschDirWas()
           {
-            var wunsch = prompt("Was hättest denn gern?");
-            if (wunsch != null)
-            {
-              ApiClient.getCurrentUser().then(function (user)
-              {
-                var piwikTracker = Piwik.getAsyncTracker();
-                piwikTracker.trackEvent("Misc", "Wish", wunsch);
-                
-                ApiClient.ajax(
-                {
-                  url: "https://bots.berrnd.org/actions/mail?from=emby@berrnd.org&subject=Neuer Wunsch von " + user.Name + "&text=" + wunsch,
-                  type: 'GET'
-                }).then(function (result) {
-                  if (result.indexOf("success") > -1)
-                  {
-                    Dashboard.alert({
-                      title: "Dein Wunsch ist mir Befehl",
-                      message: "Schau immer mal wieder hier vorbei, es ist sicher schon bald da."
-                    });
-                  }
-                  else
-                  {
-                    Dashboard.alert({
-                      title: "Da ging leider etwas schief",
-                      message: "Bitte versuche es nochmal, oder lass mir deinen Wunsch auf einem anderem Weg zukommen."
-                    });
-                  }
-                });
-              });
-            }
+			require(["prompt"], function(prompt)
+			{
+				prompt(
+				{
+					titile: "Nachricht senden",
+					label: "Was hättest denn gern?"
+				}).then(function(wunsch)
+				{
+					if (wunsch != null)
+					{
+						require(["loading"], function(loading)
+						{
+						  loading.show();
+						  
+						  ApiClient.getCurrentUser().then(function (user)
+						  {
+							var piwikTracker = Piwik.getAsyncTracker();
+							piwikTracker.trackEvent("Misc", "Wish", wunsch);
+							
+							ApiClient.ajax(
+							{
+							  url: "https://bots.berrnd.org/actions/mail?from=emby@berrnd.org&subject=Neuer Wunsch von " + user.Name + "&text=" + wunsch,
+							  type: 'GET'
+							}).then(function(result)
+							{
+							  loading.hide();
+							  
+							  if (result.indexOf("success") > -1)
+							  {
+								Dashboard.alert({
+								  title: "Dein Wunsch ist mir Befehl",
+								  message: "Schau immer mal wieder hier vorbei, es ist sicher schon bald da."
+								});
+							  }
+							  else
+							  {
+								Dashboard.alert({
+								  title: "Da ging leider etwas schief",
+								  message: "Bitte versuche es nochmal, oder lass mir deinen Wunsch auf einem anderem Weg zukommen."
+								});
+							  }
+							});
+						  });
+						});
+					}
+				})
+			});
           }
         </script>
         <!--myproduction-change-end-->

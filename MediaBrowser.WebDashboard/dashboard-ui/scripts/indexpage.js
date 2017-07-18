@@ -119,15 +119,18 @@ define(["loading", "libraryBrowser", "libraryMenu", "playbackManager", "mainTabs
 
 	//myproduction-change-start
 	//Added statistics overview
-	function germanDate(dateObject) {
+	function germanDate(dateObject)
+	{
 		return ("0" + dateObject.getDate().toString()).substr(-2) + "." + ("0" + (dateObject.getMonth() + 1).toString()).substr(-2) + "." + dateObject.getFullYear().toString();
 	}
 
-	function germanTime(dateObject) {
+	function germanTime(dateObject)
+	{
 		return ("0" + dateObject.getHours().toString()).substr(-2) + ":" + ("0" + dateObject.getMinutes().toString()).substr(-2);
 	}
 
-	function germanDuration(ticks) {
+	function germanDuration(ticks)
+	{
 		var totalSeconds = ticks / 1000 / 1000;
 		var years = Math.floor(totalSeconds / 31536000);
 		var days = Math.floor((totalSeconds % 31536000) / 86400);
@@ -158,7 +161,8 @@ define(["loading", "libraryBrowser", "libraryMenu", "playbackManager", "mainTabs
 		return years.toString() + " " + yearTxt + ", " + days.toString() + " " + dayTxt + ", " + hours.toString() + " " + hourTxt + "";
 	}
 
-	function humanFileSize(size) {
+	function humanFileSize(size)
+	{
 		var i = Math.floor(Math.log(size) / Math.log(1024));
 		var sizeString = (size / Math.pow(1024, i)).toFixed(2) * 1 + " " + ["B", "kB", "MB", "GB", "TB"][i];
 		return sizeString.replace(".", ",");

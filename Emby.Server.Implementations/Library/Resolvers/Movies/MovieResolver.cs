@@ -293,7 +293,15 @@ namespace Emby.Server.Implementations.Library.Resolvers.Movies
                 item.IsInMixedFolder = true;
             }
 
-            return item;
+			//myproduction-change-start
+			//ForeignMedia movies handling
+			if (args.Path.Contains("ForeignMedia"))
+			{
+				item.Tags.Add("ForeignMedia");
+			}
+			//myproduction-change-end
+
+			return item;
         }
 
         private bool IsIgnored(string filename)

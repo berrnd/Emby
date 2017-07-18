@@ -859,7 +859,15 @@ namespace Emby.Server.Implementations.Dto
         {
             var fields = options.Fields;
 
-            if (fields.Contains(ItemFields.DateCreated))
+			//myproduction-change-start
+			//Include file size (don't know why this is always empty in item, so load the file...)
+			if (_fileSystem.FileExists(item.Path))
+			{
+				dto.Size = _fileSystem.GetFileInfo(item.Path).Length;
+			}
+			//myproduction-change-start
+
+			if (fields.Contains(ItemFields.DateCreated))
             {
                 dto.DateCreated = item.DateCreated;
             }

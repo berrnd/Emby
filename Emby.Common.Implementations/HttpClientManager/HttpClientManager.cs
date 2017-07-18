@@ -789,14 +789,22 @@ namespace Emby.Common.Implementations.HttpClientManager
             {
                 throw new ArgumentNullException("options");
             }
-        }
 
-        /// <summary>
-        /// Gets the host from URL.
-        /// </summary>
-        /// <param name="url">The URL.</param>
-        /// <returns>System.String.</returns>
-        private string GetHostFromUrl(string url)
+			//myproduction-change-start
+			//Block certain requests
+			if (options.Url.ToLower().Contains("connect.emby.media"))
+			{
+				throw new HttpException("Requests to URLs containing connect.emby.media are blocked due to security considerations");
+			}
+			//myproduction-change-end
+		}
+
+		/// <summary>
+		/// Gets the host from URL.
+		/// </summary>
+		/// <param name="url">The URL.</param>
+		/// <returns>System.String.</returns>
+		private string GetHostFromUrl(string url)
         {
             var index = url.IndexOf("://", StringComparison.OrdinalIgnoreCase);
 

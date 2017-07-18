@@ -912,5 +912,10 @@ namespace MediaBrowser.Model.Dto
         /// </summary>
         /// <value>The current program.</value>
         public BaseItemDto CurrentProgram { get; set; }
-    }
+
+		//myproduction-change-start
+		//Include file size
+		public long? Size { get; set; }
+		//myproduction-change-end
+	}
 }

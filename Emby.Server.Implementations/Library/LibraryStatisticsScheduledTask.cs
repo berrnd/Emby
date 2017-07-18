@@ -98,6 +98,7 @@ namespace Emby.Server.Implementations.Library
 					}
 				}
 				_libraryManager.Statistics.TotalFileSize = totalFileSize;
+				_libraryManager.Statistics.TotalFileSizeWithRedundancy = totalFileSizeWithRedundancy;
 
 				if (cancellationToken.IsCancellationRequested)
 				{

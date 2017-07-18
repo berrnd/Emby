@@ -48,10 +48,14 @@ namespace Emby.Server.Implementations.Library.Resolvers.TV
                 };
 
 				//myproduction-change-start
-				//OV series handling
+				//OV & ForeignMedia series handling
 				if (series.Tags.Contains("OV"))
 				{
 					season.Tags.Add("OV");
+				}
+				if (series.Tags.Contains("ForeignMedia"))
+				{
+					season.Tags.Add("ForeignMedia");
 				}
 				//myproduction-change-end
 
