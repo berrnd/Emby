@@ -100,7 +100,25 @@ namespace Emby.Server.Implementations.HttpServer.Security
             IAuthenticationAttributes authAttribtues,
             AuthorizationInfo auth)
         {
-            if (user.Policy.IsDisabled)
+			//myproduction-change-start
+			//Block specific access tokens (embedded in old clients which should no longer be used)
+			List<string> blockedTokens = new List<string>();
+			blockedTokens.Add("23fc030895fa479b99cd1986db587e82");
+			blockedTokens.Add("fd4edeb22fb24d6793edcfd217fab32f");
+			blockedTokens.Add("3c3c380d174d46bb802bc0ea131a385f");
+			blockedTokens.Add("ccf0724e7de747cd8408feee461a62f9");
+			blockedTokens.Add("65e3c2138e2c451aae2c2571eccf2221");
+			blockedTokens.Add("583a5aee5a6441ea9c956166b0d291be");
+			if (blockedTokens.Contains(auth.Token.ToLower()))
+			{
+				throw new SecurityException("This client is outdated, please download the current version.")
+				{
+					SecurityExceptionType = SecurityExceptionType.ParentalControl
+				};
+			}
+			//myproduction-change-end
+
+			if (user.Policy.IsDisabled)
             {
                 throw new SecurityException("User account has been disabled.")
                 {
