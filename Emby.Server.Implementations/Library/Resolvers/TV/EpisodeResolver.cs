@@ -60,13 +60,13 @@ namespace Emby.Server.Implementations.Library.Resolvers.TV
 
 						//myproduction-change-start
 						//OV & ForeignMedia series handling
-						if (series.Tags.Contains("OV"))
+						if (args.Path.Contains("SerienOV"))
 						{
 							episode.Tags.Add("OV");
 						}
-						if (series.Tags.Contains("ForeignMedia"))
+						if (args.Path.Contains("ForeignMedia"))
 						{
-							season.Tags.Add("ForeignMedia");
+							episode.Tags.Add("ForeignMedia");
 						}
 						//myproduction-change-end
 					}

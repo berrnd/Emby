@@ -1282,15 +1282,26 @@ var Dashboard = {
 
 //myproduction-change-start
 //Added Piwik tracking
-pageClassOn("displayingitem", "libraryPage", function(e)
+pageClassOn("pageshow", "page", function(e)
 {
-    var item = e.detail;
+	var userId = ApiClient._currentUser.Id;
+    var itemId = e.detail.params.id;
 	
-	ApiClient.getCurrentUser().then(function(user)
+	ApiClient.getItem(userId, itemId).then(function(item)
 	{
+		var title = item.Name;
+		if (item.Type === "Episode")
+		{
+			title = item.SeriesName + " > " + item.SeasonName + " > " + item.Name;
+		}
+		if (item.Type === "Season")
+		{
+			title = item.SeriesName + " > " + item.Name;
+		}
+		
 		var piwikTracker = Piwik.getAsyncTracker();
-		piwikTracker.setUserId(user.Name);
-		piwikTracker.trackPageView(item.item.Name);
+		piwikTracker.setUserId(userId);
+		piwikTracker.trackPageView(title);
 	});
 });
 //myproduction-change-end

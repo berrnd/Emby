@@ -87,7 +87,6 @@ namespace Emby.Server.Implementations.Library.Resolvers.TV
 						{
 							series.Tags.Add("OV");
 						}
-
 						if (args.Path.Contains("ForeignMedia"))
 						{
 							series.Tags.Add("ForeignMedia");
