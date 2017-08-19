@@ -1285,6 +1285,7 @@ var Dashboard = {
 pageClassOn("pageshow", "page", function(e)
 {
 	var userId = ApiClient._currentUser.Id;
+	var userName = ApiClient._currentUser.Name;
     var itemId = e.detail.params.id;
 	
 	ApiClient.getItem(userId, itemId).then(function(item)
@@ -1300,7 +1301,7 @@ pageClassOn("pageshow", "page", function(e)
 		}
 		
 		var piwikTracker = Piwik.getAsyncTracker();
-		piwikTracker.setUserId(userId);
+		piwikTracker.setUserId(userName);
 		piwikTracker.trackPageView(title);
 	});
 });
