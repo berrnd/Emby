@@ -9,6 +9,7 @@ using System.Globalization;
 using System.Linq;
 using System.Threading;
 using MediaBrowser.Common.Extensions;
+using MediaBrowser.Controller.Persistence;
 using MediaBrowser.Model.Serialization;
 
 namespace MediaBrowser.Controller.Entities.Audio
@@ -27,9 +28,11 @@ namespace MediaBrowser.Controller.Entities.Audio
         /// Gets or sets the artist.
         /// </summary>
         /// <value>The artist.</value>
-        public List<string> Artists { get; set; }
+        [IgnoreDataMember]
+        public string[] Artists { get; set; }
 
-        public List<string> AlbumArtists { get; set; }
+        [IgnoreDataMember]
+        public string[] AlbumArtists { get; set; }
 
         [IgnoreDataMember]
         public override bool EnableRefreshOnDateModifiedChange
@@ -39,8 +42,8 @@ namespace MediaBrowser.Controller.Entities.Audio
 
         public Audio()
         {
-            Artists = new List<string>();
-            AlbumArtists = new List<string>();
+            Artists = EmptyStringArray;
+            AlbumArtists = EmptyStringArray;
         }
 
         public override double? GetDefaultPrimaryImageAspectRatio()
@@ -95,13 +98,23 @@ namespace MediaBrowser.Controller.Entities.Audio
         }
 
         [IgnoreDataMember]
-        public List<string> AllArtists
+        public string[] AllArtists
         {
             get
             {
-                var list = AlbumArtists.ToList();
+                var list = new string[AlbumArtists.Length + Artists.Length];
 
-                list.AddRange(Artists);
+                var index = 0;
+                foreach (var artist in AlbumArtists)
+                {
+                    list[index] = artist;
+                    index++;
+                }
+                foreach (var artist in Artists)
+                {
+                    list[index] = artist;
+                    index++;
+                }
 
                 return list;
 
@@ -141,45 +154,27 @@ namespace MediaBrowser.Controller.Entities.Audio
         {
             var list = base.GetUserDataKeys();
 
-            if (ConfigurationManager.Configuration.EnableStandaloneMusicKeys)
+            var songKey = IndexNumber.HasValue ? IndexNumber.Value.ToString("0000") : string.Empty;
+
+
+            if (ParentIndexNumber.HasValue)
             {
-                var songKey = IndexNumber.HasValue ? IndexNumber.Value.ToString("0000") : string.Empty;
-
-
-                if (ParentIndexNumber.HasValue)
-                {
-                    songKey = ParentIndexNumber.Value.ToString("0000") + "-" + songKey;
-                }
-                songKey += Name;
-
-                if (!string.IsNullOrWhiteSpace(Album))
-                {
-                    songKey = Album + "-" + songKey;
-                }
-
-                var albumArtist = AlbumArtists.FirstOrDefault();
-                if (!string.IsNullOrWhiteSpace(albumArtist))
-                {
-                    songKey = albumArtist + "-" + songKey;
-                }
-
-                list.Insert(0, songKey);
+                songKey = ParentIndexNumber.Value.ToString("0000") + "-" + songKey;
             }
-            else
+            songKey += Name;
+
+            if (!string.IsNullOrWhiteSpace(Album))
             {
-                var parent = AlbumEntity;
-
-                if (parent != null && IndexNumber.HasValue)
-                {
-                    list.InsertRange(0, parent.GetUserDataKeys().Select(i =>
-                    {
-                        var songKey = (ParentIndexNumber != null ? ParentIndexNumber.Value.ToString("0000 - ") : "")
-                                      + IndexNumber.Value.ToString("0000 - ");
-
-                        return i + songKey;
-                    }));
-                }
+                songKey = Album + "-" + songKey;
             }
+
+            var albumArtist = AlbumArtists.Length == 0 ? null : AlbumArtists[0];
+            if (!string.IsNullOrWhiteSpace(albumArtist))
+            {
+                songKey = albumArtist + "-" + songKey;
+            }
+
+            list.Insert(0, songKey);
 
             return list;
         }
@@ -193,6 +188,23 @@ namespace MediaBrowser.Controller.Entities.Audio
             return base.GetBlockUnratedType();
         }
 
+        public List<MediaStream> GetMediaStreams()
+        {
+            return MediaSourceManager.GetMediaStreams(new MediaStreamQuery
+            {
+                ItemId = Id
+            });
+        }
+
+        public List<MediaStream> GetMediaStreams(MediaStreamType type)
+        {
+            return MediaSourceManager.GetMediaStreams(new MediaStreamQuery
+            {
+                ItemId = Id,
+                Type = type
+            });
+        }
+
         public SongInfo GetLookupInfo()
         {
             var info = GetItemLookupInfo<SongInfo>();
@@ -204,7 +216,7 @@ namespace MediaBrowser.Controller.Entities.Audio
             return info;
         }
 
-        public virtual IEnumerable<MediaSourceInfo> GetMediaSources(bool enablePathSubstitution)
+        public virtual List<MediaSourceInfo> GetMediaSources(bool enablePathSubstitution)
         {
             if (SourceType == SourceType.Channel)
             {
@@ -248,7 +260,7 @@ namespace MediaBrowser.Controller.Entities.Audio
             {
                 Id = i.Id.ToString("N"),
                 Protocol = locationType == LocationType.Remote ? MediaProtocol.Http : MediaProtocol.File,
-                MediaStreams = MediaSourceManager.GetMediaStreams(i.Id).ToList(),
+                MediaStreams = MediaSourceManager.GetMediaStreams(i.Id),
                 Name = i.Name,
                 Path = enablePathSubstituion ? GetMappedPath(i, i.Path, locationType) : i.Path,
                 RunTimeTicks = i.RunTimeTicks,

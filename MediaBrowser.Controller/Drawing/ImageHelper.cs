@@ -21,11 +21,6 @@ namespace MediaBrowser.Controller.Drawing
 
         public static IImageProcessor ImageProcessor { get; set; }
 
-        public static void SaveImageSize(string path, DateTime dateModified, ImageSize size)
-        {
-            ImageProcessor.SaveImageSize(path, dateModified, size);
-        }
-
         private static ImageSize GetSizeEstimate(ImageProcessingOptions options)
         {
             if (options.Width.HasValue && options.Height.HasValue)
@@ -48,7 +43,7 @@ namespace MediaBrowser.Controller.Drawing
             return new ImageSize(widthValue, height);
         }
 
-        private static double GetEstimatedAspectRatio(ImageType type, IHasImages item)
+        private static double GetEstimatedAspectRatio(ImageType type, IHasMetadata item)
         {
             switch (type)
             {

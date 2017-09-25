@@ -10,14 +10,14 @@ using MediaBrowser.Model.Dlna;
 using MediaBrowser.Model.Logging;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using MediaBrowser.Controller.MediaEncoding;
+using MediaBrowser.Controller.TV;
 using MediaBrowser.Model.Globalization;
 using MediaBrowser.Model.Xml;
 
 namespace Emby.Dlna.ContentDirectory
 {
-    public class ContentDirectory : BaseService, IContentDirectory, IDisposable
+    public class ContentDirectory : BaseService, IContentDirectory
     {
         private readonly ILibraryManager _libraryManager;
         private readonly IImageProcessor _imageProcessor;
@@ -31,6 +31,7 @@ namespace Emby.Dlna.ContentDirectory
         private readonly IUserViewManager _userViewManager;
         private readonly Func<IMediaEncoder> _mediaEncoder;
         protected readonly IXmlReaderSettingsFactory XmlReaderSettingsFactory;
+        private readonly ITVSeriesManager _tvSeriesManager;
 
         public ContentDirectory(IDlnaManager dlna,
             IUserDataManager userDataManager,
@@ -39,7 +40,7 @@ namespace Emby.Dlna.ContentDirectory
             IServerConfigurationManager config,
             IUserManager userManager,
             ILogger logger,
-            IHttpClient httpClient, ILocalizationManager localization, IChannelManager channelManager, IMediaSourceManager mediaSourceManager, IUserViewManager userViewManager, Func<IMediaEncoder> mediaEncoder, IXmlReaderSettingsFactory xmlReaderSettingsFactory)
+            IHttpClient httpClient, ILocalizationManager localization, IChannelManager channelManager, IMediaSourceManager mediaSourceManager, IUserViewManager userViewManager, Func<IMediaEncoder> mediaEncoder, IXmlReaderSettingsFactory xmlReaderSettingsFactory, ITVSeriesManager tvSeriesManager)
             : base(logger, httpClient)
         {
             _dlna = dlna;
@@ -54,6 +55,7 @@ namespace Emby.Dlna.ContentDirectory
             _userViewManager = userViewManager;
             _mediaEncoder = mediaEncoder;
             XmlReaderSettingsFactory = xmlReaderSettingsFactory;
+            _tvSeriesManager = tvSeriesManager;
         }
 
         private int SystemUpdateId
@@ -97,7 +99,8 @@ namespace Emby.Dlna.ContentDirectory
                 _mediaSourceManager,
                 _userViewManager,
                 _mediaEncoder(),
-                XmlReaderSettingsFactory)
+                XmlReaderSettingsFactory,
+                _tvSeriesManager)
                 .ProcessControlRequest(request);
         }
 
@@ -125,14 +128,20 @@ namespace Emby.Dlna.ContentDirectory
                 }
             }
 
-            // No configuration so it's going to be pretty arbitrary
-            return _userManager.Users.FirstOrDefault(i => i.Policy.IsAdministrator) ??
-                _userManager.Users.First();
-        }
+            foreach (var user in _userManager.Users)
+            {
+                if (user.Policy.IsAdministrator)
+                {
+                    return user;
+                }
+            }
 
-        public void Dispose()
-        {
+            foreach (var user in _userManager.Users)
+            {
+                return user;
+            }
 
+            return null;
         }
     }
 }

@@ -3,7 +3,6 @@ using MediaBrowser.Controller.Providers;
 using MediaBrowser.Model.Logging;
 using System;
 using System.Collections.Generic;
-
 using MediaBrowser.Model.IO;
 
 namespace MediaBrowser.Controller.IO
@@ -13,6 +12,17 @@ namespace MediaBrowser.Controller.IO
     /// </summary>
     public static class FileData
     {
+        private static Dictionary<string, FileSystemMetadata> GetFileSystemDictionary(FileSystemMetadata[] list)
+        {
+            var dict = new Dictionary<string, FileSystemMetadata>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var file in list)
+            {
+                dict[file.FullName] = file;
+            }
+            return dict;
+        }
+
         /// <summary>
         /// Gets the filtered file system entries.
         /// </summary>
@@ -25,7 +35,7 @@ namespace MediaBrowser.Controller.IO
         /// <param name="resolveShortcuts">if set to <c>true</c> [resolve shortcuts].</param>
         /// <returns>Dictionary{System.StringFileSystemInfo}.</returns>
         /// <exception cref="System.ArgumentNullException">path</exception>
-        public static Dictionary<string, FileSystemMetadata> GetFilteredFileSystemEntries(IDirectoryService directoryService,
+        public static FileSystemMetadata[] GetFilteredFileSystemEntries(IDirectoryService directoryService,
             string path,
             IFileSystem fileSystem,
             ILogger logger,
@@ -42,12 +52,12 @@ namespace MediaBrowser.Controller.IO
                 throw new ArgumentNullException("args");
             }
 
+            var entries = directoryService.GetFileSystemEntries(path);
+
             if (!resolveShortcuts && flattenFolderDepth == 0)
             {
-                return directoryService.GetFileSystemDictionary(path);
+                return entries;
             }
-
-            var entries = directoryService.GetFileSystemEntries(path);
 
             var dict = new Dictionary<string, FileSystemMetadata>(StringComparer.OrdinalIgnoreCase);
 
@@ -87,7 +97,7 @@ namespace MediaBrowser.Controller.IO
                 {
                     foreach (var child in GetFilteredFileSystemEntries(directoryService, fullName, fileSystem, logger, args, flattenFolderDepth: flattenFolderDepth - 1, resolveShortcuts: resolveShortcuts))
                     {
-                        dict[child.Key] = child.Value;
+                        dict[child.FullName] = child;
                     }
                 }
                 else
@@ -96,7 +106,15 @@ namespace MediaBrowser.Controller.IO
                 }
             }
 
-            return dict;
+            var returnResult = new FileSystemMetadata[dict.Count];
+            var index = 0;
+            var values = dict.Values;
+            foreach (var value in values)
+            {
+                returnResult[index] = value;
+                index++;
+            }
+            return returnResult;
         }
 
     }

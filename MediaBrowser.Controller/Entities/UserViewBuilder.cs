@@ -397,7 +397,7 @@ namespace MediaBrowser.Controller.Entities
 
             }, query.DtoOptions).Select(i => i.Item1 ?? i.Item2.FirstOrDefault()).Where(i => i != null);
 
-            query.SortBy = new string[] { };
+            query.OrderBy = new Tuple<string, SortOrder>[] { };
 
             return PostFilterAndSort(items, parent, null, query, false, true);
         }
@@ -507,8 +507,7 @@ namespace MediaBrowser.Controller.Entities
 
         private QueryResult<BaseItem> GetMovieLatest(Folder parent, User user, InternalItemsQuery query)
         {
-            query.SortBy = new[] { ItemSortBy.DateCreated, ItemSortBy.SortName };
-            query.SortOrder = SortOrder.Descending;
+            query.OrderBy = new[] { ItemSortBy.DateCreated, ItemSortBy.SortName }.Select(i => new Tuple<string, SortOrder>(i, SortOrder.Descending)).ToArray();
 
             query.Recursive = true;
             query.Parent = parent;
@@ -521,8 +520,7 @@ namespace MediaBrowser.Controller.Entities
 
         private QueryResult<BaseItem> GetMovieResume(Folder parent, User user, InternalItemsQuery query)
         {
-            query.SortBy = new[] { ItemSortBy.DatePlayed, ItemSortBy.SortName };
-            query.SortOrder = SortOrder.Descending;
+            query.OrderBy = new[] { ItemSortBy.DatePlayed, ItemSortBy.SortName }.Select(i => new Tuple<string, SortOrder>(i, SortOrder.Descending)).ToArray();
             query.IsResumable = true;
             query.Recursive = true;
             query.Parent = parent;
@@ -533,7 +531,7 @@ namespace MediaBrowser.Controller.Entities
             return ConvertToResult(_libraryManager.GetItemList(query));
         }
 
-        private QueryResult<BaseItem> ConvertToResult(IEnumerable<BaseItem> items)
+        private QueryResult<BaseItem> ConvertToResult(List<BaseItem> items)
         {
             var arr = items.ToArray();
             return new QueryResult<BaseItem>
@@ -633,8 +631,7 @@ namespace MediaBrowser.Controller.Entities
 
         private QueryResult<BaseItem> GetTvLatest(Folder parent, User user, InternalItemsQuery query)
         {
-            query.SortBy = new[] { ItemSortBy.DateCreated, ItemSortBy.SortName };
-            query.SortOrder = SortOrder.Descending;
+            query.OrderBy = new[] { ItemSortBy.DateCreated, ItemSortBy.SortName }.Select(i => new Tuple<string, SortOrder>(i, SortOrder.Descending)).ToArray();
 
             query.Recursive = true;
             query.Parent = parent;
@@ -663,8 +660,7 @@ namespace MediaBrowser.Controller.Entities
 
         private QueryResult<BaseItem> GetTvResume(Folder parent, User user, InternalItemsQuery query)
         {
-            query.SortBy = new[] { ItemSortBy.DatePlayed, ItemSortBy.SortName };
-            query.SortOrder = SortOrder.Descending;
+            query.OrderBy = new[] { ItemSortBy.DatePlayed, ItemSortBy.SortName }.Select(i => new Tuple<string, SortOrder>(i, SortOrder.Descending)).ToArray();
             query.IsResumable = true;
             query.Recursive = true;
             query.Parent = parent;
@@ -779,7 +775,6 @@ namespace MediaBrowser.Controller.Entities
 
             items = FilterVirtualEpisodes(items,
                 query.IsMissing,
-                query.IsVirtualUnaired,
                 query.IsUnaired);
 
             if (collapseBoxSetItems && user != null)
@@ -790,7 +785,7 @@ namespace MediaBrowser.Controller.Entities
             // This must be the last filter
             if (!string.IsNullOrEmpty(query.AdjacentTo))
             {
-                items = FilterForAdjacency(items, query.AdjacentTo);
+                items = FilterForAdjacency(items.ToList(), query.AdjacentTo);
             }
 
             return SortAndPage(items, totalRecordLimit, query, libraryManager, enableSorting);
@@ -1065,7 +1060,6 @@ namespace MediaBrowser.Controller.Entities
         private static IEnumerable<BaseItem> FilterVirtualEpisodes(
             IEnumerable<BaseItem> items,
             bool? isMissing,
-            bool? isVirtualUnaired,
             bool? isUnaired)
         {
             if (isMissing.HasValue)
@@ -1096,20 +1090,6 @@ namespace MediaBrowser.Controller.Entities
                 });
             }
 
-            if (isVirtualUnaired.HasValue)
-            {
-                var val = isVirtualUnaired.Value;
-                items = items.Where(i =>
-                {
-                    var e = i as Episode;
-                    if (e != null)
-                    {
-                        return e.IsVirtualUnaired == val;
-                    }
-                    return true;
-                });
-            }
-
             return items;
         }
 
@@ -1120,9 +1100,9 @@ namespace MediaBrowser.Controller.Entities
         {
             items = items.DistinctBy(i => i.GetPresentationUniqueKey(), StringComparer.OrdinalIgnoreCase);
 
-            if (query.SortBy.Length > 0)
+            if (query.OrderBy.Length > 0)
             {
-                items = libraryManager.Sort(items, query.User, query.SortBy, query.SortOrder);
+                items = libraryManager.Sort(items, query.User, query.OrderBy);
             }
 
             var itemsArray = totalRecordLimit.HasValue ? items.Take(totalRecordLimit.Value).ToArray() : items.ToArray();
@@ -1387,8 +1367,8 @@ namespace MediaBrowser.Controller.Entities
                 if (movie != null)
                 {
                     var ok = filterValue
-                        ? movie.SpecialFeatureIds.Count > 0
-                        : movie.SpecialFeatureIds.Count == 0;
+                        ? movie.SpecialFeatureIds.Length > 0
+                        : movie.SpecialFeatureIds.Length == 0;
 
                     if (!ok)
                     {
@@ -1463,7 +1443,7 @@ namespace MediaBrowser.Controller.Entities
             {
                 var filterValue = query.HasThemeSong.Value;
 
-                var themeCount = item.ThemeSongIds.Count;
+                var themeCount = item.ThemeSongIds.Length;
                 var ok = filterValue ? themeCount > 0 : themeCount == 0;
 
                 if (!ok)
@@ -1476,7 +1456,7 @@ namespace MediaBrowser.Controller.Entities
             {
                 var filterValue = query.HasThemeVideo.Value;
 
-                var themeCount = item.ThemeVideoIds.Count;
+                var themeCount = item.ThemeVideoIds.Length;
                 var ok = filterValue ? themeCount > 0 : themeCount == 0;
 
                 if (!ok)
@@ -1674,15 +1654,6 @@ namespace MediaBrowser.Controller.Entities
                 }
             }
 
-            if (query.AirDays.Length > 0)
-            {
-                var ok = new[] { item }.OfType<Series>().Any(p => p.AirDays != null && query.AirDays.Any(d => p.AirDays.Contains(d)));
-                if (!ok)
-                {
-                    return false;
-                }
-            }
-
             if (query.SeriesStatuses.Length > 0)
             {
                 var ok = new[] { item }.OfType<Series>().Any(p => p.Status.HasValue && query.SeriesStatuses.Contains(p.Status.Value));
@@ -1788,10 +1759,8 @@ namespace MediaBrowser.Controller.Entities
             return _userViewManager.GetUserSubView(parent.Id.ToString("N"), type, sortName, CancellationToken.None);
         }
 
-        public static IEnumerable<BaseItem> FilterForAdjacency(IEnumerable<BaseItem> items, string adjacentToId)
+        public static IEnumerable<BaseItem> FilterForAdjacency(List<BaseItem> list, string adjacentToId)
         {
-            var list = items.ToList();
-
             var adjacentToIdGuid = new Guid(adjacentToId);
             var adjacentToItem = list.FirstOrDefault(i => i.Id == adjacentToIdGuid);
 

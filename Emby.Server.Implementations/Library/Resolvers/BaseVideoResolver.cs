@@ -1,11 +1,12 @@
 ﻿using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Model.Entities;
-using MediaBrowser.Naming.Video;
+using Emby.Naming.Video;
 using System;
 using System.IO;
 using System.Linq;
 using MediaBrowser.Controller.Providers;
+using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Logging;
 
 namespace Emby.Server.Implementations.Library.Resolvers
@@ -18,9 +19,11 @@ namespace Emby.Server.Implementations.Library.Resolvers
         where T : Video, new()
     {
         protected readonly ILibraryManager LibraryManager;
+        protected readonly IFileSystem FileSystem;
 
-        protected BaseVideoResolver(ILibraryManager libraryManager)
+        protected BaseVideoResolver(ILibraryManager libraryManager, IFileSystem fileSystem)
         {
+            FileSystem = fileSystem;
             LibraryManager = libraryManager;
         }
 
@@ -47,7 +50,7 @@ namespace Emby.Server.Implementations.Library.Resolvers
             var namingOptions = ((LibraryManager)LibraryManager).GetNamingOptions();
             
             // If the path is a file check for a matching extensions
-            var parser = new MediaBrowser.Naming.Video.VideoResolver(namingOptions, new NullLogger());
+            var parser = new Emby.Naming.Video.VideoResolver(namingOptions);
 
             if (args.IsDirectory)
             {
@@ -178,11 +181,6 @@ namespace Emby.Server.Implementations.Library.Resolvers
                 {
                     video.VideoType = VideoType.Dvd;
                 }
-                else if (string.Equals(videoInfo.StubType, "hddvd", StringComparison.OrdinalIgnoreCase))
-                {
-                    video.VideoType = VideoType.HdDvd;
-                    video.IsHD = true;
-                }
                 else if (string.Equals(videoInfo.StubType, "bluray", StringComparison.OrdinalIgnoreCase))
                 {
                     video.VideoType = VideoType.BluRay;
@@ -260,7 +258,7 @@ namespace Emby.Server.Implementations.Library.Resolvers
         {
             var namingOptions = ((LibraryManager)LibraryManager).GetNamingOptions();
 
-            var resolver = new Format3DParser(namingOptions, new NullLogger());
+            var resolver = new Format3DParser(namingOptions);
             var result = resolver.Parse(video.Path);
 
             Set3DFormat(video, result.Is3D, result.Format3D);
@@ -276,7 +274,7 @@ namespace Emby.Server.Implementations.Library.Resolvers
                 return false;
             }
 
-            return directoryService.GetFilePaths(fullPath).Any(i => string.Equals(Path.GetExtension(i), ".vob", StringComparison.OrdinalIgnoreCase));
+            return FileSystem.GetFilePaths(fullPath).Any(i => string.Equals(Path.GetExtension(i), ".vob", StringComparison.OrdinalIgnoreCase));
         }
 
         /// <summary>

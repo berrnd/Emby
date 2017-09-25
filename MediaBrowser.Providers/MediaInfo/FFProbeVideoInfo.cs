@@ -25,9 +25,6 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-
-using MediaBrowser.Controller.IO;
-using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Globalization;
 
 namespace MediaBrowser.Providers.MediaInfo
@@ -48,8 +45,6 @@ namespace MediaBrowser.Providers.MediaInfo
         private readonly ISubtitleManager _subtitleManager;
         private readonly IChapterManager _chapterManager;
         private readonly ILibraryManager _libraryManager;
-
-        private readonly CultureInfo _usCulture = new CultureInfo("en-US");
 
         public FFProbeVideoInfo(ILogger logger, IIsoManager isoManager, IMediaEncoder mediaEncoder, IItemRepository itemRepo, IBlurayExaminer blurayExaminer, ILocalizationManager localization, IApplicationPaths appPaths, IJsonSerializer json, IEncodingManager encodingManager, IFileSystem fileSystem, IServerConfigurationManager config, ISubtitleManager subtitleManager, IChapterManager chapterManager, ILibraryManager libraryManager)
         {
@@ -80,35 +75,45 @@ namespace MediaBrowser.Providers.MediaInfo
 
             try
             {
-                if (item.VideoType == VideoType.BluRay || (item.IsoType.HasValue && item.IsoType == IsoType.BluRay))
-                {
-                    var inputPath = isoMount != null ? isoMount.MountedPath : item.Path;
+                string[] streamFileNames = null;
 
-                    blurayDiscInfo = GetBDInfo(inputPath);
+                if (item.VideoType == VideoType.Iso)
+                {
+                    item.IsoType = DetermineIsoType(isoMount);
                 }
 
-                OnPreFetch(item, isoMount, blurayDiscInfo);
-
-                // If we didn't find any satisfying the min length, just take them all
                 if (item.VideoType == VideoType.Dvd || (item.IsoType.HasValue && item.IsoType == IsoType.Dvd))
                 {
-                    if (item.PlayableStreamFileNames.Count == 0)
+                    streamFileNames = FetchFromDvdLib(item, isoMount);
+
+                    if (streamFileNames.Length == 0)
                     {
                         _logger.Error("No playable vobs found in dvd structure, skipping ffprobe.");
                         return ItemUpdateType.MetadataImport;
                     }
                 }
 
-                if (item.VideoType == VideoType.BluRay || (item.IsoType.HasValue && item.IsoType == IsoType.BluRay))
+                else if (item.VideoType == VideoType.BluRay || (item.IsoType.HasValue && item.IsoType == IsoType.BluRay))
                 {
-                    if (item.PlayableStreamFileNames.Count == 0)
+                    var inputPath = isoMount != null ? isoMount.MountedPath : item.Path;
+
+                    blurayDiscInfo = GetBDInfo(inputPath);
+
+                    streamFileNames = blurayDiscInfo.Files;
+
+                    if (streamFileNames.Length == 0)
                     {
                         _logger.Error("No playable vobs found in bluray structure, skipping ffprobe.");
                         return ItemUpdateType.MetadataImport;
                     }
                 }
 
-                var result = await GetMediaInfo(item, isoMount, cancellationToken).ConfigureAwait(false);
+                if (streamFileNames == null)
+                {
+                    streamFileNames = new string[] { };
+                }
+
+                var result = await GetMediaInfo(item, isoMount, streamFileNames, cancellationToken).ConfigureAwait(false);
 
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -126,10 +131,9 @@ namespace MediaBrowser.Providers.MediaInfo
             return ItemUpdateType.MetadataImport;
         }
 
-        private const string SchemaVersion = "6";
-
-        private async Task<Model.MediaInfo.MediaInfo> GetMediaInfo(Video item,
+        private Task<Model.MediaInfo.MediaInfo> GetMediaInfo(Video item,
             IIsoMount isoMount,
+            string[] streamFileNames,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -138,9 +142,9 @@ namespace MediaBrowser.Providers.MediaInfo
                 ? MediaProtocol.Http
                 : MediaProtocol.File;
 
-            var result = await _mediaEncoder.GetMediaInfo(new MediaInfoRequest
+            return _mediaEncoder.GetMediaInfo(new MediaInfoRequest
             {
-                PlayableStreamFileNames = item.PlayableStreamFileNames,
+                PlayableStreamFileNames = streamFileNames,
                 MountedIso = isoMount,
                 ExtractChapters = true,
                 VideoType = item.VideoType,
@@ -148,12 +152,7 @@ namespace MediaBrowser.Providers.MediaInfo
                 InputPath = item.Path,
                 Protocol = protocol
 
-            }, cancellationToken).ConfigureAwait(false);
-
-            //Directory.CreateDirectory(_fileSystem.GetDirectoryName(cachePath));
-            //_json.SerializeToFile(result, cachePath);
-
-            return result;
+            }, cancellationToken);
         }
 
         protected async Task Fetch(Video video,
@@ -187,8 +186,9 @@ namespace MediaBrowser.Providers.MediaInfo
             {
                 video.Container = null;
             }
+            video.Container = mediaInfo.Container;
 
-            var chapters = mediaInfo.Chapters ?? new List<ChapterInfo>();
+            var chapters = mediaInfo.Chapters == null ? new List<ChapterInfo>() : mediaInfo.Chapters.ToList();
             if (blurayInfo != null)
             {
                 FetchBdInfo(video, chapters, mediaStreams, blurayInfo);
@@ -198,7 +198,7 @@ namespace MediaBrowser.Providers.MediaInfo
             var libraryOptions = _libraryManager.GetLibraryOptions(video);
 
             FetchEmbeddedInfo(video, mediaInfo, options, libraryOptions);
-            await FetchPeople(video, mediaInfo, options).ConfigureAwait(false);
+            FetchPeople(video, mediaInfo, options);
 
             video.IsHD = mediaStreams.Any(i => i.Type == MediaStreamType.Video && i.Width.HasValue && i.Width.Value >= 1260);
 
@@ -211,7 +211,7 @@ namespace MediaBrowser.Providers.MediaInfo
 
             video.Video3DFormat = video.Video3DFormat ?? mediaInfo.Video3DFormat;
 
-            await _itemRepo.SaveMediaStreams(video.Id, mediaStreams, cancellationToken).ConfigureAwait(false);
+            _itemRepo.SaveMediaStreams(video.Id, mediaStreams, cancellationToken);
 
             if (options.MetadataRefreshMode == MetadataRefreshMode.FullRefresh ||
                 options.MetadataRefreshMode == MetadataRefreshMode.Default)
@@ -229,16 +229,9 @@ namespace MediaBrowser.Providers.MediaInfo
                     extractDuringScan = libraryOptions.ExtractChapterImagesDuringLibraryScan;
                 }
 
-                await _encodingManager.RefreshChapterImages(new ChapterImageRefreshOptions
-                {
-                    Chapters = chapters,
-                    Video = video,
-                    ExtractImages = extractDuringScan,
-                    SaveChapters = false
+                await _encodingManager.RefreshChapterImages(video, chapters, extractDuringScan, false, cancellationToken).ConfigureAwait(false);
 
-                }, cancellationToken).ConfigureAwait(false);
-
-                await _chapterManager.SaveChapters(video.Id.ToString(), chapters, cancellationToken).ConfigureAwait(false);
+                _chapterManager.SaveChapters(video.Id.ToString(), chapters);
             }
         }
 
@@ -265,10 +258,10 @@ namespace MediaBrowser.Providers.MediaInfo
         {
             var video = (Video)item;
 
-            video.PlayableStreamFileNames = blurayInfo.Files.ToList();
+            //video.PlayableStreamFileNames = blurayInfo.Files.ToList();
 
             // Use BD Info if it has multiple m2ts. Otherwise, treat it like a video file and rely more on ffprobe output
-            if (blurayInfo.Files.Count > 1)
+            if (blurayInfo.Files.Length > 1)
             {
                 int? currentHeight = null;
                 int? currentWidth = null;
@@ -371,14 +364,9 @@ namespace MediaBrowser.Providers.MediaInfo
 
             if (!video.IsLocked && !video.LockedFields.Contains(MetadataFields.Studios))
             {
-                if (video.Studios.Count == 0 || isFullRefresh)
+                if (video.Studios.Length == 0 || isFullRefresh)
                 {
-                    video.Studios.Clear();
-
-                    foreach (var studio in data.Studios)
-                    {
-                        video.AddStudio(studio);
-                    }
+                    video.SetStudios(data.Studios);
                 }
             }
 
@@ -438,7 +426,7 @@ namespace MediaBrowser.Providers.MediaInfo
             }
         }
 
-        private async Task FetchPeople(Video video, Model.MediaInfo.MediaInfo data, MetadataRefreshOptions options)
+        private void FetchPeople(Video video, Model.MediaInfo.MediaInfo data, MetadataRefreshOptions options)
         {
             var isFullRefresh = options.MetadataRefreshMode == MetadataRefreshMode.FullRefresh;
 
@@ -458,7 +446,7 @@ namespace MediaBrowser.Providers.MediaInfo
                         });
                     }
 
-                    await _libraryManager.UpdatePeople(video, people);
+                    _libraryManager.UpdatePeople(video, people);
                 }
             }
         }
@@ -513,7 +501,7 @@ namespace MediaBrowser.Providers.MediaInfo
                 }
             }
 
-            video.SubtitleFiles = externalSubtitleStreams.Select(i => i.Path).OrderBy(i => i).ToList();
+            video.SubtitleFiles = externalSubtitleStreams.Select(i => i.Path).OrderBy(i => i).ToArray();
 
             currentStreams.AddRange(externalSubtitleStreams);
         }
@@ -558,31 +546,7 @@ namespace MediaBrowser.Providers.MediaInfo
             }
         }
 
-        /// <summary>
-        /// Called when [pre fetch].
-        /// </summary>
-        /// <param name="item">The item.</param>
-        /// <param name="mount">The mount.</param>
-        /// <param name="blurayDiscInfo">The bluray disc information.</param>
-        private void OnPreFetch(Video item, IIsoMount mount, BlurayDiscInfo blurayDiscInfo)
-        {
-            if (item.VideoType == VideoType.Iso)
-            {
-                item.IsoType = DetermineIsoType(mount);
-            }
-
-            if (item.VideoType == VideoType.Dvd || (item.IsoType.HasValue && item.IsoType == IsoType.Dvd))
-            {
-                FetchFromDvdLib(item, mount);
-            }
-
-            if (blurayDiscInfo != null)
-            {
-                item.PlayableStreamFileNames = blurayDiscInfo.Files.ToList();
-            }
-        }
-
-        private void FetchFromDvdLib(Video item, IIsoMount mount)
+        private string[] FetchFromDvdLib(Video item, IIsoMount mount)
         {
             var path = mount == null ? item.Path : mount.MountedPath;
             var dvd = new Dvd(path, _fileSystem);
@@ -597,9 +561,9 @@ namespace MediaBrowser.Providers.MediaInfo
                 item.RunTimeTicks = GetRuntime(primaryTitle);
             }
 
-            item.PlayableStreamFileNames = GetPrimaryPlaylistVobFiles(item, mount, titleNumber)
+            return _mediaEncoder.GetPrimaryPlaylistVobFiles(item.Path, mount, titleNumber)
                 .Select(Path.GetFileName)
-                .ToList();
+                .ToArray();
         }
 
         private long GetRuntime(Title title)
@@ -646,83 +610,6 @@ namespace MediaBrowser.Providers.MediaInfo
             }
 
             return null;
-        }
-
-        private IEnumerable<string> GetPrimaryPlaylistVobFiles(Video video, IIsoMount isoMount, uint? titleNumber)
-        {
-            // min size 300 mb
-            const long minPlayableSize = 314572800;
-
-            var root = isoMount != null ? isoMount.MountedPath : video.Path;
-
-            // Try to eliminate menus and intros by skipping all files at the front of the list that are less than the minimum size
-            // Once we reach a file that is at least the minimum, return all subsequent ones
-            var allVobs = _fileSystem.GetFiles(root, new[] { ".vob" }, false, true)
-                .OrderBy(i => i.FullName)
-                .ToList();
-
-            // If we didn't find any satisfying the min length, just take them all
-            if (allVobs.Count == 0)
-            {
-                _logger.Error("No vobs found in dvd structure.");
-                return new List<string>();
-            }
-
-            if (titleNumber.HasValue)
-            {
-                var prefix = string.Format("VTS_0{0}_", titleNumber.Value.ToString(_usCulture));
-                var vobs = allVobs.Where(i => i.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)).ToList();
-
-                if (vobs.Count > 0)
-                {
-                    var minSizeVobs = vobs
-                        .SkipWhile(f => f.Length < minPlayableSize)
-                        .ToList();
-
-                    return minSizeVobs.Count == 0 ? vobs.Select(i => i.FullName) : minSizeVobs.Select(i => i.FullName);
-                }
-
-                _logger.Info("Could not determine vob file list for {0} using DvdLib. Will scan using file sizes.", video.Path);
-            }
-
-            var files = allVobs
-                .SkipWhile(f => f.Length < minPlayableSize)
-                .ToList();
-
-            // If we didn't find any satisfying the min length, just take them all
-            if (files.Count == 0)
-            {
-                _logger.Warn("Vob size filter resulted in zero matches. Taking all vobs.");
-                files = allVobs;
-            }
-
-            // Assuming they're named "vts_05_01", take all files whose second part matches that of the first file
-            if (files.Count > 0)
-            {
-                var parts = _fileSystem.GetFileNameWithoutExtension(files[0]).Split('_');
-
-                if (parts.Length == 3)
-                {
-                    var title = parts[1];
-
-                    files = files.TakeWhile(f =>
-                    {
-                        var fileParts = _fileSystem.GetFileNameWithoutExtension(f).Split('_');
-
-                        return fileParts.Length == 3 && string.Equals(title, fileParts[1], StringComparison.OrdinalIgnoreCase);
-
-                    }).ToList();
-
-                    // If this resulted in not getting any vobs, just take them all
-                    if (files.Count == 0)
-                    {
-                        _logger.Warn("Vob filename filter resulted in zero matches. Taking all vobs.");
-                        files = allVobs;
-                    }
-                }
-            }
-
-            return files.Select(i => i.FullName);
         }
     }
 }

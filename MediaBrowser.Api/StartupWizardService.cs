@@ -67,13 +67,10 @@ namespace MediaBrowser.Api
             _config.SaveConfiguration();
         }
 
-        public async Task<object> Get(GetStartupInfo request)
+        public object Get(GetStartupInfo request)
         {
-            var info = await _appHost.GetSystemInfo().ConfigureAwait(false);
-
             return new StartupInfo
             {
-                SupportsRunningAsService = info.SupportsRunningAsService,
                 HasMediaEncoder = !string.IsNullOrWhiteSpace(_mediaEncoder.EncoderPath)
             };
         }
@@ -92,10 +89,8 @@ namespace MediaBrowser.Api
 
         private void SetWizardFinishValues(ServerConfiguration config)
         {
-            config.EnableStandaloneMusicKeys = true;
             config.EnableCaseSensitiveItemIds = true;
             config.SkipDeserializationForBasicTypes = true;
-            config.SkipDeserializationForAudio = true;
             config.EnableLocalizedGuids = true;
             config.EnableSimpleArtistDetection = true;
             config.EnableNormalizedItemByNameIds = true;
@@ -126,7 +121,7 @@ namespace MediaBrowser.Api
             var user = _userManager.Users.First();
 
             user.Name = request.Name;
-            await _userManager.UpdateUser(user).ConfigureAwait(false);
+            _userManager.UpdateUser(user);
 
             var result = new UpdateStartupUserResult();
 
@@ -153,7 +148,6 @@ namespace MediaBrowser.Api
 
     public class StartupInfo
     {
-        public bool SupportsRunningAsService { get; set; }
         public bool HasMediaEncoder { get; set; }
     }
 

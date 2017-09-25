@@ -5,7 +5,6 @@ using MediaBrowser.Model.Connect;
 using MediaBrowser.Model.Serialization;
 using MediaBrowser.Model.Users;
 using System;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -31,11 +30,25 @@ namespace MediaBrowser.Controller.Entities
         /// <value>The password.</value>
         public string Password { get; set; }
         public string EasyPassword { get; set; }
+        public string Salt { get; set; }
 
         public string ConnectUserName { get; set; }
         public string ConnectUserId { get; set; }
         public UserLinkType? ConnectLinkType { get; set; }
         public string ConnectAccessKey { get; set; }
+
+        // Strictly to remove IgnoreDataMember
+        public override ItemImageInfo[] ImageInfos
+        {
+            get
+            {
+                return base.ImageInfos;
+            }
+            set
+            {
+                base.ImageInfos = value;
+            }
+        }
 
         /// <summary>
         /// Gets or sets the path.
@@ -166,7 +179,7 @@ namespace MediaBrowser.Controller.Entities
                         }
                     }
                 }
-                
+
                 return _policy;
             }
             set { _policy = value; }
@@ -195,24 +208,24 @@ namespace MediaBrowser.Controller.Entities
                 var oldConfigurationDirectory = ConfigurationDirectoryPath;
 
                 // Exceptions will be thrown if these paths already exist
-				if (FileSystem.DirectoryExists(newConfigDirectory))
+                if (FileSystem.DirectoryExists(newConfigDirectory))
                 {
                     FileSystem.DeleteDirectory(newConfigDirectory, true);
                 }
 
-				if (FileSystem.DirectoryExists(oldConfigurationDirectory))
+                if (FileSystem.DirectoryExists(oldConfigurationDirectory))
                 {
-					FileSystem.MoveDirectory(oldConfigurationDirectory, newConfigDirectory);
+                    FileSystem.MoveDirectory(oldConfigurationDirectory, newConfigDirectory);
                 }
                 else
                 {
-					FileSystem.CreateDirectory(newConfigDirectory);
+                    FileSystem.CreateDirectory(newConfigDirectory);
                 }
             }
 
             Name = newName;
 
-			return RefreshMetadata(new MetadataRefreshOptions(new DirectoryService(Logger, FileSystem))
+            return RefreshMetadata(new MetadataRefreshOptions(new DirectoryService(Logger, FileSystem))
             {
                 ReplaceAllMetadata = true,
                 ImageRefreshMode = ImageRefreshMode.FullRefresh,
@@ -224,7 +237,8 @@ namespace MediaBrowser.Controller.Entities
 
         public override Task UpdateToRepository(ItemUpdateType updateReason, CancellationToken cancellationToken)
         {
-            return UserManager.UpdateUser(this);
+            UserManager.UpdateUser(this);
+            return Task.FromResult(true);
         }
 
         /// <summary>
@@ -238,6 +252,11 @@ namespace MediaBrowser.Controller.Entities
             {
                 return GetConfigurationDirectoryPath(Name);
             }
+        }
+
+        public override double? GetDefaultPrimaryImageAspectRatio()
+        {
+            return 1;
         }
 
         /// <summary>
@@ -279,7 +298,14 @@ namespace MediaBrowser.Controller.Entities
                 return true;
             }
 
-            return schedules.Any(i => IsParentalScheduleAllowed(i, date));
+            foreach (var i in schedules)
+            {
+                if (IsParentalScheduleAllowed(i, date))
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         private bool IsParentalScheduleAllowed(AccessSchedule schedule, DateTime date)
@@ -304,7 +330,14 @@ namespace MediaBrowser.Controller.Entities
 
         public bool IsFolderGrouped(Guid id)
         {
-            return Configuration.GroupedFolders.Select(i => new Guid(i)).Contains(id);
+            foreach (var i in Configuration.GroupedFolders)
+            {
+                if (new Guid(i) == id)
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         [IgnoreDataMember]

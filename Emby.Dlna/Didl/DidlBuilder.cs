@@ -193,12 +193,12 @@ namespace Emby.Dlna.Didl
         {
             if (streamInfo == null)
             {
-                var sources = _mediaSourceManager.GetStaticMediaSources(video, true, _user).ToList();
+                var sources = _mediaSourceManager.GetStaticMediaSources(video, true, _user);
 
                 streamInfo = new StreamBuilder(_mediaEncoder, GetStreamBuilderLogger(options)).BuildVideoItem(new VideoOptions
                 {
                     ItemId = GetClientId(video),
-                    MediaSources = sources,
+                    MediaSources = sources.ToArray(sources.Count),
                     Profile = _profile,
                     DeviceId = deviceId,
                     MaxBitrate = _profile.MaxStreamingBitrate
@@ -209,8 +209,8 @@ namespace Emby.Dlna.Didl
             var targetHeight = streamInfo.TargetHeight;
 
             var contentFeatureList = new ContentFeatureBuilder(_profile).BuildVideoHeader(streamInfo.Container,
-                streamInfo.TargetVideoCodec,
-                streamInfo.TargetAudioCodec,
+                streamInfo.TargetVideoCodec.FirstOrDefault(),
+                streamInfo.TargetAudioCodec.FirstOrDefault(),
                 targetWidth,
                 targetHeight,
                 streamInfo.TargetVideoBitDepth,
@@ -236,7 +236,7 @@ namespace Emby.Dlna.Didl
                 AddVideoResource(writer, video, deviceId, filter, contentFeature, streamInfo);
             }
 
-            var subtitleProfiles = streamInfo.GetSubtitleProfiles(false, _serverAddress, _accessToken)
+            var subtitleProfiles = streamInfo.GetSubtitleProfiles(_mediaEncoder, false, _serverAddress, _accessToken)
                 .Where(subtitle => subtitle.DeliveryMethod == SubtitleDeliveryMethod.External)
                 .ToList();
 
@@ -353,8 +353,8 @@ namespace Emby.Dlna.Didl
             }
 
             var mediaProfile = _profile.GetVideoMediaProfile(streamInfo.Container,
-                streamInfo.TargetAudioCodec,
-                streamInfo.TargetVideoCodec,
+                streamInfo.TargetAudioCodec.FirstOrDefault(),
+                streamInfo.TargetVideoCodec.FirstOrDefault(),
                 streamInfo.TargetAudioBitrate,
                 targetWidth,
                 targetHeight,
@@ -391,13 +391,77 @@ namespace Emby.Dlna.Didl
 
         private string GetDisplayName(BaseItem item, StubType? itemStubType, BaseItem context)
         {
-            if (itemStubType.HasValue && itemStubType.Value == StubType.People)
+            if (itemStubType.HasValue && itemStubType.Value == StubType.Latest)
             {
-                if (item is Video)
-                {
-                    return _localization.GetLocalizedString("HeaderCastCrew");
-                }
-                return _localization.GetLocalizedString("HeaderPeople");
+                return _localization.GetLocalizedString("ViewTypeMusicLatest");
+            }
+            if (itemStubType.HasValue && itemStubType.Value == StubType.Playlists)
+            {
+                return _localization.GetLocalizedString("ViewTypeMusicPlaylists");
+            }
+            if (itemStubType.HasValue && itemStubType.Value == StubType.AlbumArtists)
+            {
+                return _localization.GetLocalizedString("ViewTypeMusicAlbumArtists");
+            }
+            if (itemStubType.HasValue && itemStubType.Value == StubType.Albums)
+            {
+                return _localization.GetLocalizedString("ViewTypeMusicAlbums");
+            }
+            if (itemStubType.HasValue && itemStubType.Value == StubType.Artists)
+            {
+                return _localization.GetLocalizedString("ViewTypeMusicArtists");
+            }
+            if (itemStubType.HasValue && itemStubType.Value == StubType.Songs)
+            {
+                return _localization.GetLocalizedString("ViewTypeMusicSongs");
+            }
+            if (itemStubType.HasValue && itemStubType.Value == StubType.Genres)
+            {
+                return _localization.GetLocalizedString("ViewTypeTvGenres");
+            }
+            if (itemStubType.HasValue && itemStubType.Value == StubType.FavoriteAlbums)
+            {
+                return _localization.GetLocalizedString("ViewTypeMusicFavoriteAlbums");
+            }
+            if (itemStubType.HasValue && itemStubType.Value == StubType.FavoriteArtists)
+            {
+                return _localization.GetLocalizedString("ViewTypeMusicFavoriteArtists");
+            }
+            if (itemStubType.HasValue && itemStubType.Value == StubType.FavoriteSongs)
+            {
+                return _localization.GetLocalizedString("ViewTypeMusicFavoriteSongs");
+            }
+            if (itemStubType.HasValue && itemStubType.Value == StubType.ContinueWatching)
+            {
+                return _localization.GetLocalizedString("ViewTypeMovieResume");
+            }
+            if (itemStubType.HasValue && itemStubType.Value == StubType.Movies)
+            {
+                return _localization.GetLocalizedString("ViewTypeMovieMovies");
+            }
+            if (itemStubType.HasValue && itemStubType.Value == StubType.Collections)
+            {
+                return _localization.GetLocalizedString("ViewTypeMovieCollections");
+            }
+            if (itemStubType.HasValue && itemStubType.Value == StubType.Favorites)
+            {
+                return _localization.GetLocalizedString("ViewTypeMovieFavorites");
+            }
+            if (itemStubType.HasValue && itemStubType.Value == StubType.NextUp)
+            {
+                return _localization.GetLocalizedString("ViewTypeTvNextUp");
+            }
+            if (itemStubType.HasValue && itemStubType.Value == StubType.FavoriteSeries)
+            {
+                return _localization.GetLocalizedString("ViewTypeTvFavoriteSeries");
+            }
+            if (itemStubType.HasValue && itemStubType.Value == StubType.FavoriteEpisodes)
+            {
+                return _localization.GetLocalizedString("ViewTypeTvFavoriteEpisodes");
+            }
+            if (itemStubType.HasValue && itemStubType.Value == StubType.Series)
+            {
+                return _localization.GetLocalizedString("ViewTypeTvShowSeries");
             }
 
             var episode = item as Episode;
@@ -436,12 +500,12 @@ namespace Emby.Dlna.Didl
 
             if (streamInfo == null)
             {
-                var sources = _mediaSourceManager.GetStaticMediaSources(audio, true, _user).ToList();
+                var sources = _mediaSourceManager.GetStaticMediaSources(audio, true, _user);
 
                 streamInfo = new StreamBuilder(_mediaEncoder, GetStreamBuilderLogger(options)).BuildAudioItem(new AudioOptions
                 {
                     ItemId = GetClientId(audio),
-                    MediaSources = sources,
+                    MediaSources = sources.ToArray(sources.Count),
                     Profile = _profile,
                     DeviceId = deviceId
                 });
@@ -490,7 +554,7 @@ namespace Emby.Dlna.Didl
             }
 
             var mediaProfile = _profile.GetAudioMediaProfile(streamInfo.Container,
-                streamInfo.TargetAudioCodec,
+                streamInfo.TargetAudioCodec.FirstOrDefault(),
                 targetChannels,
                 targetAudioBitrate,
                 targetSampleRate,
@@ -503,7 +567,7 @@ namespace Emby.Dlna.Didl
                 : mediaProfile.MimeType;
 
             var contentFeatures = new ContentFeatureBuilder(_profile).BuildAudioHeader(streamInfo.Container,
-                streamInfo.TargetAudioCodec,
+                streamInfo.TargetAudioCodec.FirstOrDefault(),
                 targetAudioBitrate,
                 targetSampleRate,
                 targetChannels,
@@ -589,7 +653,7 @@ namespace Emby.Dlna.Didl
                 return;
             }
 
-            XmlAttribute secAttribute = null;
+            MediaBrowser.Model.Dlna.XmlAttribute secAttribute = null;
             foreach (var attribute in _profile.XmlRootAttributes)
             {
                 if (string.Equals(attribute.Name, "xmlns:sec", StringComparison.OrdinalIgnoreCase))
@@ -889,12 +953,6 @@ namespace Emby.Dlna.Didl
 
         private void AddCover(BaseItem item, BaseItem context, StubType? stubType, XmlWriter writer)
         {
-            if (stubType.HasValue && stubType.Value == StubType.People)
-            {
-                AddEmbeddedImageAsCover("people", writer);
-                return;
-            }
-
             ImageDownloadInfo imageInfo = null;
 
             if (context is UserView)
@@ -1083,17 +1141,17 @@ namespace Emby.Dlna.Didl
             int? width = null;
             int? height = null;
 
-            try
-            {
-                var size = _imageProcessor.GetImageSize(imageInfo);
+            //try
+            //{
+            //    var size = _imageProcessor.GetImageSize(imageInfo);
 
-                width = Convert.ToInt32(size.Width);
-                height = Convert.ToInt32(size.Height);
-            }
-            catch
-            {
+            //    width = Convert.ToInt32(size.Width);
+            //    height = Convert.ToInt32(size.Height);
+            //}
+            //catch
+            //{
 
-            }
+            //}
 
             var inputFormat = (Path.GetExtension(imageInfo.Path) ?? string.Empty)
                 .TrimStart('.')

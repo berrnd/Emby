@@ -16,9 +16,10 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Xml;
-
+using MediaBrowser.Controller.Extensions;
 using MediaBrowser.Model.Extensions;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Xml;
@@ -34,7 +35,6 @@ namespace MediaBrowser.XbmcMetadata.Savers
                     "plot",
                     "customrating",
                     "lockdata",
-                    "type",
                     "dateadded",
                     "title",
                     "rating",
@@ -76,7 +76,6 @@ namespace MediaBrowser.XbmcMetadata.Savers
                     "style",
                     "imdbid",
                     "imdb_id",
-                    "plotkeyword",
                     "country",
                     "audiodbalbumid",
                     "audiodbartistid",
@@ -300,9 +299,9 @@ namespace MediaBrowser.XbmcMetadata.Savers
             writer.WriteStartElement("fileinfo");
             writer.WriteStartElement("streamdetails");
 
-            var mediaSource = item.GetMediaSources(false).First();
+            var mediaStreams = item.GetMediaStreams();
 
-            foreach (var stream in mediaSource.MediaStreams)
+            foreach (var stream in mediaStreams)
             {
                 writer.WriteStartElement(stream.Type.ToString().ToLower());
 
@@ -353,7 +352,8 @@ namespace MediaBrowser.XbmcMetadata.Savers
 
                 if (!string.IsNullOrEmpty(stream.Language))
                 {
-                    writer.WriteElementString("language", stream.Language);
+                    // https://emby.media/community/index.php?/topic/49071-nfo-not-generated-on-actualize-or-rescan-or-identify
+                    writer.WriteElementString("language", RemoveInvalidXMLChars(stream.Language));
                 }
 
                 var scanType = stream.IsInterlaced ? "interlaced" : "progressive";
@@ -377,9 +377,10 @@ namespace MediaBrowser.XbmcMetadata.Savers
 
                 if (stream.Type == MediaStreamType.Video)
                 {
-                    if (mediaSource.RunTimeTicks.HasValue)
+                    var runtimeTicks = ((IHasMetadata) item).RunTimeTicks;
+                    if (runtimeTicks.HasValue)
                     {
-                        var timespan = TimeSpan.FromTicks(mediaSource.RunTimeTicks.Value);
+                        var timespan = TimeSpan.FromTicks(runtimeTicks.Value);
 
                         writer.WriteElementString("duration", Convert.ToInt32(timespan.TotalMinutes).ToString(UsCulture));
                         writer.WriteElementString("durationinseconds", Convert.ToInt32(timespan.TotalSeconds).ToString(UsCulture));
@@ -420,6 +421,19 @@ namespace MediaBrowser.XbmcMetadata.Savers
 
             writer.WriteEndElement();
             writer.WriteEndElement();
+        }
+
+        // filters control characters but allows only properly-formed surrogate sequences
+        private static Regex _invalidXMLChars = new Regex(
+            @"(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F\uFEFF\uFFFE\uFFFF]");
+
+        /// <summary>
+        /// removes any unusual unicode characters that can't be encoded into XML
+        /// </summary>
+        public static string RemoveInvalidXMLChars(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return string.Empty;
+            return _invalidXMLChars.Replace(text, string.Empty);
         }
 
         public const string DateAddedFormat = "yyyy-MM-dd HH:mm:ss";
@@ -471,14 +485,9 @@ namespace MediaBrowser.XbmcMetadata.Savers
 
             writer.WriteElementString("lockdata", item.IsLocked.ToString().ToLower());
 
-            if (item.LockedFields.Count > 0)
+            if (item.LockedFields.Length > 0)
             {
-                writer.WriteElementString("lockedfields", string.Join("|", item.LockedFields.Select(i => i.ToString()).ToArray()));
-            }
-
-            if (!string.IsNullOrEmpty(item.DisplayMediaType))
-            {
-                writer.WriteElementString("type", item.DisplayMediaType);
+                writer.WriteElementString("lockedfields", string.Join("|", item.LockedFields));
             }
 
             writer.WriteElementString("dateadded", item.DateCreated.ToLocalTime().ToString(DateAddedFormat));
@@ -602,13 +611,6 @@ namespace MediaBrowser.XbmcMetadata.Savers
                 writtenProviderIds.Add(MetadataProviders.Tmdb.ToString());
             }
 
-            var tvcom = item.GetProviderId(MetadataProviders.Tvcom);
-            if (!string.IsNullOrEmpty(tvcom))
-            {
-                writer.WriteElementString("tvcomid", tvcom);
-                writtenProviderIds.Add(MetadataProviders.Tvcom.ToString());
-            }
-
             if (!string.IsNullOrEmpty(item.PreferredMetadataLanguage))
             {
                 writer.WriteElementString("language", item.PreferredMetadataLanguage);
@@ -698,11 +700,6 @@ namespace MediaBrowser.XbmcMetadata.Savers
                 {
                     writer.WriteElementString("tag", tag);
                 }
-            }
-
-            foreach (var tag in item.Keywords)
-            {
-                writer.WriteElementString("plotkeyword", tag);
             }
 
             var externalId = item.GetProviderId(MetadataProviders.AudioDbArtist);

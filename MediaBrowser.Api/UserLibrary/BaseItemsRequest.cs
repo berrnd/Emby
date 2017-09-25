@@ -70,9 +70,6 @@ namespace MediaBrowser.Api.UserLibrary
         [ApiMember(Name = "IsUnaired", Description = "Optional filter by items that are unaired episodes or not.", IsRequired = false, DataType = "bool", ParameterType = "query", Verb = "GET")]
         public bool? IsUnaired { get; set; }
 
-        [ApiMember(Name = "IsVirtualUnaired", Description = "Optional filter by items that are virtual unaired episodes or not.", IsRequired = false, DataType = "bool", ParameterType = "query", Verb = "GET")]
-        public bool? IsVirtualUnaired { get; set; }
-
         [ApiMember(Name = "MinCommunityRating", Description = "Optional filter by minimum community rating.", IsRequired = false, DataType = "int", ParameterType = "query", Verb = "GET")]
         public double? MinCommunityRating { get; set; }
 
@@ -139,7 +136,7 @@ namespace MediaBrowser.Api.UserLibrary
         /// </summary>
         /// <value>The sort order.</value>
         [ApiMember(Name = "SortOrder", Description = "Sort Order - Ascending,Descending", IsRequired = false, DataType = "string", ParameterType = "query", Verb = "GET")]
-        public SortOrder? SortOrder { get; set; }
+        public string SortOrder { get; set; }
 
         /// <summary>
         /// Specify this to localize the search to a specific item or folder. Omit to use the root.
@@ -300,13 +297,6 @@ namespace MediaBrowser.Api.UserLibrary
         public string VideoTypes { get; set; }
 
         /// <summary>
-        /// Gets or sets the air days.
-        /// </summary>
-        /// <value>The air days.</value>
-        [ApiMember(Name = "AirDays", Description = "Optional filter by Series Air Days. Allows multiple, comma delimeted.", IsRequired = false, DataType = "string", ParameterType = "query", Verb = "GET", AllowMultiple = true)]
-        public string AirDays { get; set; }
-
-        /// <summary>
         /// Gets or sets the user id.
         /// </summary>
         /// <value>The user id.</value>
@@ -445,7 +435,7 @@ namespace MediaBrowser.Api.UserLibrary
         /// Gets the filters.
         /// </summary>
         /// <returns>IEnumerable{ItemFilter}.</returns>
-        public IEnumerable<ItemFilter> GetFilters()
+        public ItemFilter[] GetFilters()
         {
             var val = Filters;
 
@@ -454,14 +444,14 @@ namespace MediaBrowser.Api.UserLibrary
                 return new ItemFilter[] { };
             }
 
-            return val.Split(',').Select(v => (ItemFilter)Enum.Parse(typeof(ItemFilter), v, true));
+            return val.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).Select(v => (ItemFilter)Enum.Parse(typeof(ItemFilter), v, true)).ToArray();
         }
 
         /// <summary>
         /// Gets the image types.
         /// </summary>
         /// <returns>IEnumerable{ImageType}.</returns>
-        public IEnumerable<ImageType> GetImageTypes()
+        public ImageType[] GetImageTypes()
         {
             var val = ImageTypes;
 
@@ -470,23 +460,48 @@ namespace MediaBrowser.Api.UserLibrary
                 return new ImageType[] { };
             }
 
-            return val.Split(',').Select(v => (ImageType)Enum.Parse(typeof(ImageType), v, true));
+            return val.Split(',').Select(v => (ImageType)Enum.Parse(typeof(ImageType), v, true)).ToArray();
         }
 
         /// <summary>
         /// Gets the order by.
         /// </summary>
         /// <returns>IEnumerable{ItemSortBy}.</returns>
-        public string[] GetOrderBy()
+        public Tuple<string, SortOrder>[] GetOrderBy()
         {
-            var val = SortBy;
+            return GetOrderBy(SortBy, SortOrder);
+        }
+
+        public static Tuple<string, SortOrder>[] GetOrderBy(string sortBy, string requestedSortOrder)
+        {
+            var val = sortBy;
 
             if (string.IsNullOrEmpty(val))
             {
-                return new string[] { };
+                return new Tuple<string, Model.Entities.SortOrder>[] { };
             }
 
-            return val.Split(',');
+            var vals = val.Split(',');
+            if (string.IsNullOrWhiteSpace(requestedSortOrder))
+            {
+                requestedSortOrder = "Ascending";
+            }
+
+            var sortOrders = requestedSortOrder.Split(',');
+
+            var result = new Tuple<string, Model.Entities.SortOrder>[vals.Length];
+
+            for (var i = 0; i < vals.Length; i++)
+            {
+                var sortOrderIndex = sortOrders.Length > i ? i : 0;
+
+                var sortOrderValue = sortOrders.Length > sortOrderIndex ? sortOrders[sortOrderIndex] : null;
+                var sortOrder = string.Equals(sortOrderValue, "Descending", StringComparison.OrdinalIgnoreCase) ? MediaBrowser.Model.Entities.SortOrder.Descending : MediaBrowser.Model.Entities.SortOrder.Ascending;
+
+                result[i] = new Tuple<string, Model.Entities.SortOrder>(vals[i], sortOrder);
+            }
+
+            return result;
         }
     }
 }

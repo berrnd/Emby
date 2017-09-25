@@ -8,7 +8,6 @@ using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Logging;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Xml;
 
 using MediaBrowser.Controller.IO;
@@ -21,7 +20,8 @@ namespace MediaBrowser.XbmcMetadata.Savers
     {
         protected override string GetLocalSavePath(IHasMetadata item)
         {
-            return GetMovieSavePaths(new ItemInfo(item), FileSystem).FirstOrDefault();
+            var paths = GetMovieSavePaths(new ItemInfo(item), FileSystem);
+            return paths.Count == 0 ? null : paths[0];
         }
 
         public static List<string> GetMovieSavePaths(ItemInfo item, IFileSystem fileSystem)
@@ -35,7 +35,7 @@ namespace MediaBrowser.XbmcMetadata.Savers
                 list.Add(Path.Combine(path, "VIDEO_TS", "VIDEO_TS.nfo"));
             }
 
-            if (!item.IsPlaceHolder && (item.VideoType == VideoType.Dvd || item.VideoType == VideoType.BluRay || item.VideoType == VideoType.HdDvd))
+            if (!item.IsPlaceHolder && (item.VideoType == VideoType.Dvd || item.VideoType == VideoType.BluRay))
             {
                 var path = item.ContainingFolderPath;
 
@@ -51,6 +51,11 @@ namespace MediaBrowser.XbmcMetadata.Savers
                 //}
 
                 list.Add(Path.ChangeExtension(item.Path, ".nfo"));
+
+                if (!item.IsInMixedFolder)
+                {
+                    list.Add(Path.Combine(item.ContainingFolderPath, "movie.nfo"));
+                }
             }
 
             return list;

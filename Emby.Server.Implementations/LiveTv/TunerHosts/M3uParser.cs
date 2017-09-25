@@ -32,25 +32,21 @@ namespace Emby.Server.Implementations.LiveTv.TunerHosts
             _appHost = appHost;
         }
 
-        public async Task<List<M3UChannel>> Parse(string url, string channelIdPrefix, string tunerHostId, bool enableStreamUrlAsIdentifier, CancellationToken cancellationToken)
+        public async Task<List<ChannelInfo>> Parse(string url, string channelIdPrefix, string tunerHostId, CancellationToken cancellationToken)
         {
-            var urlHash = url.GetMD5().ToString("N");
-
             // Read the file and display it line by line.
             using (var reader = new StreamReader(await GetListingsStream(url, cancellationToken).ConfigureAwait(false)))
             {
-                return GetChannels(reader, urlHash, channelIdPrefix, tunerHostId, enableStreamUrlAsIdentifier);
+                return GetChannels(reader, channelIdPrefix, tunerHostId);
             }
         }
 
-        public List<M3UChannel> ParseString(string text, string channelIdPrefix, string tunerHostId)
+        public List<ChannelInfo> ParseString(string text, string channelIdPrefix, string tunerHostId)
         {
-            var urlHash = "text".GetMD5().ToString("N");
-
             // Read the file and display it line by line.
             using (var reader = new StringReader(text))
             {
-                return GetChannels(reader, urlHash, channelIdPrefix, tunerHostId, false);
+                return GetChannels(reader, channelIdPrefix, tunerHostId);
             }
         }
 
@@ -70,9 +66,9 @@ namespace Emby.Server.Implementations.LiveTv.TunerHosts
         }
 
         const string ExtInfPrefix = "#EXTINF:";
-        private List<M3UChannel> GetChannels(TextReader reader, string urlHash, string channelIdPrefix, string tunerHostId, bool enableStreamUrlAsIdentifier)
+        private List<ChannelInfo> GetChannels(TextReader reader, string channelIdPrefix, string tunerHostId)
         {
-            var channels = new List<M3UChannel>();
+            var channels = new List<ChannelInfo>();
             string line;
             string extInf = "";
 
@@ -97,13 +93,13 @@ namespace Emby.Server.Implementations.LiveTv.TunerHosts
                 else if (!string.IsNullOrWhiteSpace(extInf) && !line.StartsWith("#", StringComparison.OrdinalIgnoreCase))
                 {
                     var channel = GetChannelnfo(extInf, tunerHostId, line);
-                    if (string.IsNullOrWhiteSpace(channel.Id) || enableStreamUrlAsIdentifier)
+                    if (string.IsNullOrWhiteSpace(channel.Id))
                     {
-                        channel.Id = channelIdPrefix + urlHash + line.GetMD5().ToString("N");
+                        channel.Id = channelIdPrefix + line.GetMD5().ToString("N");
                     }
                     else
                     {
-                        channel.Id = channelIdPrefix + urlHash + channel.Id.GetMD5().ToString("N");
+                        channel.Id = channelIdPrefix + channel.Id.GetMD5().ToString("N");
                     }
 
                     channel.Path = line;
@@ -115,9 +111,9 @@ namespace Emby.Server.Implementations.LiveTv.TunerHosts
             return channels;
         }
 
-        private M3UChannel GetChannelnfo(string extInf, string tunerHostId, string mediaUrl)
+        private ChannelInfo GetChannelnfo(string extInf, string tunerHostId, string mediaUrl)
         {
-            var channel = new M3UChannel();
+            var channel = new ChannelInfo();
             channel.TunerHostId = tunerHostId;
 
             extInf = extInf.Trim();
@@ -338,11 +334,5 @@ namespace Emby.Server.Implementations.LiveTv.TunerHosts
 
             return dict;
         }
-    }
-
-
-    public class M3UChannel : ChannelInfo
-    {
-        public string Path { get; set; }
     }
 }

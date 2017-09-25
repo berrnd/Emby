@@ -11,20 +11,18 @@ using System.Net.Security;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using Emby.Common.Implementations.EnvironmentInfo;
-using Emby.Common.Implementations.Logging;
-using Emby.Common.Implementations.Networking;
+using Emby.Drawing;
 using Emby.Server.Core.Cryptography;
 using Emby.Server.Core;
-using Emby.Server.Core.IO;
-using Emby.Server.Core.Logging;
 using Emby.Server.Implementations;
+using Emby.Server.Implementations.EnvironmentInfo;
 using Emby.Server.Implementations.IO;
 using Emby.Server.Implementations.Logging;
+using Emby.Server.Implementations.Networking;
+using MediaBrowser.Controller;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Model.System;
 using Mono.Unix.Native;
-using NLog;
 using ILogger = MediaBrowser.Model.Logging.ILogger;
 using X509Certificate = System.Security.Cryptography.X509Certificates.X509Certificate;
 
@@ -32,15 +30,17 @@ namespace MediaBrowser.Server.Mono
 {
     public class MainClass
     {
-        private static ApplicationHost _appHost;
-
         private static ILogger _logger;
         private static IFileSystem FileSystem;
+        private static IServerApplicationPaths _appPaths;
+        private static ILogManager _logManager;
+
+        private static readonly TaskCompletionSource<bool> ApplicationTaskCompletionSource = new TaskCompletionSource<bool>();
+        private static bool _restartOnShutdown;
 
         public static void Main(string[] args)
         {
             var applicationPath = Assembly.GetEntryAssembly().Location;
-            var appFolderPath = Path.GetDirectoryName(applicationPath);
 
             SetSqliteProvider();
 
@@ -50,26 +50,29 @@ namespace MediaBrowser.Server.Mono
             var customProgramDataPath = options.GetOption("-programdata");
 
             var appPaths = CreateApplicationPaths(applicationPath, customProgramDataPath);
+            _appPaths = appPaths;
 
-            var logManager = new NlogManager(appPaths.LogDirectoryPath, "server");
-            logManager.ReloadLogger(LogSeverity.Info);
-            logManager.AddConsoleOutput();
-
-            var logger = _logger = logManager.GetLogger("Main");
-
-            ApplicationHost.LogEnvironmentInfo(logger, appPaths, true);
-            
-            AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
-
-            try
+            using (var logManager = new SimpleLogManager(appPaths.LogDirectoryPath, "server"))
             {
+                _logManager = logManager;
+
+                logManager.ReloadLogger(LogSeverity.Info);
+                logManager.AddConsoleOutput();
+
+                var logger = _logger = logManager.GetLogger("Main");
+
+                ApplicationHost.LogEnvironmentInfo(logger, appPaths, true);
+
+                AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
+
                 RunApplication(appPaths, logManager, options);
-            }
-            finally
-            {
-                logger.Info("Shutting down");
 
-                _appHost.Dispose();
+                _logger.Info("Disposing app host");
+
+                if (_restartOnShutdown)
+                {
+                    StartNewInstance(options);
+                }
             }
         }
 
@@ -87,12 +90,8 @@ namespace MediaBrowser.Server.Mono
 
             var appFolderPath = Path.GetDirectoryName(applicationPath);
 
-            Action<string> createDirectoryFn = s => Directory.CreateDirectory(s);
-
-            return new ServerApplicationPaths(programDataPath, appFolderPath, Path.GetDirectoryName(applicationPath), createDirectoryFn);
+            return new ServerApplicationPaths(programDataPath, appFolderPath, Path.GetDirectoryName(applicationPath));
         }
-
-        private static readonly TaskCompletionSource<bool> ApplicationTaskCompletionSource = new TaskCompletionSource<bool>();
 
         private static void RunApplication(ServerApplicationPaths appPaths, ILogManager logManager, StartupOptions options)
         {
@@ -105,48 +104,42 @@ namespace MediaBrowser.Server.Mono
 
             FileSystem = fileSystem;
 
-            var imageEncoder = ImageEncoderHelper.GetImageEncoder(_logger, logManager, fileSystem, options, () => _appHost.HttpClient, appPaths, environmentInfo);
-
-            _appHost = new MonoAppHost(appPaths,
+            using (var appHost = new MonoAppHost(appPaths,
                 logManager,
                 options,
                 fileSystem,
                 new PowerManagement(),
                 "emby.mono.zip",
                 environmentInfo,
-                imageEncoder,
-                new Startup.Common.SystemEvents(logManager.GetLogger("SystemEvents")),
-                new MemoryStreamProvider(),
-                new NetworkManager(logManager.GetLogger("NetworkManager")),
-                GenerateCertificate,
-                () => Environment.UserName);
-
-            if (options.ContainsOption("-v"))
+                new NullImageEncoder(),
+                new SystemEvents(logManager.GetLogger("SystemEvents")),
+                new NetworkManager(logManager.GetLogger("NetworkManager"))))
             {
-                Console.WriteLine(_appHost.ApplicationVersion.ToString());
-                return;
+                if (options.ContainsOption("-v"))
+                {
+                    Console.WriteLine(appHost.ApplicationVersion.ToString());
+                    return;
+                }
+
+                Console.WriteLine("appHost.Init");
+
+                var initProgress = new Progress<double>();
+
+                var task = appHost.Init(initProgress);
+
+                Task.WaitAll(task);
+
+                appHost.ImageProcessor.ImageEncoder = ImageEncoderHelper.GetImageEncoder(_logger, logManager, fileSystem, options, () => appHost.HttpClient, appPaths, environmentInfo);
+
+                Console.WriteLine("Running startup tasks");
+
+                task = appHost.RunStartupTasks();
+                Task.WaitAll(task);
+
+                task = ApplicationTaskCompletionSource.Task;
+
+                Task.WaitAll(task);
             }
-
-            Console.WriteLine("appHost.Init");
-
-            var initProgress = new Progress<double>();
-
-            var task = _appHost.Init(initProgress);
-            Task.WaitAll(task);
-
-            Console.WriteLine("Running startup tasks");
-
-            task = _appHost.RunStartupTasks();
-            Task.WaitAll(task);
-
-            task = ApplicationTaskCompletionSource.Task;
-
-            Task.WaitAll(task);
-        }
-
-        private static void GenerateCertificate(string certPath, string certHost, string certPassword)
-        {
-            CertificateGenerator.CreateSelfSignCertificatePfx(certPath, certHost, certPassword, _logger);
         }
 
         private static MonoEnvironmentInfo GetEnvironmentInfo()
@@ -159,39 +152,38 @@ namespace MediaBrowser.Server.Mono
 
             if (string.Equals(sysName, "Darwin", StringComparison.OrdinalIgnoreCase))
             {
-                //info.OperatingSystem = Startup.Common.OperatingSystem.Osx;
+                info.OperatingSystem = Model.System.OperatingSystem.OSX;
             }
             else if (string.Equals(sysName, "Linux", StringComparison.OrdinalIgnoreCase))
             {
-                //info.OperatingSystem = Startup.Common.OperatingSystem.Linux;
+                info.OperatingSystem = Model.System.OperatingSystem.Linux;
             }
             else if (string.Equals(sysName, "BSD", StringComparison.OrdinalIgnoreCase))
             {
-                //info.OperatingSystem = Startup.Common.OperatingSystem.Bsd;
-                info.IsBsd = true;
+                info.OperatingSystem = Model.System.OperatingSystem.BSD;
             }
 
             var archX86 = new Regex("(i|I)[3-6]86");
 
             if (archX86.IsMatch(uname.machine))
             {
-                info.CustomArchitecture = Architecture.X86;
+                info.SystemArchitecture = Architecture.X86;
             }
             else if (string.Equals(uname.machine, "x86_64", StringComparison.OrdinalIgnoreCase))
             {
-                info.CustomArchitecture = Architecture.X64;
+                info.SystemArchitecture = Architecture.X64;
             }
             else if (uname.machine.StartsWith("arm", StringComparison.OrdinalIgnoreCase))
             {
-                info.CustomArchitecture = Architecture.Arm;
+                info.SystemArchitecture = Architecture.Arm;
             }
             else if (System.Environment.Is64BitOperatingSystem)
             {
-                info.CustomArchitecture = Architecture.X64;
+                info.SystemArchitecture = Architecture.X64;
             }
             else
             {
-                info.CustomArchitecture = Architecture.X86;
+                info.SystemArchitecture = Architecture.X86;
             }
 
             return info;
@@ -239,7 +231,7 @@ namespace MediaBrowser.Server.Mono
         {
             var exception = (Exception)e.ExceptionObject;
 
-            new UnhandledExceptionWriter(_appHost.ServerConfigurationManager.ApplicationPaths, _logger, _appHost.LogManager, FileSystem, new ConsoleLogger()).Log(exception);
+            new UnhandledExceptionWriter(_appPaths, _logger, _logManager, FileSystem, new ConsoleLogger()).Log(exception);
 
             if (!Debugger.IsAttached)
             {
@@ -258,11 +250,15 @@ namespace MediaBrowser.Server.Mono
             ApplicationTaskCompletionSource.SetResult(true);
         }
 
-        public static void Restart(StartupOptions startupOptions)
+        public static void Restart()
         {
-            _logger.Info("Disposing app host");
-            _appHost.Dispose();
+            _restartOnShutdown = true;
 
+            Shutdown();
+        }
+
+        private static void StartNewInstance(StartupOptions startupOptions)
+        {
             _logger.Info("Starting new instance");
 
             string module = startupOptions.GetOption("-restartpath");
@@ -275,19 +271,17 @@ namespace MediaBrowser.Server.Mono
             if (!startupOptions.ContainsOption("-restartargs"))
             {
                 var args = Environment.GetCommandLineArgs()
-                                .Skip(1)
-                                .Select(NormalizeCommandLineArgument);
+                    .Skip(1)
+                    .Select(NormalizeCommandLineArgument)
+                    .ToArray();
 
-                commandLineArgsString = string.Join(" ", args.ToArray());
+                commandLineArgsString = string.Join(" ", args);
             }
 
             _logger.Info("Executable: {0}", module);
             _logger.Info("Arguments: {0}", commandLineArgsString);
 
             Process.Start(module, commandLineArgsString);
-
-            _logger.Info("Calling Environment.Exit");
-            Environment.Exit(0);
         }
 
         private static string NormalizeCommandLineArgument(string arg)
@@ -311,24 +305,9 @@ namespace MediaBrowser.Server.Mono
 
     public class MonoEnvironmentInfo : EnvironmentInfo
     {
-        public bool IsBsd { get; set; }
-
         public override string GetUserId()
         {
             return Syscall.getuid().ToString(CultureInfo.InvariantCulture);
-        }
-
-        public override Model.System.OperatingSystem OperatingSystem
-        {
-            get
-            {
-                if (IsBsd)
-                {
-                    return Model.System.OperatingSystem.BSD;
-                }
-
-                return base.OperatingSystem;
-            }
         }
     }
 }

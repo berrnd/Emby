@@ -6,20 +6,17 @@ using MediaBrowser.Controller.Providers;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Logging;
 using MediaBrowser.Providers.Manager;
-using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
-
-using MediaBrowser.Controller.IO;
 using MediaBrowser.Model.IO;
+using MediaBrowser.Model.Extensions;
 
 namespace MediaBrowser.Providers.BoxSets
 {
     public class BoxSetMetadataService : MetadataService<BoxSet, BoxSetInfo>
     {
-        protected override ItemUpdateType BeforeSave(BoxSet item, bool isFullRefresh, ItemUpdateType currentUpdateType)
+        protected override ItemUpdateType BeforeSaveInternal(BoxSet item, bool isFullRefresh, ItemUpdateType currentUpdateType)
         {
-            var updateType = base.BeforeSave(item, isFullRefresh, currentUpdateType);
+            var updateType = base.BeforeSaveInternal(item, isFullRefresh, currentUpdateType);
 
             if (isFullRefresh || currentUpdateType > ItemUpdateType.None)
             {
@@ -35,7 +32,7 @@ namespace MediaBrowser.Providers.BoxSets
             return updateType;
         }
 
-        protected override void MergeData(MetadataResult<BoxSet> source, MetadataResult<BoxSet> target, List<MetadataFields> lockedFields, bool replaceData, bool mergeMetadataSettings)
+        protected override void MergeData(MetadataResult<BoxSet> source, MetadataResult<BoxSet> target, MetadataFields[] lockedFields, bool replaceData, bool mergeMetadataSettings)
         {
             ProviderUtils.MergeBaseItemData(source, target, lockedFields, replaceData, mergeMetadataSettings);
 
@@ -44,11 +41,7 @@ namespace MediaBrowser.Providers.BoxSets
 
             if (mergeMetadataSettings)
             {
-                // Retain shortcut children
-                var linkedChildren = sourceItem.LinkedChildren.ToList();
-                linkedChildren.AddRange(sourceItem.LinkedChildren.Where(i => i.Type == LinkedChildType.Shortcut));
-
-                targetItem.LinkedChildren = linkedChildren;
+                targetItem.LinkedChildren = sourceItem.LinkedChildren;
                 targetItem.Shares = sourceItem.Shares;
             }
         }

@@ -71,9 +71,8 @@ namespace Emby.Server.Implementations.Library
         private readonly IServerApplicationHost _appHost;
         private readonly IFileSystem _fileSystem;
         private readonly ICryptoProvider _cryptographyProvider;
-        private readonly string _defaultUserName;
 
-        public UserManager(ILogger logger, IServerConfigurationManager configurationManager, IUserRepository userRepository, IXmlSerializer xmlSerializer, INetworkManager networkManager, Func<IImageProcessor> imageProcessorFactory, Func<IDtoService> dtoServiceFactory, Func<IConnectManager> connectFactory, IServerApplicationHost appHost, IJsonSerializer jsonSerializer, IFileSystem fileSystem, ICryptoProvider cryptographyProvider, string defaultUserName)
+        public UserManager(ILogger logger, IServerConfigurationManager configurationManager, IUserRepository userRepository, IXmlSerializer xmlSerializer, INetworkManager networkManager, Func<IImageProcessor> imageProcessorFactory, Func<IDtoService> dtoServiceFactory, Func<IConnectManager> connectFactory, IServerApplicationHost appHost, IJsonSerializer jsonSerializer, IFileSystem fileSystem, ICryptoProvider cryptographyProvider)
         {
             _logger = logger;
             UserRepository = userRepository;
@@ -86,7 +85,6 @@ namespace Emby.Server.Implementations.Library
             _jsonSerializer = jsonSerializer;
             _fileSystem = fileSystem;
             _cryptographyProvider = cryptographyProvider;
-            _defaultUserName = defaultUserName;
             ConfigurationManager = configurationManager;
             Users = new List<User>();
 
@@ -122,7 +120,7 @@ namespace Emby.Server.Implementations.Library
         /// <param name="user">The user.</param>
         private void OnUserDeleted(User user)
         {
-            EventHelper.QueueEventIfNotNull(UserDeleted, this, new GenericEventArgs<User> { Argument = user }, _logger);
+            EventHelper.FireEventIfNotNull(UserDeleted, this, new GenericEventArgs<User> { Argument = user }, _logger);
         }
         #endregion
 
@@ -162,9 +160,9 @@ namespace Emby.Server.Implementations.Library
             return Users.FirstOrDefault(u => string.Equals(u.Name, name, StringComparison.OrdinalIgnoreCase));
         }
 
-        public async Task Initialize()
+        public void Initialize()
         {
-            Users = await LoadUsers().ConfigureAwait(false);
+            Users = LoadUsers();
 
             var users = Users.ToList();
 
@@ -176,15 +174,10 @@ namespace Emby.Server.Implementations.Library
                     if (!user.ConnectLinkType.HasValue || user.ConnectLinkType.Value == UserLinkType.LinkedUser)
                     {
                         user.Policy.IsAdministrator = true;
-                        await UpdateUserPolicy(user, user.Policy, false).ConfigureAwait(false);
+                        UpdateUserPolicy(user, user.Policy, false);
                     }
                 }
             }
-        }
-
-        public Task<User> AuthenticateUser(string username, string passwordSha1, string remoteEndPoint)
-        {
-            return AuthenticateUser(username, passwordSha1, null, remoteEndPoint);
         }
 
         public bool IsValidUsername(string username)
@@ -225,7 +218,7 @@ namespace Emby.Server.Implementations.Library
             return builder.ToString();
         }
 
-        public async Task<User> AuthenticateUser(string username, string passwordSha1, string passwordMd5, string remoteEndPoint)
+        public async Task<User> AuthenticateUser(string username, string password, string hashedPassword, string passwordMd5, string remoteEndPoint)
         {
             if (string.IsNullOrWhiteSpace(username))
             {
@@ -239,23 +232,23 @@ namespace Emby.Server.Implementations.Library
 
             if (user != null)
             {
+                if (password != null)
+                {
+                    hashedPassword = GetHashedString(user, password);
+                }
+
                 // Authenticate using local credentials if not a guest
                 if (!user.ConnectLinkType.HasValue || user.ConnectLinkType.Value != UserLinkType.Guest)
                 {
-                    success = string.Equals(GetPasswordHash(user), passwordSha1.Replace("-", string.Empty), StringComparison.OrdinalIgnoreCase);
-
-                    if (!success && _networkManager.IsInLocalNetwork(remoteEndPoint) && user.Configuration.EnableLocalPassword)
-                    {
-                        success = string.Equals(GetLocalPasswordHash(user), passwordSha1.Replace("-", string.Empty), StringComparison.OrdinalIgnoreCase);
-                    }
+                    success = AuthenticateLocalUser(user, password, hashedPassword, remoteEndPoint);
                 }
 
                 // Maybe user accidently entered connect credentials. let's be flexible
-                if (!success && user.ConnectLinkType.HasValue && !string.IsNullOrWhiteSpace(passwordMd5) && !string.IsNullOrWhiteSpace(user.ConnectUserName))
+                if (!success && user.ConnectLinkType.HasValue && !string.IsNullOrWhiteSpace(user.ConnectUserName))
                 {
                     try
                     {
-                        await _connectFactory().Authenticate(user.ConnectUserName, passwordMd5).ConfigureAwait(false);
+                        await _connectFactory().Authenticate(user.ConnectUserName, password, passwordMd5).ConfigureAwait(false);
                         success = true;
                     }
                     catch
@@ -270,7 +263,7 @@ namespace Emby.Server.Implementations.Library
             {
                 try
                 {
-                    var connectAuthResult = await _connectFactory().Authenticate(username, passwordMd5).ConfigureAwait(false);
+                    var connectAuthResult = await _connectFactory().Authenticate(username, password, passwordMd5).ConfigureAwait(false);
 
                     user = Users.FirstOrDefault(i => string.Equals(i.ConnectUserId, connectAuthResult.User.Id, StringComparison.OrdinalIgnoreCase));
 
@@ -296,12 +289,12 @@ namespace Emby.Server.Implementations.Library
             if (success)
             {
                 user.LastActivityDate = user.LastLoginDate = DateTime.UtcNow;
-                await UpdateUser(user).ConfigureAwait(false);
-                await UpdateInvalidLoginAttemptCount(user, 0).ConfigureAwait(false);
+                UpdateUser(user);
+                UpdateInvalidLoginAttemptCount(user, 0);
             }
             else
             {
-                await UpdateInvalidLoginAttemptCount(user, user.Policy.InvalidLoginAttemptCount + 1).ConfigureAwait(false);
+                UpdateInvalidLoginAttemptCount(user, user.Policy.InvalidLoginAttemptCount + 1);
             }
 
             _logger.Info("Authentication request for {0} {1}.", user.Name, success ? "has succeeded" : "has been denied");
@@ -309,7 +302,37 @@ namespace Emby.Server.Implementations.Library
             return success ? user : null;
         }
 
-        private async Task UpdateInvalidLoginAttemptCount(User user, int newValue)
+        private bool AuthenticateLocalUser(User user, string password, string hashedPassword, string remoteEndPoint)
+        {
+            bool success;
+
+            if (password == null)
+            {
+                // legacy
+                success = string.Equals(GetPasswordHash(user), hashedPassword.Replace("-", string.Empty), StringComparison.OrdinalIgnoreCase);
+            }
+            else
+            {
+                success = string.Equals(GetPasswordHash(user), GetHashedString(user, password), StringComparison.OrdinalIgnoreCase);
+            }
+
+            if (!success && _networkManager.IsInLocalNetwork(remoteEndPoint) && user.Configuration.EnableLocalPassword)
+            {
+                if (password == null)
+                {
+                    // legacy
+                    success = string.Equals(GetLocalPasswordHash(user), hashedPassword.Replace("-", string.Empty), StringComparison.OrdinalIgnoreCase);
+                }
+                else
+                {
+                    success = string.Equals(GetLocalPasswordHash(user), GetHashedString(user, password), StringComparison.OrdinalIgnoreCase);
+                }
+            }
+
+            return success;
+        }
+
+        private void UpdateInvalidLoginAttemptCount(User user, int newValue)
         {
             if (user.Policy.InvalidLoginAttemptCount != newValue || newValue > 0)
             {
@@ -329,7 +352,7 @@ namespace Emby.Server.Implementations.Library
                     //fireLockout = true;
                 }
 
-                await UpdateUserPolicy(user, user.Policy, false).ConfigureAwait(false);
+                UpdateUserPolicy(user, user.Policy, false);
 
                 if (fireLockout)
                 {
@@ -344,29 +367,39 @@ namespace Emby.Server.Implementations.Library
         private string GetPasswordHash(User user)
         {
             return string.IsNullOrEmpty(user.Password)
-                ? GetSha1String(string.Empty)
+                ? GetEmptyHashedString(user)
                 : user.Password;
         }
 
         private string GetLocalPasswordHash(User user)
         {
             return string.IsNullOrEmpty(user.EasyPassword)
-                ? GetSha1String(string.Empty)
+                ? GetEmptyHashedString(user)
                 : user.EasyPassword;
         }
 
-        private bool IsPasswordEmpty(string passwordHash)
+        private bool IsPasswordEmpty(User user, string passwordHash)
         {
-            return string.Equals(passwordHash, GetSha1String(string.Empty), StringComparison.OrdinalIgnoreCase);
+            return string.Equals(passwordHash, GetEmptyHashedString(user), StringComparison.OrdinalIgnoreCase);
+        }
+
+        private string GetEmptyHashedString(User user)
+        {
+            return GetHashedString(user, string.Empty);
         }
 
         /// <summary>
-        /// Gets the sha1 string.
+        /// Gets the hashed string.
         /// </summary>
-        /// <param name="str">The STR.</param>
-        /// <returns>System.String.</returns>
-        private string GetSha1String(string str)
+        private string GetHashedString(User user, string str)
         {
+            var salt = user.Salt;
+            if (salt != null)
+            {
+                // return BCrypt.HashPassword(str, salt);
+            }
+
+            // legacy
             return BitConverter.ToString(_cryptographyProvider.ComputeSHA1(Encoding.UTF8.GetBytes(str))).Replace("-", string.Empty);
         }
 
@@ -374,27 +407,27 @@ namespace Emby.Server.Implementations.Library
         /// Loads the users from the repository
         /// </summary>
         /// <returns>IEnumerable{User}.</returns>
-        private async Task<IEnumerable<User>> LoadUsers()
+        private List<User> LoadUsers()
         {
             var users = UserRepository.RetrieveAllUsers().ToList();
 
             // There always has to be at least one user.
             if (users.Count == 0)
             {
-                var name = MakeValidUsername(_defaultUserName);
+                var name = MakeValidUsername(Environment.UserName);
 
                 var user = InstantiateNewUser(name);
 
                 user.DateLastSaved = DateTime.UtcNow;
 
-                await UserRepository.SaveUser(user, CancellationToken.None).ConfigureAwait(false);
+                UserRepository.SaveUser(user, CancellationToken.None);
 
                 users.Add(user);
 
                 user.Policy.IsAdministrator = true;
                 user.Policy.EnableContentDeletion = true;
                 user.Policy.EnableRemoteControlOfOtherUsers = true;
-                await UpdateUserPolicy(user, user.Policy, false).ConfigureAwait(false);
+                UpdateUserPolicy(user, user.Policy, false);
             }
 
             return users;
@@ -409,8 +442,8 @@ namespace Emby.Server.Implementations.Library
 
             var passwordHash = GetPasswordHash(user);
 
-            var hasConfiguredPassword = !IsPasswordEmpty(passwordHash);
-            var hasConfiguredEasyPassword = !IsPasswordEmpty(GetLocalPasswordHash(user));
+            var hasConfiguredPassword = !IsPasswordEmpty(user, passwordHash);
+            var hasConfiguredEasyPassword = !IsPasswordEmpty(user, GetLocalPasswordHash(user));
 
             var hasPassword = user.Configuration.EnableLocalPassword && !string.IsNullOrEmpty(remoteEndPoint) && _networkManager.IsInLocalNetwork(remoteEndPoint) ?
                 hasConfiguredEasyPassword :
@@ -462,14 +495,6 @@ namespace Emby.Server.Implementations.Library
         {
             var dto = GetUserDto(user);
 
-            var offlinePasswordHash = GetLocalPasswordHash(user);
-            dto.HasPassword = !IsPasswordEmpty(offlinePasswordHash);
-
-            dto.OfflinePasswordSalt = Guid.NewGuid().ToString("N");
-
-            // Hash the pin with the device Id to create a unique result for this device
-            dto.OfflinePassword = GetSha1String((offlinePasswordHash + dto.OfflinePasswordSalt).ToLower());
-
             dto.ServerName = _appHost.FriendlyName;
 
             return dto;
@@ -493,11 +518,12 @@ namespace Emby.Server.Implementations.Library
         /// </summary>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>Task.</returns>
-        public Task RefreshUsersMetadata(CancellationToken cancellationToken)
+        public async Task RefreshUsersMetadata(CancellationToken cancellationToken)
         {
-            var tasks = Users.Select(user => user.RefreshMetadata(new MetadataRefreshOptions(_fileSystem), cancellationToken)).ToList();
-
-            return Task.WhenAll(tasks);
+            foreach (var user in Users)
+            {
+                await user.RefreshMetadata(new MetadataRefreshOptions(_fileSystem), cancellationToken).ConfigureAwait(false);
+            }
         }
 
         /// <summary>
@@ -541,7 +567,7 @@ namespace Emby.Server.Implementations.Library
         /// <param name="user">The user.</param>
         /// <exception cref="System.ArgumentNullException">user</exception>
         /// <exception cref="System.ArgumentException"></exception>
-        public async Task UpdateUser(User user)
+        public void UpdateUser(User user)
         {
             if (user == null)
             {
@@ -556,7 +582,7 @@ namespace Emby.Server.Implementations.Library
             user.DateModified = DateTime.UtcNow;
             user.DateLastSaved = DateTime.UtcNow;
 
-            await UserRepository.SaveUser(user, CancellationToken.None).ConfigureAwait(false);
+            UserRepository.SaveUser(user, CancellationToken.None);
 
             OnUserUpdated(user);
         }
@@ -601,7 +627,7 @@ namespace Emby.Server.Implementations.Library
 
                 user.DateLastSaved = DateTime.UtcNow;
 
-                await UserRepository.SaveUser(user, CancellationToken.None).ConfigureAwait(false);
+                UserRepository.SaveUser(user, CancellationToken.None);
 
                 EventHelper.QueueEventIfNotNull(UserCreated, this, new GenericEventArgs<User> { Argument = user }, _logger);
 
@@ -655,7 +681,7 @@ namespace Emby.Server.Implementations.Library
             {
                 var configPath = GetConfigurationFilePath(user);
 
-                await UserRepository.DeleteUser(user, CancellationToken.None).ConfigureAwait(false);
+                UserRepository.DeleteUser(user, CancellationToken.None);
 
                 try
                 {
@@ -668,8 +694,7 @@ namespace Emby.Server.Implementations.Library
 
                 DeleteUserPolicy(user);
 
-                // Force this to be lazy loaded again
-                Users = await LoadUsers().ConfigureAwait(false);
+                Users = allUsers.Where(i => i.Id != user.Id).ToList();
 
                 OnUserDeleted(user);
             }
@@ -683,25 +708,31 @@ namespace Emby.Server.Implementations.Library
         /// Resets the password by clearing it.
         /// </summary>
         /// <returns>Task.</returns>
-        public Task ResetPassword(User user)
+        public void ResetPassword(User user)
         {
-            return ChangePassword(user, GetSha1String(string.Empty));
+            ChangePassword(user, string.Empty, null);
         }
 
-        public Task ResetEasyPassword(User user)
+        public void ResetEasyPassword(User user)
         {
-            return ChangeEasyPassword(user, GetSha1String(string.Empty));
+            ChangeEasyPassword(user, string.Empty, null);
         }
 
-        public async Task ChangePassword(User user, string newPasswordSha1)
+        public void ChangePassword(User user, string newPassword, string newPasswordHash)
         {
             if (user == null)
             {
                 throw new ArgumentNullException("user");
             }
-            if (string.IsNullOrWhiteSpace(newPasswordSha1))
+
+            if (newPassword != null)
             {
-                throw new ArgumentNullException("newPasswordSha1");
+                newPasswordHash = GetHashedString(user, newPassword);
+            }
+
+            if (string.IsNullOrWhiteSpace(newPasswordHash))
+            {
+                throw new ArgumentNullException("newPasswordHash");
             }
 
             if (user.ConnectLinkType.HasValue && user.ConnectLinkType.Value == UserLinkType.Guest)
@@ -709,27 +740,33 @@ namespace Emby.Server.Implementations.Library
                 throw new ArgumentException("Passwords for guests cannot be changed.");
             }
 
-            user.Password = newPasswordSha1;
+            user.Password = newPasswordHash;
 
-            await UpdateUser(user).ConfigureAwait(false);
+            UpdateUser(user);
 
             EventHelper.FireEventIfNotNull(UserPasswordChanged, this, new GenericEventArgs<User>(user), _logger);
         }
 
-        public async Task ChangeEasyPassword(User user, string newPasswordSha1)
+        public void ChangeEasyPassword(User user, string newPassword, string newPasswordHash)
         {
             if (user == null)
             {
                 throw new ArgumentNullException("user");
             }
-            if (string.IsNullOrWhiteSpace(newPasswordSha1))
+
+            if (newPassword != null)
             {
-                throw new ArgumentNullException("newPasswordSha1");
+                newPasswordHash = GetHashedString(user, newPassword);
             }
 
-            user.EasyPassword = newPasswordSha1;
+            if (string.IsNullOrWhiteSpace(newPasswordHash))
+            {
+                throw new ArgumentNullException("newPasswordHash");
+            }
 
-            await UpdateUser(user).ConfigureAwait(false);
+            user.EasyPassword = newPasswordHash;
+
+            UpdateUser(user);
 
             EventHelper.FireEventIfNotNull(UserPasswordChanged, this, new GenericEventArgs<User>(user), _logger);
         }
@@ -747,7 +784,8 @@ namespace Emby.Server.Implementations.Library
                 Id = Guid.NewGuid(),
                 DateCreated = DateTime.UtcNow,
                 DateModified = DateTime.UtcNow,
-                UsesIdForConfigurationPath = true
+                UsesIdForConfigurationPath = true,
+                //Salt = BCrypt.GenerateSalt()
             };
         }
 
@@ -844,7 +882,7 @@ namespace Emby.Server.Implementations.Library
             };
         }
 
-        public async Task<PinRedeemResult> RedeemPasswordResetPin(string pin)
+        public PinRedeemResult RedeemPasswordResetPin(string pin)
         {
             DeletePinFile();
 
@@ -865,12 +903,12 @@ namespace Emby.Server.Implementations.Library
 
                 foreach (var user in users)
                 {
-                    await ResetPassword(user).ConfigureAwait(false);
+                    ResetPassword(user);
 
                     if (user.Policy.IsDisabled)
                     {
                         user.Policy.IsDisabled = false;
-                        await UpdateUserPolicy(user, user.Policy, true).ConfigureAwait(false);
+                        UpdateUserPolicy(user, user.Policy, true);
                     }
                     usersReset.Add(user.Name);
                 }
@@ -947,13 +985,13 @@ namespace Emby.Server.Implementations.Library
         }
 
         private readonly object _policySyncLock = new object();
-        public Task UpdateUserPolicy(string userId, UserPolicy userPolicy)
+        public void UpdateUserPolicy(string userId, UserPolicy userPolicy)
         {
             var user = GetUserById(userId);
-            return UpdateUserPolicy(user, userPolicy, true);
+            UpdateUserPolicy(user, userPolicy, true);
         }
 
-        private async Task UpdateUserPolicy(User user, UserPolicy userPolicy, bool fireEvent)
+        private void UpdateUserPolicy(User user, UserPolicy userPolicy, bool fireEvent)
         {
             // The xml serializer will output differently if the type is not exact
             if (userPolicy.GetType() != typeof(UserPolicy))
@@ -972,7 +1010,7 @@ namespace Emby.Server.Implementations.Library
                 user.Policy = userPolicy;
             }
 
-            await UpdateConfiguration(user, user.Configuration, true).ConfigureAwait(false);
+            UpdateConfiguration(user, user.Configuration, true);
         }
 
         private void DeleteUserPolicy(User user)
@@ -1034,13 +1072,13 @@ namespace Emby.Server.Implementations.Library
         }
 
         private readonly object _configSyncLock = new object();
-        public Task UpdateConfiguration(string userId, UserConfiguration config)
+        public void UpdateConfiguration(string userId, UserConfiguration config)
         {
             var user = GetUserById(userId);
-            return UpdateConfiguration(user, config, true);
+            UpdateConfiguration(user, config, true);
         }
 
-        private async Task UpdateConfiguration(User user, UserConfiguration config, bool fireEvent)
+        private void UpdateConfiguration(User user, UserConfiguration config, bool fireEvent)
         {
             var path = GetConfigurationFilePath(user);
 

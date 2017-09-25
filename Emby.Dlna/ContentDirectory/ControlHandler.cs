@@ -26,8 +26,11 @@ using System.Xml;
 using MediaBrowser.Controller.Dto;
 using MediaBrowser.Controller.Entities.Audio;
 using MediaBrowser.Controller.MediaEncoding;
+using MediaBrowser.Controller.Playlists;
+using MediaBrowser.Controller.TV;
 using MediaBrowser.Model.Globalization;
 using MediaBrowser.Model.Xml;
+using MediaBrowser.Model.Extensions;
 
 namespace Emby.Dlna.ContentDirectory
 {
@@ -39,6 +42,7 @@ namespace Emby.Dlna.ContentDirectory
         private readonly IServerConfigurationManager _config;
         private readonly User _user;
         private readonly IUserViewManager _userViewManager;
+        private readonly ITVSeriesManager _tvSeriesManager;
 
         private const string NS_DC = "http://purl.org/dc/elements/1.1/";
         private const string NS_DIDL = "urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/";
@@ -52,7 +56,7 @@ namespace Emby.Dlna.ContentDirectory
 
         private readonly DeviceProfile _profile;
 
-        public ControlHandler(ILogger logger, ILibraryManager libraryManager, DeviceProfile profile, string serverAddress, string accessToken, IImageProcessor imageProcessor, IUserDataManager userDataManager, User user, int systemUpdateId, IServerConfigurationManager config, ILocalizationManager localization, IChannelManager channelManager, IMediaSourceManager mediaSourceManager, IUserViewManager userViewManager, IMediaEncoder mediaEncoder, IXmlReaderSettingsFactory xmlReaderSettingsFactory)
+        public ControlHandler(ILogger logger, ILibraryManager libraryManager, DeviceProfile profile, string serverAddress, string accessToken, IImageProcessor imageProcessor, IUserDataManager userDataManager, User user, int systemUpdateId, IServerConfigurationManager config, ILocalizationManager localization, IChannelManager channelManager, IMediaSourceManager mediaSourceManager, IUserViewManager userViewManager, IMediaEncoder mediaEncoder, IXmlReaderSettingsFactory xmlReaderSettingsFactory, ITVSeriesManager tvSeriesManager)
             : base(config, logger, xmlReaderSettingsFactory)
         {
             _libraryManager = libraryManager;
@@ -61,6 +65,7 @@ namespace Emby.Dlna.ContentDirectory
             _systemUpdateId = systemUpdateId;
             _channelManager = channelManager;
             _userViewManager = userViewManager;
+            _tvSeriesManager = tvSeriesManager;
             _profile = profile;
             _config = config;
 
@@ -453,14 +458,13 @@ namespace Emby.Dlna.ContentDirectory
             {
                 Limit = limit,
                 StartIndex = startIndex,
-                SortBy = sortOrders.ToArray(),
-                SortOrder = sort.SortOrder,
+                OrderBy = sortOrders.Select(i => new Tuple<string, SortOrder>(i, sort.SortOrder)).ToArray(),
                 User = user,
                 Recursive = true,
                 IsMissing = false,
                 ExcludeItemTypes = new[] { typeof(Game).Name, typeof(Book).Name },
                 IsFolder = isFolder,
-                MediaTypes = mediaTypes.ToArray(),
+                MediaTypes = mediaTypes.ToArray(mediaTypes.Count),
                 DtoOptions = GetDtoOptions()
             });
         }
@@ -482,25 +486,27 @@ namespace Emby.Dlna.ContentDirectory
                 return GetMusicArtistItems(item, null, user, sort, startIndex, limit);
             }
 
+            if (item is Genre)
+            {
+                return GetGenreItems(item, null, user, sort, startIndex, limit);
+            }
+
+            var collectionFolder = item as ICollectionFolder;
+            if (collectionFolder != null && string.Equals(CollectionType.Music, collectionFolder.CollectionType, StringComparison.OrdinalIgnoreCase))
+            {
+                return GetMusicFolders(item, user, stubType, sort, startIndex, limit);
+            }
+            if (collectionFolder != null && string.Equals(CollectionType.Movies, collectionFolder.CollectionType, StringComparison.OrdinalIgnoreCase))
+            {
+                return GetMovieFolders(item, user, stubType, sort, startIndex, limit);
+            }
+            if (collectionFolder != null && string.Equals(CollectionType.TvShows, collectionFolder.CollectionType, StringComparison.OrdinalIgnoreCase))
+            {
+                return GetTvFolders(item, user, stubType, sort, startIndex, limit);
+            }
+
             if (stubType.HasValue)
             {
-                if (stubType.Value == StubType.People)
-                {
-                    var items = _libraryManager.GetPeopleItems(new InternalPeopleQuery
-                    {
-                        ItemId = item.Id
-
-                    }).ToArray();
-
-                    var result = new QueryResult<ServerItem>
-                    {
-                        Items = items.Select(i => new ServerItem(i)).ToArray(),
-                        TotalRecordCount = items.Length
-                    };
-
-                    return ApplyPaging(result, startIndex, limit);
-                }
-
                 var person = item as Person;
                 if (person != null)
                 {
@@ -517,8 +523,8 @@ namespace Emby.Dlna.ContentDirectory
                 Limit = limit,
                 StartIndex = startIndex,
                 User = user,
-                IsMissing = false,
-                PresetViews = new[] { CollectionType.Movies, CollectionType.TvShows, CollectionType.Music },
+                IsVirtualItem = false,
+                PresetViews = new string[] { },
                 ExcludeItemTypes = new[] { typeof(Game).Name, typeof(Book).Name },
                 IsPlaceHolder = false,
                 DtoOptions = GetDtoOptions()
@@ -531,6 +537,609 @@ namespace Emby.Dlna.ContentDirectory
             return ToResult(queryResult);
         }
 
+        private QueryResult<ServerItem> GetMusicFolders(BaseItem item, User user, StubType? stubType, SortCriteria sort, int? startIndex, int? limit)
+        {
+            var query = new InternalItemsQuery(user)
+            {
+                StartIndex = startIndex,
+                Limit = limit
+            };
+            SetSorting(query, sort, false);
+
+            if (stubType.HasValue && stubType.Value == StubType.Latest)
+            {
+                return GetMusicLatest(item, user, query);
+            }
+
+            if (stubType.HasValue && stubType.Value == StubType.Playlists)
+            {
+                return GetMusicPlaylists(item, user, query);
+            }
+
+            if (stubType.HasValue && stubType.Value == StubType.Albums)
+            {
+                return GetMusicAlbums(item, user, query);
+            }
+
+            if (stubType.HasValue && stubType.Value == StubType.Artists)
+            {
+                return GetMusicArtists(item, user, query);
+            }
+
+            if (stubType.HasValue && stubType.Value == StubType.AlbumArtists)
+            {
+                return GetMusicAlbumArtists(item, user, query);
+            }
+
+            if (stubType.HasValue && stubType.Value == StubType.FavoriteAlbums)
+            {
+                return GetFavoriteAlbums(item, user, query);
+            }
+
+            if (stubType.HasValue && stubType.Value == StubType.FavoriteArtists)
+            {
+                return GetFavoriteArtists(item, user, query);
+            }
+
+            if (stubType.HasValue && stubType.Value == StubType.FavoriteSongs)
+            {
+                return GetFavoriteSongs(item, user, query);
+            }
+
+            if (stubType.HasValue && stubType.Value == StubType.Songs)
+            {
+                return GetMusicSongs(item, user, query);
+            }
+
+            if (stubType.HasValue && stubType.Value == StubType.Genres)
+            {
+                return GetMusicGenres(item, user, query);
+            }
+
+            var list = new List<ServerItem>();
+
+            list.Add(new ServerItem(item)
+            {
+                StubType = StubType.Latest
+            });
+
+            list.Add(new ServerItem(item)
+            {
+                StubType = StubType.Playlists
+            });
+
+            list.Add(new ServerItem(item)
+            {
+                StubType = StubType.Albums
+            });
+
+            list.Add(new ServerItem(item)
+            {
+                StubType = StubType.AlbumArtists
+            });
+
+            list.Add(new ServerItem(item)
+            {
+                StubType = StubType.Artists
+            });
+
+            list.Add(new ServerItem(item)
+            {
+                StubType = StubType.Songs
+            });
+
+            list.Add(new ServerItem(item)
+            {
+                StubType = StubType.Genres
+            });
+
+            list.Add(new ServerItem(item)
+            {
+                StubType = StubType.FavoriteArtists
+            });
+
+            list.Add(new ServerItem(item)
+            {
+                StubType = StubType.FavoriteAlbums
+            });
+
+            list.Add(new ServerItem(item)
+            {
+                StubType = StubType.FavoriteSongs
+            });
+
+            return new QueryResult<ServerItem>
+            {
+                Items = list.ToArray(list.Count),
+                TotalRecordCount = list.Count
+            };
+        }
+
+        private QueryResult<ServerItem> GetMovieFolders(BaseItem item, User user, StubType? stubType, SortCriteria sort, int? startIndex, int? limit)
+        {
+            var query = new InternalItemsQuery(user)
+            {
+                StartIndex = startIndex,
+                Limit = limit
+            };
+            SetSorting(query, sort, false);
+
+            if (stubType.HasValue && stubType.Value == StubType.ContinueWatching)
+            {
+                return GetMovieContinueWatching(item, user, query);
+            }
+
+            if (stubType.HasValue && stubType.Value == StubType.Latest)
+            {
+                return GetMovieLatest(item, user, query);
+            }
+
+            if (stubType.HasValue && stubType.Value == StubType.Movies)
+            {
+                return GetMovieMovies(item, user, query);
+            }
+
+            if (stubType.HasValue && stubType.Value == StubType.Collections)
+            {
+                return GetMovieCollections(item, user, query);
+            }
+
+            if (stubType.HasValue && stubType.Value == StubType.Favorites)
+            {
+                return GetMovieFavorites(item, user, query);
+            }
+
+            if (stubType.HasValue && stubType.Value == StubType.Genres)
+            {
+                return GetGenres(item, user, query);
+            }
+
+            var list = new List<ServerItem>();
+
+            list.Add(new ServerItem(item)
+            {
+                StubType = StubType.ContinueWatching
+            });
+
+            list.Add(new ServerItem(item)
+            {
+                StubType = StubType.Latest
+            });
+
+            list.Add(new ServerItem(item)
+            {
+                StubType = StubType.Movies
+            });
+
+            list.Add(new ServerItem(item)
+            {
+                StubType = StubType.Collections
+            });
+
+            list.Add(new ServerItem(item)
+            {
+                StubType = StubType.Favorites
+            });
+
+            list.Add(new ServerItem(item)
+            {
+                StubType = StubType.Genres
+            });
+
+            return new QueryResult<ServerItem>
+            {
+                Items = list.ToArray(list.Count),
+                TotalRecordCount = list.Count
+            };
+        }
+
+        private QueryResult<ServerItem> GetTvFolders(BaseItem item, User user, StubType? stubType, SortCriteria sort, int? startIndex, int? limit)
+        {
+            var query = new InternalItemsQuery(user)
+            {
+                StartIndex = startIndex,
+                Limit = limit
+            };
+            SetSorting(query, sort, false);
+
+            if (stubType.HasValue && stubType.Value == StubType.ContinueWatching)
+            {
+                return GetMovieContinueWatching(item, user, query);
+            }
+
+            if (stubType.HasValue && stubType.Value == StubType.NextUp)
+            {
+                return GetNextUp(item, user, query);
+            }
+
+            if (stubType.HasValue && stubType.Value == StubType.Latest)
+            {
+                return GetTvLatest(item, user, query);
+            }
+
+            if (stubType.HasValue && stubType.Value == StubType.Series)
+            {
+                return GetSeries(item, user, query);
+            }
+
+            if (stubType.HasValue && stubType.Value == StubType.FavoriteSeries)
+            {
+                return GetFavoriteSeries(item, user, query);
+            }
+
+            if (stubType.HasValue && stubType.Value == StubType.FavoriteEpisodes)
+            {
+                return GetFavoriteEpisodes(item, user, query);
+            }
+
+            if (stubType.HasValue && stubType.Value == StubType.Genres)
+            {
+                return GetGenres(item, user, query);
+            }
+
+            var list = new List<ServerItem>();
+
+            list.Add(new ServerItem(item)
+            {
+                StubType = StubType.ContinueWatching
+            });
+
+            list.Add(new ServerItem(item)
+            {
+                StubType = StubType.NextUp
+            });
+
+            list.Add(new ServerItem(item)
+            {
+                StubType = StubType.Latest
+            });
+
+            list.Add(new ServerItem(item)
+            {
+                StubType = StubType.Series
+            });
+
+            list.Add(new ServerItem(item)
+            {
+                StubType = StubType.FavoriteSeries
+            });
+
+            list.Add(new ServerItem(item)
+            {
+                StubType = StubType.FavoriteEpisodes
+            });
+
+            list.Add(new ServerItem(item)
+            {
+                StubType = StubType.Genres
+            });
+
+            return new QueryResult<ServerItem>
+            {
+                Items = list.ToArray(list.Count),
+                TotalRecordCount = list.Count
+            };
+        }
+
+        private QueryResult<ServerItem> GetMovieContinueWatching(BaseItem parent, User user, InternalItemsQuery query)
+        {
+            query.Recursive = true;
+            query.Parent = parent;
+            query.SetUser(user);
+
+            query.OrderBy = new Tuple<string, SortOrder>[]
+            {
+                new Tuple<string, SortOrder> (ItemSortBy.DatePlayed, SortOrder.Descending),
+                new Tuple<string, SortOrder> (ItemSortBy.SortName, SortOrder.Ascending)
+            };
+
+            query.IsResumable = true;
+            query.Limit = 10;
+
+            var result = _libraryManager.GetItemsResult(query);
+
+            return ToResult(result);
+        }
+
+        private QueryResult<ServerItem> GetSeries(BaseItem parent, User user, InternalItemsQuery query)
+        {
+            query.Recursive = true;
+            query.Parent = parent;
+            query.SetUser(user);
+
+            query.IncludeItemTypes = new[] { typeof(Series).Name };
+
+            var result = _libraryManager.GetItemsResult(query);
+
+            return ToResult(result);
+        }
+
+        private QueryResult<ServerItem> GetMovieMovies(BaseItem parent, User user, InternalItemsQuery query)
+        {
+            query.Recursive = true;
+            query.Parent = parent;
+            query.SetUser(user);
+
+            query.IncludeItemTypes = new[] { typeof(Movie).Name };
+
+            var result = _libraryManager.GetItemsResult(query);
+
+            return ToResult(result);
+        }
+
+        private QueryResult<ServerItem> GetMovieCollections(BaseItem parent, User user, InternalItemsQuery query)
+        {
+            query.Recursive = true;
+            //query.Parent = parent;
+            query.SetUser(user);
+
+            query.IncludeItemTypes = new[] { typeof(BoxSet).Name };
+
+            var result = _libraryManager.GetItemsResult(query);
+
+            return ToResult(result);
+        }
+
+        private QueryResult<ServerItem> GetMusicAlbums(BaseItem parent, User user, InternalItemsQuery query)
+        {
+            query.Recursive = true;
+            query.Parent = parent;
+            query.SetUser(user);
+
+            query.IncludeItemTypes = new[] { typeof(MusicAlbum).Name };
+
+            var result = _libraryManager.GetItemsResult(query);
+
+            return ToResult(result);
+        }
+
+        private QueryResult<ServerItem> GetMusicSongs(BaseItem parent, User user, InternalItemsQuery query)
+        {
+            query.Recursive = true;
+            query.Parent = parent;
+            query.SetUser(user);
+
+            query.IncludeItemTypes = new[] { typeof(Audio).Name };
+
+            var result = _libraryManager.GetItemsResult(query);
+
+            return ToResult(result);
+        }
+
+        private QueryResult<ServerItem> GetFavoriteSongs(BaseItem parent, User user, InternalItemsQuery query)
+        {
+            query.Recursive = true;
+            query.Parent = parent;
+            query.SetUser(user);
+            query.IsFavorite = true;
+            query.IncludeItemTypes = new[] { typeof(Audio).Name };
+
+            var result = _libraryManager.GetItemsResult(query);
+
+            return ToResult(result);
+        }
+
+        private QueryResult<ServerItem> GetFavoriteSeries(BaseItem parent, User user, InternalItemsQuery query)
+        {
+            query.Recursive = true;
+            query.Parent = parent;
+            query.SetUser(user);
+            query.IsFavorite = true;
+            query.IncludeItemTypes = new[] { typeof(Series).Name };
+
+            var result = _libraryManager.GetItemsResult(query);
+
+            return ToResult(result);
+        }
+
+        private QueryResult<ServerItem> GetFavoriteEpisodes(BaseItem parent, User user, InternalItemsQuery query)
+        {
+            query.Recursive = true;
+            query.Parent = parent;
+            query.SetUser(user);
+            query.IsFavorite = true;
+            query.IncludeItemTypes = new[] { typeof(Episode).Name };
+
+            var result = _libraryManager.GetItemsResult(query);
+
+            return ToResult(result);
+        }
+
+        private QueryResult<ServerItem> GetMovieFavorites(BaseItem parent, User user, InternalItemsQuery query)
+        {
+            query.Recursive = true;
+            query.Parent = parent;
+            query.SetUser(user);
+            query.IsFavorite = true;
+            query.IncludeItemTypes = new[] { typeof(Movie).Name };
+
+            var result = _libraryManager.GetItemsResult(query);
+
+            return ToResult(result);
+        }
+
+        private QueryResult<ServerItem> GetFavoriteAlbums(BaseItem parent, User user, InternalItemsQuery query)
+        {
+            query.Recursive = true;
+            query.Parent = parent;
+            query.SetUser(user);
+            query.IsFavorite = true;
+            query.IncludeItemTypes = new[] { typeof(MusicAlbum).Name };
+
+            var result = _libraryManager.GetItemsResult(query);
+
+            return ToResult(result);
+        }
+
+        private QueryResult<ServerItem> GetGenres(BaseItem parent, User user, InternalItemsQuery query)
+        {
+            var genresResult = _libraryManager.GetGenres(new InternalItemsQuery(user)
+            {
+                AncestorIds = new[] { parent.Id.ToString("N") },
+                StartIndex = query.StartIndex,
+                Limit = query.Limit
+            });
+
+            var result = new QueryResult<BaseItem>
+            {
+                TotalRecordCount = genresResult.TotalRecordCount,
+                Items = genresResult.Items.Select(i => i.Item1).ToArray(genresResult.Items.Length)
+            };
+
+            return ToResult(result);
+        }
+
+        private QueryResult<ServerItem> GetMusicGenres(BaseItem parent, User user, InternalItemsQuery query)
+        {
+            var genresResult = _libraryManager.GetMusicGenres(new InternalItemsQuery(user)
+            {
+                AncestorIds = new[] { parent.Id.ToString("N") },
+                StartIndex = query.StartIndex,
+                Limit = query.Limit
+            });
+
+            var result = new QueryResult<BaseItem>
+            {
+                TotalRecordCount = genresResult.TotalRecordCount,
+                Items = genresResult.Items.Select(i => i.Item1).ToArray(genresResult.Items.Length)
+            };
+
+            return ToResult(result);
+        }
+
+        private QueryResult<ServerItem> GetMusicAlbumArtists(BaseItem parent, User user, InternalItemsQuery query)
+        {
+            var artists = _libraryManager.GetAlbumArtists(new InternalItemsQuery(user)
+            {
+                AncestorIds = new[] { parent.Id.ToString("N") },
+                StartIndex = query.StartIndex,
+                Limit = query.Limit
+            });
+
+            var result = new QueryResult<BaseItem>
+            {
+                TotalRecordCount = artists.TotalRecordCount,
+                Items = artists.Items.Select(i => i.Item1).ToArray(artists.Items.Length)
+            };
+
+            return ToResult(result);
+        }
+
+        private QueryResult<ServerItem> GetMusicArtists(BaseItem parent, User user, InternalItemsQuery query)
+        {
+            var artists = _libraryManager.GetArtists(new InternalItemsQuery(user)
+            {
+                AncestorIds = new[] { parent.Id.ToString("N") },
+                StartIndex = query.StartIndex,
+                Limit = query.Limit
+            });
+
+            var result = new QueryResult<BaseItem>
+            {
+                TotalRecordCount = artists.TotalRecordCount,
+                Items = artists.Items.Select(i => i.Item1).ToArray(artists.Items.Length)
+            };
+
+            return ToResult(result);
+        }
+
+        private QueryResult<ServerItem> GetFavoriteArtists(BaseItem parent, User user, InternalItemsQuery query)
+        {
+            var artists = _libraryManager.GetArtists(new InternalItemsQuery(user)
+            {
+                AncestorIds = new[] { parent.Id.ToString("N") },
+                StartIndex = query.StartIndex,
+                Limit = query.Limit,
+                IsFavorite = true
+            });
+
+            var result = new QueryResult<BaseItem>
+            {
+                TotalRecordCount = artists.TotalRecordCount,
+                Items = artists.Items.Select(i => i.Item1).ToArray(artists.Items.Length)
+            };
+
+            return ToResult(result);
+        }
+
+        private QueryResult<ServerItem> GetMusicPlaylists(BaseItem parent, User user, InternalItemsQuery query)
+        {
+            query.Parent = null;
+            query.IncludeItemTypes = new[] { typeof(Playlist).Name };
+            query.SetUser(user);
+            query.Recursive = true;
+
+            var result = _libraryManager.GetItemsResult(query);
+
+            return ToResult(result);
+        }
+
+        private QueryResult<ServerItem> GetMusicLatest(BaseItem parent, User user, InternalItemsQuery query)
+        {
+            query.OrderBy = new Tuple<string, SortOrder>[] { };
+
+            var items = _userViewManager.GetLatestItems(new LatestItemsQuery
+            {
+                UserId = user.Id.ToString("N"),
+                Limit = 50,
+                IncludeItemTypes = new[] { typeof(Audio).Name },
+                ParentId = parent == null ? null : parent.Id.ToString("N"),
+                GroupItems = true
+
+            }, query.DtoOptions).Select(i => i.Item1 ?? i.Item2.FirstOrDefault()).Where(i => i != null).ToList();
+
+            return ToResult(items);
+        }
+
+        private QueryResult<ServerItem> GetNextUp(BaseItem parent, User user, InternalItemsQuery query)
+        {
+            query.OrderBy = new Tuple<string, SortOrder>[] { };
+
+            var result = _tvSeriesManager.GetNextUp(new NextUpQuery
+            {
+                Limit = query.Limit,
+                StartIndex = query.StartIndex,
+                UserId = query.User.Id.ToString("N")
+
+            }, new List<Folder> { (Folder)parent }, query.DtoOptions);
+
+            return ToResult(result);
+        }
+
+        private QueryResult<ServerItem> GetTvLatest(BaseItem parent, User user, InternalItemsQuery query)
+        {
+            query.OrderBy = new Tuple<string, SortOrder>[] { };
+
+            var items = _userViewManager.GetLatestItems(new LatestItemsQuery
+            {
+                UserId = user.Id.ToString("N"),
+                Limit = 50,
+                IncludeItemTypes = new[] { typeof(Episode).Name },
+                ParentId = parent == null ? null : parent.Id.ToString("N"),
+                GroupItems = false
+
+            }, query.DtoOptions).Select(i => i.Item1 ?? i.Item2.FirstOrDefault()).Where(i => i != null).ToList();
+
+            return ToResult(items);
+        }
+
+        private QueryResult<ServerItem> GetMovieLatest(BaseItem parent, User user, InternalItemsQuery query)
+        {
+            query.OrderBy = new Tuple<string, SortOrder>[] { };
+
+            var items = _userViewManager.GetLatestItems(new LatestItemsQuery
+            {
+                UserId = user.Id.ToString("N"),
+                Limit = 50,
+                IncludeItemTypes = new[] { typeof(Movie).Name },
+                ParentId = parent == null ? null : parent.Id.ToString("N"),
+                GroupItems = true
+
+            }, query.DtoOptions).Select(i => i.Item1 ?? i.Item2.FirstOrDefault()).Where(i => i != null).ToList();
+
+            return ToResult(items);
+        }
+
         private QueryResult<ServerItem> GetMusicArtistItems(BaseItem item, Guid? parentId, User user, SortCriteria sort, int? startIndex, int? limit)
         {
             var query = new InternalItemsQuery(user)
@@ -539,6 +1148,26 @@ namespace Emby.Dlna.ContentDirectory
                 ParentId = parentId,
                 ArtistIds = new[] { item.Id.ToString("N") },
                 IncludeItemTypes = new[] { typeof(MusicAlbum).Name },
+                Limit = limit,
+                StartIndex = startIndex,
+                DtoOptions = GetDtoOptions()
+            };
+
+            SetSorting(query, sort, false);
+
+            var result = _libraryManager.GetItemsResult(query);
+
+            return ToResult(result);
+        }
+
+        private QueryResult<ServerItem> GetGenreItems(BaseItem item, Guid? parentId, User user, SortCriteria sort, int? startIndex, int? limit)
+        {
+            var query = new InternalItemsQuery(user)
+            {
+                Recursive = true,
+                ParentId = parentId,
+                GenreIds = new[] { item.Id.ToString("N") },
+                IncludeItemTypes = new[] { typeof(Movie).Name, typeof(Series).Name },
                 Limit = limit,
                 StartIndex = startIndex,
                 DtoOptions = GetDtoOptions()
@@ -571,12 +1200,25 @@ namespace Emby.Dlna.ContentDirectory
             return ToResult(result);
         }
 
+        private QueryResult<ServerItem> ToResult(List<BaseItem> result)
+        {
+            var serverItems = result
+                .Select(i => new ServerItem(i))
+                .ToArray(result.Count);
+
+            return new QueryResult<ServerItem>
+            {
+                TotalRecordCount = result.Count,
+                Items = serverItems
+            };
+        }
+
         private QueryResult<ServerItem> ToResult(QueryResult<BaseItem> result)
         {
             var serverItems = result
                 .Items
                 .Select(i => new ServerItem(i))
-                .ToArray();
+                .ToArray(result.Items.Length);
 
             return new QueryResult<ServerItem>
             {
@@ -593,8 +1235,7 @@ namespace Emby.Dlna.ContentDirectory
                 sortOrders.Add(ItemSortBy.SortName);
             }
 
-            query.SortBy = sortOrders.ToArray();
-            query.SortOrder = sort.SortOrder;
+            query.OrderBy = sortOrders.Select(i => new Tuple<string, SortOrder>(i, sort.SortOrder)).ToArray();
         }
 
         private QueryResult<ServerItem> GetItemsFromPerson(Person person, User user, int? startIndex, int? limit)
@@ -603,14 +1244,13 @@ namespace Emby.Dlna.ContentDirectory
             {
                 PersonIds = new[] { person.Id.ToString("N") },
                 IncludeItemTypes = new[] { typeof(Movie).Name, typeof(Series).Name, typeof(Trailer).Name },
-                SortBy = new[] { ItemSortBy.SortName },
+                OrderBy = new[] { ItemSortBy.SortName }.Select(i => new Tuple<string, SortOrder>(i, SortOrder.Ascending)).ToArray(),
                 Limit = limit,
                 StartIndex = startIndex,
                 DtoOptions = GetDtoOptions()
             });
 
-            var serverItems = itemsResult.Items.Select(i => new ServerItem(i))
-            .ToArray();
+            var serverItems = itemsResult.Items.Select(i => new ServerItem(i)).ToArray(itemsResult.Items.Length);
 
             return new QueryResult<ServerItem>
             {
@@ -650,15 +1290,16 @@ namespace Emby.Dlna.ContentDirectory
                 id = parts[23];
             }
 
-            if (id.StartsWith("folder_", StringComparison.OrdinalIgnoreCase))
+            var enumNames = Enum.GetNames(typeof(StubType));
+            foreach (var name in enumNames)
             {
-                stubType = StubType.Folder;
-                id = id.Split(new[] { '_' }, 2)[1];
-            }
-            else if (id.StartsWith("people_", StringComparison.OrdinalIgnoreCase))
-            {
-                stubType = StubType.People;
-                id = id.Split(new[] { '_' }, 2)[1];
+                if (id.StartsWith(name + "_", StringComparison.OrdinalIgnoreCase))
+                {
+                    stubType = (StubType)Enum.Parse(typeof(StubType), name, true);
+                    id = id.Split(new[] { '_' }, 2)[1];
+
+                    break;
+                }
             }
 
             if (Guid.TryParse(id, out itemId))
@@ -696,6 +1337,23 @@ namespace Emby.Dlna.ContentDirectory
     public enum StubType
     {
         Folder = 0,
-        People = 1
+        Latest = 2,
+        Playlists = 3,
+        Albums = 4,
+        AlbumArtists = 5,
+        Artists = 6,
+        Songs = 7,
+        Genres = 8,
+        FavoriteSongs = 9,
+        FavoriteArtists = 10,
+        FavoriteAlbums = 11,
+        ContinueWatching = 12,
+        Movies = 13,
+        Collections = 14,
+        Favorites = 15,
+        NextUp = 16,
+        Series = 17,
+        FavoriteSeries = 18,
+        FavoriteEpisodes = 19
     }
 }

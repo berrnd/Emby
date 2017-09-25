@@ -17,6 +17,7 @@ using System.Threading.Tasks;
 
 using MediaBrowser.Controller.Dto;
 using MediaBrowser.Controller.IO;
+using MediaBrowser.Controller.LiveTv;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Services;
 
@@ -278,13 +279,16 @@ namespace MediaBrowser.Api.Images
 
             var itemImages = item.ImageInfos;
 
-            foreach (var image in itemImages.Where(i => !item.AllowsMultipleImages(i.Type)))
+            foreach (var image in itemImages)
             {
-                var info = GetImageInfo(item, image, null);
-
-                if (info != null)
+                if (!item.AllowsMultipleImages(image.Type))
                 {
-                    list.Add(info);
+                    var info = GetImageInfo(item, image, null);
+
+                    if (info != null)
+                    {
+                        list.Add(info);
+                    }
                 }
             }
 
@@ -311,7 +315,7 @@ namespace MediaBrowser.Api.Images
             return list;
         }
 
-        private ImageInfo GetImageInfo(IHasImages item, ItemImageInfo info, int? imageIndex)
+        private ImageInfo GetImageInfo(IHasMetadata item, ItemImageInfo info, int? imageIndex)
         {
             try
             {
@@ -506,7 +510,7 @@ namespace MediaBrowser.Api.Images
         /// <param name="currentIndex">Index of the current.</param>
         /// <param name="newIndex">The new index.</param>
         /// <returns>Task.</returns>
-        private Task UpdateItemIndex(IHasImages item, ImageType type, int currentIndex, int newIndex)
+        private Task UpdateItemIndex(IHasMetadata item, ImageType type, int currentIndex, int newIndex)
         {
             return item.SwapImages(type, currentIndex, newIndex);
         }
@@ -519,7 +523,7 @@ namespace MediaBrowser.Api.Images
         /// <param name="isHeadRequest">if set to <c>true</c> [is head request].</param>
         /// <returns>System.Object.</returns>
         /// <exception cref="ResourceNotFoundException"></exception>
-        public Task<object> GetImage(ImageRequest request, IHasImages item, bool isHeadRequest)
+        public Task<object> GetImage(ImageRequest request, IHasMetadata item, bool isHeadRequest)
         {
             if (request.PercentPlayed.HasValue)
             {
@@ -552,29 +556,18 @@ namespace MediaBrowser.Api.Images
                 throw new ResourceNotFoundException(string.Format("{0} does not have an image of type {1}", item.Name, request.Type));
             }
 
-            var supportedImageEnhancers = request.EnableImageEnhancers ? _imageProcessor.ImageEnhancers.Where(i =>
-            {
-                try
-                {
-                    return i.Supports(item, request.Type);
-                }
-                catch (Exception ex)
-                {
-                    Logger.ErrorException("Error in image enhancer: {0}", ex, i.GetType().Name);
+            var supportedImageEnhancers = request.EnableImageEnhancers ? _imageProcessor.GetSupportedEnhancers(item, request.Type) : new List<IImageEnhancer>();
 
-                    return false;
-                }
-
-            }).ToList() : new List<IImageEnhancer>();
-
-            var cropwhitespace = request.Type == ImageType.Logo || request.Type == ImageType.Art;
+            var cropwhitespace = request.Type == ImageType.Logo || 
+                request.Type == ImageType.Art
+                || (request.Type == ImageType.Primary && item is LiveTvChannel);
 
             if (request.CropWhitespace.HasValue)
             {
                 cropwhitespace = request.CropWhitespace.Value;
             }
 
-            var outputFormats = GetOutputFormats(request, imageInfo, cropwhitespace, supportedImageEnhancers);
+            var outputFormats = GetOutputFormats(request);
 
             TimeSpan? cacheDuration = null;
 
@@ -600,11 +593,11 @@ namespace MediaBrowser.Api.Images
                 isHeadRequest);
         }
 
-        private async Task<object> GetImageResult(IHasImages item,
+        private async Task<object> GetImageResult(IHasMetadata item,
             ImageRequest request,
             ItemImageInfo image,
             bool cropwhitespace,
-            List<ImageFormat> supportedFormats,
+            ImageFormat[] supportedFormats,
             List<IImageEnhancer> enhancers,
             TimeSpan? cacheDuration,
             IDictionary<string, string> headers,
@@ -646,62 +639,23 @@ namespace MediaBrowser.Api.Images
                 IsHeadRequest = isHeadRequest,
                 Path = imageResult.Item1,
 
-                // Sometimes imagemagick keeps a hold on the file briefly even after it's done writing to it.
-                // I'd rather do this than add a delay after saving the file
-                FileShare = FileShareMode.ReadWrite
+                FileShare = FileShareMode.Read
 
             }).ConfigureAwait(false);
         }
 
-        private List<ImageFormat> GetOutputFormats(ImageRequest request, ItemImageInfo image, bool cropwhitespace, List<IImageEnhancer> enhancers)
+        private ImageFormat[] GetOutputFormats(ImageRequest request)
         {
             if (!string.IsNullOrWhiteSpace(request.Format))
             {
                 ImageFormat format;
                 if (Enum.TryParse(request.Format, true, out format))
                 {
-                    return new List<ImageFormat> { format };
+                    return new ImageFormat[] { format };
                 }
             }
 
-            var extension = Path.GetExtension(image.Path);
-            ImageFormat? inputFormat = null;
-
-            if (string.Equals(extension, ".jpg", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(extension, ".jpeg", StringComparison.OrdinalIgnoreCase))
-            {
-                inputFormat = ImageFormat.Jpg;
-            }
-            else if (string.Equals(extension, ".png", StringComparison.OrdinalIgnoreCase))
-            {
-                inputFormat = ImageFormat.Png;
-            }
-
-            var clientSupportedFormats = GetClientSupportedFormats();
-
-            var serverFormats = _imageProcessor.GetSupportedImageOutputFormats();
-            var outputFormats = new List<ImageFormat>();
-
-            // Client doesn't care about format, so start with webp if supported
-            if (serverFormats.Contains(ImageFormat.Webp) && clientSupportedFormats.Contains(ImageFormat.Webp))
-            {
-                outputFormats.Add(ImageFormat.Webp);
-            }
-
-            if (enhancers.Count > 0)
-            {
-                outputFormats.Add(ImageFormat.Png);
-            }
-
-            if (inputFormat.HasValue && inputFormat.Value == ImageFormat.Jpg)
-            {
-                outputFormats.Add(ImageFormat.Jpg);
-            }
-
-            // We can't predict if there will be transparency or not, so play it safe
-            outputFormats.Add(ImageFormat.Png);
-
-            return outputFormats;
+            return GetClientSupportedFormats();
         }
 
         private ImageFormat[] GetClientSupportedFormats()
@@ -746,7 +700,7 @@ namespace MediaBrowser.Api.Images
         /// <param name="request">The request.</param>
         /// <param name="item">The item.</param>
         /// <returns>System.String.</returns>
-        private ItemImageInfo GetImageInfo(ImageRequest request, IHasImages item)
+        private ItemImageInfo GetImageInfo(ImageRequest request, IHasMetadata item)
         {
             var index = request.Index ?? 0;
 

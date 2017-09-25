@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MediaBrowser.Model.IO;
+using MediaBrowser.Model.Querying;
 
 namespace Emby.Server.Implementations.Library
 {
@@ -57,8 +58,7 @@ namespace Emby.Server.Implementations.Library
 				_logger.Info("Recalculating library statistics newest item date");
 				var newestItemQuery = new InternalItemsQuery()
 				{
-					SortBy = new string[] { "DateCreated" },
-					SortOrder = SortOrder.Descending,
+					OrderBy = new[] { new Tuple<string, SortOrder>(ItemSortBy.DateCreated, SortOrder.Descending) },
 					Recursive = true,
 					IsMissing = false,
 					Limit = 1,

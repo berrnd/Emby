@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using MediaBrowser.Model.Services;
 
 namespace MediaBrowser.Controller.Net
@@ -27,6 +25,8 @@ namespace MediaBrowser.Controller.Net
         /// <value><c>true</c> if [allow before startup wizard]; otherwise, <c>false</c>.</value>
         public bool AllowBeforeStartupWizard { get; set; }
 
+        public bool AllowLocal { get; set; }
+
         /// <summary>
         /// The request filter is executed before the service.
         /// </summary>
@@ -35,9 +35,7 @@ namespace MediaBrowser.Controller.Net
         /// <param name="requestDto">The request DTO</param>
         public void RequestFilter(IRequest request, IResponse response, object requestDto)
         {
-            var serviceRequest = new ServiceRequest(request);
-
-            AuthService.Authenticate(serviceRequest, this);
+            AuthService.Authenticate(request, this);
         }
 
         /// <summary>
@@ -51,10 +49,9 @@ namespace MediaBrowser.Controller.Net
             get { return 0; }
         }
 
-        public IEnumerable<string> GetRoles()
+        public string[] GetRoles()
         {
-            return (Roles ?? string.Empty).Split(',')
-                .Where(i => !string.IsNullOrWhiteSpace(i));
+            return (Roles ?? string.Empty).Split(new []{ ',' }, StringSplitOptions.RemoveEmptyEntries);
         }
     }
 
@@ -62,7 +59,8 @@ namespace MediaBrowser.Controller.Net
     {
         bool EscapeParentalControl { get; }
         bool AllowBeforeStartupWizard { get; }
+        bool AllowLocal { get; }
 
-        IEnumerable<string> GetRoles();
+        string[] GetRoles();
     }
 }

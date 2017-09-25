@@ -5,6 +5,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
+using Emby.Server.MediaEncoding.Subtitles;
 
 namespace MediaBrowser.Tests.MediaEncoding.Subtitles {
 
@@ -16,7 +17,7 @@ namespace MediaBrowser.Tests.MediaEncoding.Subtitles {
 
             var expectedSubs =
                 new SubtitleTrackInfo {
-                                          TrackEvents = new List<SubtitleTrackEvent> {
+                                          TrackEvents = new SubtitleTrackEvent[] {
                                                                                          new SubtitleTrackEvent {
                                                                                                                     Id = "1",
                                                                                                                     StartPositionTicks = 24000000,
@@ -47,8 +48,8 @@ namespace MediaBrowser.Tests.MediaEncoding.Subtitles {
             var result = sut.Parse(stream, CancellationToken.None);
 
             Assert.IsNotNull(result);
-            Assert.AreEqual(expectedSubs.TrackEvents.Count,result.TrackEvents.Count);
-            for (int i = 0; i < expectedSubs.TrackEvents.Count; i++)
+            Assert.AreEqual(expectedSubs.TrackEvents.Length,result.TrackEvents.Length);
+            for (int i = 0; i < expectedSubs.TrackEvents.Length; i++)
             {
                 Assert.AreEqual(expectedSubs.TrackEvents[i].Id, result.TrackEvents[i].Id);
                 Assert.AreEqual(expectedSubs.TrackEvents[i].StartPositionTicks, result.TrackEvents[i].StartPositionTicks);

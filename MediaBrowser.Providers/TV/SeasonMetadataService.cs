@@ -8,31 +8,31 @@ using MediaBrowser.Providers.Manager;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
-
-using MediaBrowser.Controller.IO;
+using MediaBrowser.Controller.Entities;
 using MediaBrowser.Model.IO;
 
 namespace MediaBrowser.Providers.TV
 {
     public class SeasonMetadataService : MetadataService<Season, SeasonInfo>
     {
-        protected override ItemUpdateType BeforeSave(Season item, bool isFullRefresh, ItemUpdateType currentUpdateType)
+        protected override ItemUpdateType BeforeSaveInternal(Season item, bool isFullRefresh, ItemUpdateType currentUpdateType)
         {
-            var updateType = base.BeforeSave(item, isFullRefresh, currentUpdateType);
+            var updateType = base.BeforeSaveInternal(item, isFullRefresh, currentUpdateType);
 
             if (item.IndexNumber.HasValue && item.IndexNumber.Value == 0)
             {
-                if (!string.Equals(item.Name, ServerConfigurationManager.Configuration.SeasonZeroDisplayName, StringComparison.OrdinalIgnoreCase))
+                var seasonZeroDisplayName = LibraryManager.GetLibraryOptions(item).SeasonZeroDisplayName;
+
+                if (!string.Equals(item.Name, seasonZeroDisplayName, StringComparison.OrdinalIgnoreCase))
                 {
-                    item.Name = ServerConfigurationManager.Configuration.SeasonZeroDisplayName;
+                    item.Name = seasonZeroDisplayName;
                     updateType = updateType | ItemUpdateType.MetadataEdit;
                 }
             }
 
             if (isFullRefresh || currentUpdateType > ItemUpdateType.None)
             {
-                var episodes = item.GetEpisodes().ToList();
+                var episodes = item.GetEpisodes();
                 updateType |= SavePremiereDate(item, episodes);
                 updateType |= SaveIsVirtualItem(item, episodes);
             }
@@ -61,12 +61,12 @@ namespace MediaBrowser.Providers.TV
             return updateType;
         }
 
-        protected override void MergeData(MetadataResult<Season> source, MetadataResult<Season> target, List<MetadataFields> lockedFields, bool replaceData, bool mergeMetadataSettings)
+        protected override void MergeData(MetadataResult<Season> source, MetadataResult<Season> target, MetadataFields[] lockedFields, bool replaceData, bool mergeMetadataSettings)
         {
             ProviderUtils.MergeBaseItemData(source, target, lockedFields, replaceData, mergeMetadataSettings);
         }
 
-        private ItemUpdateType SavePremiereDate(Season item, List<Episode> episodes)
+        private ItemUpdateType SavePremiereDate(Season item, List<BaseItem> episodes)
         {
             var dates = episodes.Where(i => i.PremiereDate.HasValue).Select(i => i.PremiereDate.Value).ToList();
 
@@ -86,7 +86,7 @@ namespace MediaBrowser.Providers.TV
             return ItemUpdateType.None;
         }
 
-        private ItemUpdateType SaveIsVirtualItem(Season item, List<Episode> episodes)
+        private ItemUpdateType SaveIsVirtualItem(Season item, List<BaseItem> episodes)
         {
             var isVirtualItem = item.LocationType == LocationType.Virtual && (episodes.Count == 0 || episodes.All(i => i.LocationType == LocationType.Virtual));
 

@@ -61,9 +61,9 @@ namespace MediaBrowser.Api
                user == null ? _libraryManager.RootFolder : user.RootFolder :
                parentItem;
 
-            var result = ((Folder)item).GetItems(GetItemsQuery(request, user));
+            var result = ((Folder)item).GetItemList(GetItemsQuery(request, user));
 
-            return ToOptimizedResult(GetFilters(result.Items));
+            return ToOptimizedResult(GetFilters(result));
         }
 
         private QueryFilters GetFilters(BaseItem[] items)
@@ -108,7 +108,7 @@ namespace MediaBrowser.Api
                 EnableTotalRecordCount = false,
                 DtoOptions = new Controller.Dto.DtoOptions
                 {
-                    Fields = new List<ItemFields> { ItemFields.Genres, ItemFields.Tags },
+                    Fields = new ItemFields[] { ItemFields.Genres, ItemFields.Tags },
                     EnableImages = false,
                     EnableUserData = false
                 }

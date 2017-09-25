@@ -16,9 +16,9 @@ namespace MediaBrowser.Providers.Music
 {
     public class AlbumMetadataService : MetadataService<MusicAlbum, AlbumInfo>
     {
-        protected override ItemUpdateType BeforeSave(MusicAlbum item, bool isFullRefresh, ItemUpdateType currentUpdateType)
+        protected override ItemUpdateType BeforeSaveInternal(MusicAlbum item, bool isFullRefresh, ItemUpdateType currentUpdateType)
         {
-            var updateType = base.BeforeSave(item, isFullRefresh, currentUpdateType);
+            var updateType = base.BeforeSaveInternal(item, isFullRefresh, currentUpdateType);
 
             if (isFullRefresh || currentUpdateType > ItemUpdateType.None)
             {
@@ -44,13 +44,13 @@ namespace MediaBrowser.Providers.Music
 
                     if (!item.LockedFields.Contains(MetadataFields.Studios))
                     {
-                        var currentList = item.Studios.ToList();
+                        var currentList = item.Studios;
 
                         item.Studios = songs.SelectMany(i => i.Studios)
                             .Distinct(StringComparer.OrdinalIgnoreCase)
-                            .ToList();
+                            .ToArray();
 
-                        if (currentList.Count != item.Studios.Count || !currentList.OrderBy(i => i).SequenceEqual(item.Studios.OrderBy(i => i), StringComparer.OrdinalIgnoreCase))
+                        if (currentList.Length != item.Studios.Length || !currentList.OrderBy(i => i).SequenceEqual(item.Studios.OrderBy(i => i), StringComparer.OrdinalIgnoreCase))
                         {
                             updateType = updateType | ItemUpdateType.MetadataEdit;
                         }
@@ -87,7 +87,7 @@ namespace MediaBrowser.Providers.Music
                 .SelectMany(i => i.AlbumArtists)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(i => i)
-                .ToList();
+                .ToArray();
 
             if (!item.AlbumArtists.SequenceEqual(artists, StringComparer.OrdinalIgnoreCase))
             {
@@ -106,7 +106,7 @@ namespace MediaBrowser.Providers.Music
                 .SelectMany(i => i.Artists)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(i => i)
-                .ToList();
+                .ToArray();
 
             if (!item.Artists.SequenceEqual(artists, StringComparer.OrdinalIgnoreCase))
             {
@@ -151,14 +151,14 @@ namespace MediaBrowser.Providers.Music
             return updateType;
         }
 
-        protected override void MergeData(MetadataResult<MusicAlbum> source, MetadataResult<MusicAlbum> target, List<MetadataFields> lockedFields, bool replaceData, bool mergeMetadataSettings)
+        protected override void MergeData(MetadataResult<MusicAlbum> source, MetadataResult<MusicAlbum> target, MetadataFields[] lockedFields, bool replaceData, bool mergeMetadataSettings)
         {
             ProviderUtils.MergeBaseItemData(source, target, lockedFields, replaceData, mergeMetadataSettings);
 
             var sourceItem = source.Item;
             var targetItem = target.Item;
 
-            if (replaceData || targetItem.Artists.Count == 0)
+            if (replaceData || targetItem.Artists.Length == 0)
             {
                 targetItem.Artists = sourceItem.Artists;
             }

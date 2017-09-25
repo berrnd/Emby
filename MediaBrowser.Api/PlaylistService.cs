@@ -1,13 +1,14 @@
-﻿using MediaBrowser.Controller.Dto;
+﻿using System.Linq;
+using MediaBrowser.Controller.Dto;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Net;
 using MediaBrowser.Controller.Playlists;
 using MediaBrowser.Model.Dto;
 using MediaBrowser.Model.Playlists;
 using MediaBrowser.Model.Querying;
-using System.Linq;
 using System.Threading.Tasks;
 using MediaBrowser.Model.Services;
+using MediaBrowser.Model.Extensions;
 
 namespace MediaBrowser.Api
 {
@@ -148,7 +149,7 @@ namespace MediaBrowser.Api
             var result = await _playlistManager.CreatePlaylist(new PlaylistCreationRequest
             {
                 Name = request.Name,
-                ItemIdList = (request.Ids ?? string.Empty).Split(',').Where(i => !string.IsNullOrWhiteSpace(i)).ToList(),
+                ItemIdList = SplitValue(request.Ids, ','),
                 UserId = request.UserId,
                 MediaType = request.MediaType
 
@@ -171,7 +172,7 @@ namespace MediaBrowser.Api
             Task.WaitAll(task);
         }
 
-        public async Task<object> Get(GetPlaylistItems request)
+        public object Get(GetPlaylistItems request)
         {
             var playlist = (Playlist)_libraryManager.GetItemById(request.Id);
             var user = !string.IsNullOrWhiteSpace(request.UserId) ? _userManager.GetUserById(request.UserId) : null;
@@ -192,8 +193,7 @@ namespace MediaBrowser.Api
 
             var dtoOptions = GetDtoOptions(_authContext, request);
 
-            var dtos = (await _dtoService.GetBaseItemDtos(items.Select(i => i.Item2), dtoOptions, user).ConfigureAwait(false))
-                   .ToArray();
+            var dtos = _dtoService.GetBaseItemDtos(items.Select(i => i.Item2).ToList(), dtoOptions, user);
 
             var index = 0;
             foreach (var item in dtos)
@@ -202,7 +202,7 @@ namespace MediaBrowser.Api
                 index++;
             }
 
-            var result = new ItemsResult
+            var result = new QueryResult<BaseItemDto>
             {
                 Items = dtos,
                 TotalRecordCount = count

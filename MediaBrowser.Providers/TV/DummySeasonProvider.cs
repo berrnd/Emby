@@ -37,7 +37,7 @@ namespace MediaBrowser.Providers.TV
         public async Task Run(Series series, CancellationToken cancellationToken)
         {
             await RemoveObsoleteSeasons(series).ConfigureAwait(false);
-            
+
             var hasNewSeasons = await AddDummySeasonFolders(series, cancellationToken).ConfigureAwait(false);
 
             if (hasNewSeasons)
@@ -113,7 +113,7 @@ namespace MediaBrowser.Providers.TV
             CancellationToken cancellationToken)
         {
             var seasonName = seasonNumber == 0 ?
-                _config.Configuration.SeasonZeroDisplayName :
+                _libraryManager.GetLibraryOptions(series).SeasonZeroDisplayName :
                 (seasonNumber.HasValue ? string.Format(_localization.GetLocalizedString("NameSeasonNumber"), seasonNumber.Value.ToString(_usCulture)) : _localization.GetLocalizedString("NameSeasonUnknown"));
 
             _logger.Info("Creating Season {0} entry for {1}", seasonName, series.Name);
@@ -129,8 +129,8 @@ namespace MediaBrowser.Providers.TV
             };
 
             season.SetParent(series);
-            
-            await series.AddChild(season, cancellationToken).ConfigureAwait(false);
+
+            series.AddChild(season, cancellationToken);
 
             await season.RefreshMetadata(new MetadataRefreshOptions(_fileSystem), cancellationToken).ConfigureAwait(false);
 

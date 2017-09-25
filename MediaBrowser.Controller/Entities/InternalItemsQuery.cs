@@ -16,10 +16,6 @@ namespace MediaBrowser.Controller.Entities
 
         public int? Limit { get; set; }
 
-        public string[] SortBy { get; set; }
-
-        public SortOrder SortOrder { get; set; }
-
         public User User { get; set; }
 
         public BaseItem SimilarTo { get; set; }
@@ -38,12 +34,10 @@ namespace MediaBrowser.Controller.Entities
         public string[] ExcludeTags { get; set; }
         public string[] ExcludeInheritedTags { get; set; }
         public string[] Genres { get; set; }
-        public string[] Keywords { get; set; }
 
         public bool? IsSpecialSeason { get; set; }
         public bool? IsMissing { get; set; }
         public bool? IsUnaired { get; set; }
-        public bool? IsVirtualUnaired { get; set; }
         public bool? CollapseBoxSetItems { get; set; }
 
         public string NameStartsWithOrGreater { get; set; }
@@ -150,7 +144,6 @@ namespace MediaBrowser.Controller.Entities
         public TrailerType[] TrailerTypes { get; set; }
         public SourceType[] SourceTypes { get; set; }
 
-        public DayOfWeek[] AirDays { get; set; }
         public SeriesStatus[] SeriesStatuses { get; set; }
         public string ExternalSeriesId { get; set; }
         public string ExternalId { get; set; }
@@ -162,12 +155,14 @@ namespace MediaBrowser.Controller.Entities
         public string SeriesPresentationUniqueKey { get; set; }
 
         public bool GroupByPresentationUniqueKey { get; set; }
+        public bool GroupBySeriesPresentationUniqueKey { get; set; }
         public bool EnableTotalRecordCount { get; set; }
         public bool ForceDirect { get; set; }
         public Dictionary<string, string> ExcludeProviderIds { get; set; }
         public bool EnableGroupByMetadataKey { get; set; }
+        public bool? HasChapterImages { get; set; }
 
-        public List<Tuple<string, SortOrder>> OrderBy { get; set; }
+        public Tuple<string, SortOrder>[] OrderBy { get; set; }
 
         public DateTime? MinDateCreated { get; set; }
         public DateTime? MinDateLastSaved { get; set; }
@@ -175,6 +170,10 @@ namespace MediaBrowser.Controller.Entities
 
         public DtoOptions DtoOptions { get; set; }
         public int MinSimilarityScore { get; set; }
+        public string HasNoAudioTrackWithLanguage { get; set; }
+        public string HasNoInternalSubtitleTrackWithLanguage { get; set; }
+        public string HasNoExternalSubtitleTrackWithLanguage { get; set; }
+        public string HasNoSubtitleTrackWithLanguage { get; set; }
 
         public InternalItemsQuery()
         {
@@ -192,9 +191,7 @@ namespace MediaBrowser.Controller.Entities
             BlockUnratedItems = new UnratedItem[] { };
             Tags = new string[] { };
             OfficialRatings = new string[] { };
-            SortBy = new string[] { };
             MediaTypes = new string[] { };
-            Keywords = new string[] { };
             IncludeItemTypes = new string[] { };
             ExcludeItemTypes = new string[] { };
             Genres = new string[] { };
@@ -215,9 +212,8 @@ namespace MediaBrowser.Controller.Entities
             PresetViews = new string[] { };
             TrailerTypes = new TrailerType[] { };
             SourceTypes = new SourceType[] { };
-            AirDays = new DayOfWeek[] { };
             SeriesStatuses = new SeriesStatus[] { };
-            OrderBy = new List<Tuple<string, SortOrder>>();
+            OrderBy = new Tuple<string, SortOrder>[] { };
         }
 
         public InternalItemsQuery(User user)

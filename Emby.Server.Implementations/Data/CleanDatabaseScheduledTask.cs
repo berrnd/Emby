@@ -11,13 +11,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Model.IO;
-using MediaBrowser.Controller.Channels;
-using MediaBrowser.Controller.Entities.Audio;
-using MediaBrowser.Model.Tasks;
 
 namespace Emby.Server.Implementations.Data
 {
-    public class CleanDatabaseScheduledTask : IScheduledTask
+    public class CleanDatabaseScheduledTask : ILibraryPostScanTask
     {
         private readonly ILibraryManager _libraryManager;
         private readonly IItemRepository _itemRepo;
@@ -34,31 +31,9 @@ namespace Emby.Server.Implementations.Data
             _appPaths = appPaths;
         }
 
-        public string Name
+        public Task Run(IProgress<double> progress, CancellationToken cancellationToken)
         {
-            get { return "Clean Database"; }
-        }
-
-        public string Description
-        {
-            get { return "Deletes obsolete content from the database."; }
-        }
-
-        public string Category
-        {
-            get { return "Library"; }
-        }
-
-        public async Task Execute(CancellationToken cancellationToken, IProgress<double> progress)
-        {
-            // Ensure these objects are lazy loaded.
-            // Without this there is a deadlock that will need to be investigated
-            var rootChildren = _libraryManager.RootFolder.Children.ToList();
-            rootChildren = _libraryManager.GetUserRootFolder().Children.ToList();
-
-            await CleanDeadItems(cancellationToken, progress).ConfigureAwait(false);
-
-            //await _itemRepo.UpdateInheritedValues(cancellationToken).ConfigureAwait(false);
+            return CleanDeadItems(cancellationToken, progress);
         }
 
         private async Task CleanDeadItems(CancellationToken cancellationToken, IProgress<double> progress)
@@ -97,24 +72,6 @@ namespace Emby.Server.Implementations.Data
             }
 
             progress.Report(100);
-        }
-
-        /// <summary>
-        /// Creates the triggers that define when the task will run
-        /// </summary>
-        /// <returns>IEnumerable{BaseTaskTrigger}.</returns>
-        public IEnumerable<TaskTriggerInfo> GetDefaultTriggers()
-        {
-            return new[] { 
-            
-                // Every so often
-                new TaskTriggerInfo { Type = TaskTriggerInfo.TriggerInterval, IntervalTicks = TimeSpan.FromHours(24).Ticks}
-            };
-        }
-
-        public string Key
-        {
-            get { return "CleanDatabase"; }
         }
     }
 }

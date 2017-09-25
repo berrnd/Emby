@@ -29,6 +29,7 @@ using MediaBrowser.Model.Globalization;
 using MediaBrowser.Model.Services;
 using MediaBrowser.Common.Extensions;
 using MediaBrowser.Common.Progress;
+using MediaBrowser.Model.Extensions;
 
 namespace MediaBrowser.Api.Library
 {
@@ -226,7 +227,7 @@ namespace MediaBrowser.Api.Library
 
     [Route("/Library/MediaFolders", "GET", Summary = "Gets all user media folders.")]
     [Authenticated]
-    public class GetMediaFolders : IReturn<ItemsResult>
+    public class GetMediaFolders : IReturn<QueryResult<BaseItemDto>>
     {
         [ApiMember(Name = "IsHidden", Description = "Optional. Filter by folders that are marked hidden, or not.", IsRequired = false, DataType = "boolean", ParameterType = "query", Verb = "GET")]
         public bool? IsHidden { get; set; }
@@ -414,7 +415,7 @@ namespace MediaBrowser.Api.Library
                 });
             }
 
-            return new ItemsResult();
+            return new QueryResult<BaseItemDto>();
         }
 
         public object Get(GetMediaFolders request)
@@ -430,7 +431,7 @@ namespace MediaBrowser.Api.Library
 
             var dtoOptions = GetDtoOptions(_authContext, request);
 
-            var result = new ItemsResult
+            var result = new QueryResult<BaseItemDto>
             {
                 TotalRecordCount = items.Count,
 
@@ -475,22 +476,22 @@ namespace MediaBrowser.Api.Library
                     EnableImages = false
                 }
 
-            }).ToArray();
+            });
 
             if (!string.IsNullOrWhiteSpace(request.ImdbId))
             {
-                movies = movies.Where(i => string.Equals(request.ImdbId, i.GetProviderId(MetadataProviders.Imdb), StringComparison.OrdinalIgnoreCase)).ToArray();
+                movies = movies.Where(i => string.Equals(request.ImdbId, i.GetProviderId(MetadataProviders.Imdb), StringComparison.OrdinalIgnoreCase)).ToList();
             }
             else if (!string.IsNullOrWhiteSpace(request.TmdbId))
             {
-                movies = movies.Where(i => string.Equals(request.TmdbId, i.GetProviderId(MetadataProviders.Tmdb), StringComparison.OrdinalIgnoreCase)).ToArray();
+                movies = movies.Where(i => string.Equals(request.TmdbId, i.GetProviderId(MetadataProviders.Tmdb), StringComparison.OrdinalIgnoreCase)).ToList();
             }
             else
             {
-                movies = new BaseItem[] { };
+                movies = new List<BaseItem>();
             }
 
-            if (movies.Length > 0)
+            if (movies.Count > 0)
             {
                 foreach (var item in movies)
                 {
@@ -527,23 +528,28 @@ namespace MediaBrowser.Api.Library
 
             var headers = new Dictionary<string, string>();
 
-            // Quotes are valid in linux. They'll possibly cause issues here
-            var filename = Path.GetFileName(item.Path).Replace("\"", string.Empty);
-            headers["Content-Disposition"] = string.Format("attachment; filename=\"{0}\"", filename);
-
             if (user != null)
             {
                 LogDownload(item, user, auth);
             }
 
+            var path = item.Path;
+
+            // Quotes are valid in linux. They'll possibly cause issues here
+            var filename = (Path.GetFileName(path) ?? string.Empty).Replace("\"", string.Empty);
+            if (!string.IsNullOrWhiteSpace(filename))
+            {
+                headers["Content-Disposition"] = "attachment; filename=\"" + filename + "\"";
+            }
+
             return ResultFactory.GetStaticFileResult(Request, new StaticFileResultOptions
             {
-                Path = item.Path,
+                Path = path,
                 ResponseHeaders = headers
             });
         }
 
-		//myproduction-change-start
+//myproduction-change-start
 		//Added activity logging of external player streaming actions
 		public object Get(NotifyStreamedExternalInPlayer request)
 		{
@@ -579,14 +585,14 @@ namespace MediaBrowser.Api.Library
 		{
 			try
 			{
-				await _activityManager.Create(new ActivityLogEntry
+				_activityManager.Create(new ActivityLogEntry
 				{
 					Name = string.Format(_localization.GetLocalizedString("{0} is streaming {1} in an external player"), user.Name, item.Name),
 					Type = "UserStreamingContentExternalPlayer",
 					ShortOverview = string.Format(_localization.GetLocalizedString("AppDeviceValues"), auth.Client, auth.Device),
 					UserId = auth.UserId
 
-				}).ConfigureAwait(false);
+				});
 
 				//myproduction-change-start
 				this._libraryManager.ReportItemStreamedInExternalPlayer(item, user, auth.Client, auth.Device);
@@ -598,19 +604,18 @@ namespace MediaBrowser.Api.Library
 			}
 		}
 		//myproduction-change-end
-
-		private async void LogDownload(BaseItem item, User user, AuthorizationInfo auth)
+        private void LogDownload(BaseItem item, User user, AuthorizationInfo auth)
         {
             try
             {
-                await _activityManager.Create(new ActivityLogEntry
+                _activityManager.Create(new ActivityLogEntry
                 {
                     Name = string.Format(_localization.GetLocalizedString("UserDownloadingItemWithValues"), user.Name, item.Name),
                     Type = "UserDownloadingContent",
                     ShortOverview = string.Format(_localization.GetLocalizedString("AppDeviceValues"), auth.Client, auth.Device),
                     UserId = auth.UserId
 
-                }).ConfigureAwait(false);
+                });
 
 				//myproduction-change-start
 				this._libraryManager.ReportItemDownloaded(item, user, auth.Client, auth.Device);
@@ -693,7 +698,7 @@ namespace MediaBrowser.Api.Library
                 parent = parent.GetParent();
             }
 
-            return baseItemDtos.ToList();
+            return baseItemDtos;
         }
 
         private BaseItem TranslateParentItem(BaseItem item, User user)
@@ -816,7 +821,8 @@ namespace MediaBrowser.Api.Library
                 {
                     DeleteFileLocation = true
                 });
-            }).ToArray();
+
+            }).ToArray(ids.Length);
 
             Task.WaitAll(tasks);
         }
@@ -842,7 +848,7 @@ namespace MediaBrowser.Api.Library
         {
             var reviews = _itemRepo.GetCriticReviews(new Guid(request.Id));
 
-            var reviewsArray = reviews.ToArray();
+            var reviewsArray = reviews.ToArray(reviews.Count);
 
             var result = new QueryResult<ItemReview>
             {
@@ -917,7 +923,7 @@ namespace MediaBrowser.Api.Library
                 throw new ResourceNotFoundException("Item not found.");
             }
 
-            while (item.ThemeSongIds.Count == 0 && request.InheritFromParent && item.GetParent() != null)
+            while (item.ThemeSongIds.Length == 0 && request.InheritFromParent && item.GetParent() != null)
             {
                 item = item.GetParent();
             }
@@ -966,7 +972,7 @@ namespace MediaBrowser.Api.Library
                 throw new ResourceNotFoundException("Item not found.");
             }
 
-            while (item.ThemeVideoIds.Count == 0 && request.InheritFromParent && item.GetParent() != null)
+            while (item.ThemeVideoIds.Length == 0 && request.InheritFromParent && item.GetParent() != null)
             {
                 item = item.GetParent();
             }
@@ -997,7 +1003,7 @@ namespace MediaBrowser.Api.Library
              : request.IncludeItemTypes.Split(',');
 
             var user = !string.IsNullOrWhiteSpace(request.UserId) ? _userManager.GetUserById(request.UserId) : null;
-            
+
             var query = new InternalItemsQuery(user)
             {
                 IncludeItemTypes = includeTypes,

@@ -11,7 +11,7 @@ button.emby-tab-button:nth-child(3)
 <!--myproduction-change-end-->
 
     <div class="pageTabContent" id="homeTab" data-index="0">
-        <div class="ui-bar-b readOnlyContent welcomeMessage hide" style="padding: 2em; border-radius: 10px; margin: 2em auto; font-weight: normal;">
+        <div class="readOnlyContent welcomeMessage hide infoBanner" style="margin: 2em auto;">
             <h1 style="margin-top: 0;" class="tourHeader"></h1>
             <p>
                 <button is="emby-button" type="button" class="raised submit block btnTakeTour"><span class="tourButtonText"></span></button>
@@ -35,7 +35,7 @@ button.emby-tab-button:nth-child(3)
         <div class="homePageSection verticalSection" style="padding-left: 16px">
           <h1 class="listHeader" style="padding-left: 2.4vw;">Direkt streamen</h1>
 		  <div style="padding-left: 2.4vw;">
-			<h3>Das hier alles kannst du auch direkt abspielen, ohne Downloadumweg - komfortabel mit einer vorkonfigurierten <a href="https://kodi.tv/" target="_blank">Kodi</a>-Instanz (ein Open Source Mediacenter).<br />
+			<h3>Das hier alles kannst du auch direkt abspielen, ohne Downloadumweg - komfortabel mit einer vorkonfigurierten <a is="emby-linkbutton" class="button-link textlink emby-button" href="https://kodi.tv/" target="_blank">Kodi</a>-Instanz (ein Open Source Mediacenter).<br />
 			Funktioniert auf jedem Windows-PC, einfach runterladen, doppelklicken und du hast eine entsprechende Verknüpfung auf deinem Desktop.</h3>
 		  </div>
 		  <div style="display:flex;flex-wrap:wrap;padding-left: 2.4vw;">
@@ -149,17 +149,6 @@ button.emby-tab-button:nth-child(3)
     <div class="pageTabContent" id="favoritesTab" data-index="1">
         <div class="favoriteSections"></div>
     </div>
-    <div class="pageTabContent" id="upcomingTab" data-index="2">
-        <div id="upcomingItems">
-        </div>
-        <div class="noItemsMessage hide padded-left padded-right">
-            <p>${MessageNothingHere}</p>
-            <p>
-                <a href="metadata.html">${MessagePleaseEnsureInternetMetadata}</a>
-            </p>
-        </div>
-
-    </div>
-    <div class="pageTabContent" style="padding-top:1em;" data-index="3">
+    <div class="pageTabContent" style="padding-top:1em;" data-index="2">
     </div>
 </div>

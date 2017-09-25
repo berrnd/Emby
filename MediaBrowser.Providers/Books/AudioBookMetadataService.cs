@@ -16,16 +16,16 @@ namespace MediaBrowser.Providers.Books
 {
     public class AudioBookMetadataService : MetadataService<AudioBook, SongInfo>
     {
-        protected override void MergeData(MetadataResult<AudioBook> source, MetadataResult<AudioBook> target, List<MetadataFields> lockedFields, bool replaceData, bool mergeMetadataSettings)
+        protected override void MergeData(MetadataResult<AudioBook> source, MetadataResult<AudioBook> target, MetadataFields[] lockedFields, bool replaceData, bool mergeMetadataSettings)
         {
             ProviderUtils.MergeBaseItemData(source, target, lockedFields, replaceData, mergeMetadataSettings);
 
             var sourceItem = source.Item;
             var targetItem = target.Item;
 
-            if (replaceData || targetItem.Artists.Count == 0)
+            if (replaceData || targetItem.Artists.Length == 0)
             {
-                targetItem.Artists = sourceItem.Artists.ToList();
+                targetItem.Artists = sourceItem.Artists;
             }
 
             if (replaceData || string.IsNullOrEmpty(targetItem.Album))

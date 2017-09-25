@@ -77,7 +77,7 @@ namespace Emby.Server.Implementations.EntryPoints
                 // Go up one level for indicators
                 if (baseItem != null)
                 {
-                    var parent = baseItem.GetParent();
+                    var parent = baseItem.IsOwnedItem ? baseItem.GetOwner() : baseItem.GetParent();
 
                     if (parent != null)
                     {
@@ -126,7 +126,7 @@ namespace Emby.Server.Implementations.EntryPoints
                             dto.ItemId = i.Id.ToString("N");
                             return dto;
                         })
-                        .ToList();
+                        .ToArray();
 
                     var info = new UserDataChangeInfo
                     {
@@ -160,6 +160,7 @@ namespace Emby.Server.Implementations.EntryPoints
             }
 
             _userDataManager.UserDataSaved -= _userDataManager_UserDataSaved;
+            GC.SuppressFinalize(this);
         }
     }
 }

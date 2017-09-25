@@ -14,6 +14,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MediaBrowser.Model.Dlna;
+using MediaBrowser.Model.Extensions;
 
 namespace Emby.Server.Implementations.LiveTv
 {
@@ -42,9 +43,11 @@ namespace Emby.Server.Implementations.LiveTv
 
             if (baseItem.SourceType == SourceType.LiveTV)
             {
-                if (string.IsNullOrWhiteSpace(baseItem.Path))
+                var activeRecordingInfo = _liveTvManager.GetActiveRecordingInfo(item.Path);
+
+                if (string.IsNullOrWhiteSpace(baseItem.Path) || activeRecordingInfo != null)
                 {
-                    return GetMediaSourcesInternal(item, cancellationToken);
+                    return GetMediaSourcesInternal(item, activeRecordingInfo, cancellationToken);
                 }
             }
 
@@ -55,7 +58,7 @@ namespace Emby.Server.Implementations.LiveTv
         private const char StreamIdDelimeter = '_';
         private const string StreamIdDelimeterString = "_";
 
-        private async Task<IEnumerable<MediaSourceInfo>> GetMediaSourcesInternal(IHasMediaSources item, CancellationToken cancellationToken)
+        private async Task<IEnumerable<MediaSourceInfo>> GetMediaSourcesInternal(IHasMediaSources item, ActiveRecordingInfo activeRecordingInfo, CancellationToken cancellationToken)
         {
             IEnumerable<MediaSourceInfo> sources;
 
@@ -66,20 +69,27 @@ namespace Emby.Server.Implementations.LiveTv
                 if (item is ILiveTvRecording)
                 {
                     sources = await _liveTvManager.GetRecordingMediaSources(item, cancellationToken)
-                                .ConfigureAwait(false);
+                        .ConfigureAwait(false);
                 }
                 else
                 {
-                    sources = await _liveTvManager.GetChannelMediaSources(item, cancellationToken)
-                                .ConfigureAwait(false);
+                    if (activeRecordingInfo != null)
+                    {
+                        sources = await EmbyTV.EmbyTV.Current.GetRecordingStreamMediaSources(activeRecordingInfo, cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        sources = await _liveTvManager.GetChannelMediaSources(item, cancellationToken)
+                            .ConfigureAwait(false);
+                    }
                 }
             }
             catch (NotImplementedException)
             {
                 var hasMediaSources = (IHasMediaSources)item;
 
-                sources = _mediaSourceManager.GetStaticMediaSources(hasMediaSources, false)
-                   .ToList();
+                sources = _mediaSourceManager.GetStaticMediaSources(hasMediaSources, false);
 
                 forceRequireOpening = true;
             }
@@ -103,7 +113,7 @@ namespace Emby.Server.Implementations.LiveTv
                     openKeys.Add(item.GetType().Name);
                     openKeys.Add(item.Id.ToString("N"));
                     openKeys.Add(source.Id ?? string.Empty);
-                    source.OpenToken = string.Join(StreamIdDelimeterString, openKeys.ToArray());
+                    source.OpenToken = string.Join(StreamIdDelimeterString, openKeys.ToArray(openKeys.Count));
                 }
 
                 // Dummy this up so that direct play checks can still run
@@ -118,7 +128,7 @@ namespace Emby.Server.Implementations.LiveTv
             return list;
         }
 
-        public async Task<Tuple<MediaSourceInfo, IDirectStreamProvider>> OpenMediaSource(string openToken, CancellationToken cancellationToken)
+        public async Task<Tuple<MediaSourceInfo, IDirectStreamProvider>> OpenMediaSource(string openToken, bool allowLiveStreamProbe, CancellationToken cancellationToken)
         {
             MediaSourceInfo stream = null;
             const bool isAudio = false;
@@ -132,6 +142,8 @@ namespace Emby.Server.Implementations.LiveTv
                 var info = await _liveTvManager.GetChannelStream(keys[1], mediaSourceId, cancellationToken).ConfigureAwait(false);
                 stream = info.Item1;
                 directStreamProvider = info.Item2;
+
+                //allowLiveStreamProbe = false;
             }
             else
             {
@@ -140,7 +152,7 @@ namespace Emby.Server.Implementations.LiveTv
 
             try
             {
-                if (!stream.SupportsProbing || stream.MediaStreams.Any(i => i.Index != -1))
+                if (!allowLiveStreamProbe || !stream.SupportsProbing || stream.MediaStreams.Any(i => i.Index != -1))
                 {
                     AddMediaInfo(stream, isAudio, cancellationToken);
                 }

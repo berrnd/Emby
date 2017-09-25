@@ -89,7 +89,7 @@ namespace MediaBrowser.Controller.Playlists
             return new List<BaseItem>();
         }
 
-        public override IEnumerable<BaseItem> GetChildren(User user, bool includeLinkedChildren)
+        public override List<BaseItem> GetChildren(User user, bool includeLinkedChildren)
         {
             return GetPlayableItems(user, new DtoOptions(true));
         }
@@ -105,7 +105,7 @@ namespace MediaBrowser.Controller.Playlists
 
             if (query != null)
             {
-                items = items.Where(i => UserViewBuilder.FilterItem(i, query));
+                items = items.Where(i => UserViewBuilder.FilterItem(i, query)).ToList();
             }
 
             return items;
@@ -116,12 +116,12 @@ namespace MediaBrowser.Controller.Playlists
             return GetLinkedChildrenInfos();
         }
 
-        private IEnumerable<BaseItem> GetPlayableItems(User user, DtoOptions options)
+        private List<BaseItem> GetPlayableItems(User user, DtoOptions options)
         {
             return GetPlaylistItems(MediaType, base.GetChildren(user, true), user, options);
         }
 
-        public static IEnumerable<BaseItem> GetPlaylistItems(string playlistMediaType, IEnumerable<BaseItem> inputItems, User user, DtoOptions options)
+        public static List<BaseItem> GetPlaylistItems(string playlistMediaType, IEnumerable<BaseItem> inputItems, User user, DtoOptions options)
         {
             if (user != null)
             {
@@ -149,8 +149,7 @@ namespace MediaBrowser.Controller.Playlists
                     Recursive = true,
                     IncludeItemTypes = new[] { typeof(Audio).Name },
                     GenreIds = new[] { musicGenre.Id.ToString("N") },
-                    SortBy = new[] { ItemSortBy.AlbumArtist, ItemSortBy.Album, ItemSortBy.SortName },
-                    SortOrder = SortOrder.Ascending,
+                    OrderBy = new[] { ItemSortBy.AlbumArtist, ItemSortBy.Album, ItemSortBy.SortName }.Select(i => new Tuple<string, SortOrder>(i, SortOrder.Ascending)).ToArray(),
                     DtoOptions = options
                 });
             }
@@ -163,8 +162,7 @@ namespace MediaBrowser.Controller.Playlists
                     Recursive = true,
                     IncludeItemTypes = new[] { typeof(Audio).Name },
                     ArtistIds = new[] { musicArtist.Id.ToString("N") },
-                    SortBy = new[] { ItemSortBy.AlbumArtist, ItemSortBy.Album, ItemSortBy.SortName },
-                    SortOrder = SortOrder.Ascending,
+                    OrderBy = new[] { ItemSortBy.AlbumArtist, ItemSortBy.Album, ItemSortBy.SortName }.Select(i => new Tuple<string, SortOrder>(i, SortOrder.Ascending)).ToArray(),
                     DtoOptions = options
                 });
             }
@@ -176,16 +174,13 @@ namespace MediaBrowser.Controller.Playlists
                 {
                     Recursive = true,
                     IsFolder = false,
-                    SortBy = new[] { ItemSortBy.SortName },
+                    OrderBy = new[] { ItemSortBy.SortName }.Select(i => new Tuple<string, SortOrder>(i, SortOrder.Ascending)).ToArray(),
                     MediaTypes = new[] { mediaType },
                     EnableTotalRecordCount = false,
                     DtoOptions = options
                 };
 
-                var itemsResult = folder.GetItems(query);
-                var items = itemsResult.Items;
-
-                return items;
+                return folder.GetItemList(query);
             }
 
             return new[] { item };

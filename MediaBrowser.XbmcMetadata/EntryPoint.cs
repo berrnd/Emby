@@ -8,7 +8,6 @@ using MediaBrowser.Model.Logging;
 using MediaBrowser.XbmcMetadata.Configuration;
 using MediaBrowser.XbmcMetadata.Savers;
 using System;
-using System.Linq;
 using MediaBrowser.Controller.Dto;
 
 namespace MediaBrowser.XbmcMetadata
@@ -56,7 +55,7 @@ namespace MediaBrowser.XbmcMetadata
                         PersonIds = new [] { person.Id.ToString("N") },
                         DtoOptions = new DtoOptions(true)
 
-                    }).ToList();
+                    });
 
                     foreach (var item in items)
                     {
@@ -82,6 +81,7 @@ namespace MediaBrowser.XbmcMetadata
         public void Dispose()
         {
             _userDataManager.UserDataSaved -= _userDataManager_UserDataSaved;
+            GC.SuppressFinalize(this);
         }
 
         private async void SaveMetadataForItem(BaseItem item, ItemUpdateType updateReason)

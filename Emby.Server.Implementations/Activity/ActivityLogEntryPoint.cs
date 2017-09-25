@@ -18,6 +18,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using MediaBrowser.Model.Globalization;
+using MediaBrowser.Model.Extensions;
 
 namespace Emby.Server.Implementations.Activity
 {
@@ -127,7 +128,7 @@ namespace Emby.Server.Implementations.Activity
             {
                 // Don't report theme song or local trailer playback
                 return;
-            } 
+            }
 
             if (e.Users.Count == 0)
             {
@@ -159,8 +160,8 @@ namespace Emby.Server.Implementations.Activity
             {
                 // Don't report theme song or local trailer playback
                 return;
-            } 
-            
+            }
+
             if (e.Users.Count == 0)
             {
                 return;
@@ -415,7 +416,7 @@ namespace Emby.Server.Implementations.Activity
             {
                 return;
             }
-            
+
             var time = result.EndTimeUtc - result.StartTimeUtc;
             var runningTime = string.Format(_localization.GetLocalizedString("LabelRunningTimeValue"), ToUserFriendlyString(time));
 
@@ -436,18 +437,18 @@ namespace Emby.Server.Implementations.Activity
                 {
                     Name = string.Format(_localization.GetLocalizedString("ScheduledTaskFailedWithName"), task.Name),
                     Type = "ScheduledTaskFailed",
-                    Overview = string.Join(Environment.NewLine, vals.ToArray()),
+                    Overview = string.Join(Environment.NewLine, vals.ToArray(vals.Count)),
                     ShortOverview = runningTime,
                     Severity = LogSeverity.Error
                 });
             }
         }
 
-        private async void CreateLogEntry(ActivityLogEntry entry)
+        private void CreateLogEntry(ActivityLogEntry entry)
         {
             try
             {
-                await _activityManager.Create(entry).ConfigureAwait(false);
+                _activityManager.Create(entry);
             }
             catch
             {
@@ -490,6 +491,7 @@ namespace Emby.Server.Implementations.Activity
             //_logManager.LoggerLoaded -= _logManager_LoggerLoaded;
 
             _appHost.ApplicationUpdated -= _appHost_ApplicationUpdated;
+            GC.SuppressFinalize(this);
         }
 
         /// <summary>

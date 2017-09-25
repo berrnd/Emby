@@ -63,11 +63,6 @@
         DisplayPreferencesId,
 
         /// <summary>
-        /// The display media type
-        /// </summary>
-        DisplayMediaType,
-
-        /// <summary>
         /// The etag
         /// </summary>
         Etag,
@@ -91,11 +86,6 @@
         /// The item counts
         /// </summary>
         ItemCounts,
-
-        /// <summary>
-        /// The keywords
-        /// </summary>
-        Keywords,
 
         /// <summary>
         /// The media source count
@@ -157,11 +147,6 @@
         /// The screenshot image tags
         /// </summary>
         ScreenshotImageTags,
-
-        /// <summary>
-        /// The series genres
-        /// </summary>
-        SeriesGenres,
 
         SeriesPrimaryImage,
 
@@ -229,6 +214,7 @@
         SeriesPresentationUniqueKey,
         DateLastRefreshed,
         DateLastSaved,
-        RefreshState
+        RefreshState,
+        ChannelImage
     }
 }

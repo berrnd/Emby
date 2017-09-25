@@ -1,5 +1,4 @@
 ﻿using MediaBrowser.Model.Drawing;
-using System.Linq;
 using MediaBrowser.Model.Serialization;
 
 namespace MediaBrowser.Controller.Entities
@@ -39,7 +38,16 @@ namespace MediaBrowser.Controller.Entities
         {
             get
             {
-                return GetParents().OfType<PhotoAlbum>().FirstOrDefault();
+                var parents = GetParents();
+                foreach (var parent in parents)
+                {
+                    var photoAlbum = parent as PhotoAlbum;
+                    if (photoAlbum != null)
+                    {
+                        return photoAlbum;
+                    }
+                }
+                return null;
             }
         }
 
@@ -52,6 +60,35 @@ namespace MediaBrowser.Controller.Entities
         public override bool CanDownload()
         {
             return true;
+        }
+
+        public override double? GetDefaultPrimaryImageAspectRatio()
+        {
+            if (Width.HasValue && Height.HasValue)
+            {
+                double width = Width.Value;
+                double height = Height.Value;
+
+                if (Orientation.HasValue)
+                {
+                    switch (Orientation.Value)
+                    {
+                        case ImageOrientation.LeftBottom:
+                        case ImageOrientation.LeftTop:
+                        case ImageOrientation.RightBottom:
+                        case ImageOrientation.RightTop:
+                            var temp = height;
+                            height = width;
+                            width = temp;
+                            break;
+                    }
+                }
+
+                width /= Height.Value;
+                return width;
+            }
+
+            return base.GetDefaultPrimaryImageAspectRatio();
         }
 
         public int? Width { get; set; }

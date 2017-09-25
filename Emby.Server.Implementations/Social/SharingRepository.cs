@@ -1,29 +1,48 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
 using Emby.Server.Implementations.Data;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Model.Logging;
 using MediaBrowser.Model.Social;
 using SQLitePCL.pretty;
+using MediaBrowser.Model.Extensions;
+using MediaBrowser.Model.IO;
 
 namespace Emby.Server.Implementations.Social
 {
     public class SharingRepository : BaseSqliteRepository, ISharingRepository
     {
-        public SharingRepository(ILogger logger, IApplicationPaths appPaths)
+        protected IFileSystem FileSystem { get; private set; }
+
+        public SharingRepository(ILogger logger, IApplicationPaths appPaths, IFileSystem fileSystem)
             : base(logger)
         {
+            FileSystem = fileSystem;
             DbFilePath = Path.Combine(appPaths.DataPath, "shares.db");
+        }
+
+        public void Initialize()
+        {
+            try
+            {
+                InitializeInternal();
+            }
+            catch (Exception ex)
+            {
+                Logger.ErrorException("Error loading database file. Will reset and retry.", ex);
+
+                FileSystem.DeleteFile(DbFilePath);
+
+                InitializeInternal();
+            }
         }
 
         /// <summary>
         /// Opens the connection to the database
         /// </summary>
         /// <returns>Task.</returns>
-        public void Initialize()
+        private void InitializeInternal()
         {
             using (var connection = CreateConnection())
             {
@@ -41,7 +60,7 @@ namespace Emby.Server.Implementations.Social
             }
         }
 
-        public async Task CreateShare(SocialShareInfo info)
+        public void CreateShare(SocialShareInfo info)
         {
             if (info == null)
             {
@@ -86,7 +105,7 @@ namespace Emby.Server.Implementations.Social
                     var paramList = new List<object>();
                     paramList.Add(id.ToGuidBlob());
 
-                    foreach (var row in connection.Query(commandText, paramList.ToArray()))
+                    foreach (var row in connection.Query(commandText, paramList.ToArray(paramList.Count)))
                     {
                         return GetSocialShareInfo(row);
                     }
@@ -108,7 +127,7 @@ namespace Emby.Server.Implementations.Social
             return info;
         }
 
-        public async Task DeleteShare(string id)
+        public void DeleteShare(string id)
         {
 
         }

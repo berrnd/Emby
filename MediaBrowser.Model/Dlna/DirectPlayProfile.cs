@@ -1,6 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Xml.Serialization;
-using MediaBrowser.Model.Dlna;
 
 namespace MediaBrowser.Model.Dlna
 {
@@ -18,34 +18,19 @@ namespace MediaBrowser.Model.Dlna
         [XmlAttribute("type")]
         public DlnaProfileType Type { get; set; }
 
-        public List<string> GetContainers()
+        public bool SupportsContainer(string container)
         {
-            List<string> list = new List<string>();
-            foreach (string i in (Container ?? string.Empty).Split(','))
-            {
-                if (!string.IsNullOrEmpty(i)) list.Add(i);
-            }
-            return list;
+            return ContainerProfile.ContainsContainer(Container, container);
         }
 
-        public List<string> GetAudioCodecs()
+        public string[] GetAudioCodecs()
         {
-            List<string> list = new List<string>();
-            foreach (string i in (AudioCodec ?? string.Empty).Split(','))
-            {
-                if (!string.IsNullOrEmpty(i)) list.Add(i);
-            }
-            return list;
+            return ContainerProfile.SplitValue(AudioCodec);
         }
 
-        public List<string> GetVideoCodecs()
+        public string[] GetVideoCodecs()
         {
-            List<string> list = new List<string>();
-            foreach (string i in (VideoCodec ?? string.Empty).Split(','))
-            {
-                if (!string.IsNullOrEmpty(i)) list.Add(i);
-            }
-            return list;
+            return ContainerProfile.SplitValue(VideoCodec);
         }
     }
 }

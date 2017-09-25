@@ -12,6 +12,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MediaBrowser.Model.IO;
+using MediaBrowser.Model.Extensions;
 
 namespace Emby.Server.Implementations.Collections
 {
@@ -83,15 +84,15 @@ namespace Emby.Server.Implementations.Collections
                     ProviderIds = options.ProviderIds,
                     Shares = options.UserIds.Select(i => new Share
                     {
-                        UserId = i.ToString("N"),
+                        UserId = i,
                         CanEdit = true
 
                     }).ToList()
                 };
 
-                await parentFolder.AddChild(collection, CancellationToken.None).ConfigureAwait(false);
+                parentFolder.AddChild(collection, CancellationToken.None);
 
-                if (options.ItemIdList.Count > 0)
+                if (options.ItemIdList.Length > 0)
                 {
                     await AddToCollection(collection.Id, options.ItemIdList, false, new MetadataRefreshOptions(_fileSystem)
                     {
@@ -148,12 +149,17 @@ namespace Emby.Server.Implementations.Collections
             return GetCollectionsFolder(string.Empty);
         }
 
-        public Task AddToCollection(Guid collectionId, IEnumerable<Guid> ids)
+        public Task AddToCollection(Guid collectionId, IEnumerable<string> ids)
         {
             return AddToCollection(collectionId, ids, true, new MetadataRefreshOptions(_fileSystem));
         }
 
-        private async Task AddToCollection(Guid collectionId, IEnumerable<Guid> ids, bool fireEvent, MetadataRefreshOptions refreshOptions)
+        public Task AddToCollection(Guid collectionId, IEnumerable<Guid> ids)
+        {
+            return AddToCollection(collectionId, ids.Select(i => i.ToString("N")), true, new MetadataRefreshOptions(_fileSystem));
+        }
+
+        private async Task AddToCollection(Guid collectionId, IEnumerable<string> ids, bool fireEvent, MetadataRefreshOptions refreshOptions)
         {
             var collection = _libraryManager.GetItemById(collectionId) as BoxSet;
 
@@ -164,11 +170,12 @@ namespace Emby.Server.Implementations.Collections
 
             var list = new List<LinkedChild>();
             var itemList = new List<BaseItem>();
-            var currentLinkedChildren = collection.GetLinkedChildren().ToList();
+            var currentLinkedChildrenIds = collection.GetLinkedChildren().Select(i => i.Id).ToList();
 
-            foreach (var itemId in ids)
+            foreach (var id in ids)
             {
-                var item = _libraryManager.GetItemById(itemId);
+                var guidId = new Guid(id);
+                var item = _libraryManager.GetItemById(guidId);
 
                 if (string.IsNullOrWhiteSpace(item.Path))
                 {
@@ -182,7 +189,7 @@ namespace Emby.Server.Implementations.Collections
 
                 itemList.Add(item);
 
-                if (currentLinkedChildren.All(i => i.Id != itemId))
+                if (!currentLinkedChildrenIds.Contains(guidId))
                 {
                     list.Add(LinkedChild.Create(item));
                 }
@@ -190,7 +197,9 @@ namespace Emby.Server.Implementations.Collections
 
             if (list.Count > 0)
             {
-                collection.LinkedChildren.AddRange(list);
+                var newList = collection.LinkedChildren.ToList();
+                newList.AddRange(list);
+                collection.LinkedChildren = newList.ToArray(newList.Count);
 
                 collection.UpdateRatingToContent();
 
@@ -210,6 +219,11 @@ namespace Emby.Server.Implementations.Collections
             }
         }
 
+        public Task RemoveFromCollection(Guid collectionId, IEnumerable<string> itemIds)
+        {
+            return RemoveFromCollection(collectionId, itemIds.Select(i => new Guid(i)));
+        }
+
         public async Task RemoveFromCollection(Guid collectionId, IEnumerable<Guid> itemIds)
         {
             var collection = _libraryManager.GetItemById(collectionId) as BoxSet;
@@ -222,11 +236,11 @@ namespace Emby.Server.Implementations.Collections
             var list = new List<LinkedChild>();
             var itemList = new List<BaseItem>();
 
-            foreach (var itemId in itemIds)
+            foreach (var guidId in itemIds)
             {
-                var childItem = _libraryManager.GetItemById(itemId);
+                var childItem = _libraryManager.GetItemById(guidId);
 
-                var child = collection.LinkedChildren.FirstOrDefault(i => (i.ItemId.HasValue && i.ItemId.Value == itemId) || (childItem != null && string.Equals(childItem.Path, i.Path, StringComparison.OrdinalIgnoreCase)));
+                var child = collection.LinkedChildren.FirstOrDefault(i => (i.ItemId.HasValue && i.ItemId.Value == guidId) || (childItem != null && string.Equals(childItem.Path, i.Path, StringComparison.OrdinalIgnoreCase)));
 
                 if (child == null)
                 {
@@ -241,9 +255,9 @@ namespace Emby.Server.Implementations.Collections
                 }
             }
 
-            foreach (var child in list)
+            if (list.Count > 0)
             {
-                collection.LinkedChildren.Remove(child);
+                collection.LinkedChildren = collection.LinkedChildren.Except(list).ToArray();
             }
 
             collection.UpdateRatingToContent();

@@ -70,7 +70,7 @@ namespace Emby.Server.Implementations.LiveTv.EmbyTV
                     return "ts";
                 }
 
-                return "mp4";
+                return "mkv";
             }
         }
 
@@ -207,9 +207,12 @@ namespace Emby.Server.Implementations.LiveTv.EmbyTV
                 inputModifier += " -fflags " + string.Join("", flags.ToArray());
             }
 
-            if (!string.IsNullOrWhiteSpace(GetEncodingOptions().HardwareAccelerationType))
+            var videoStream = mediaSource.VideoStream;
+            var videoDecoder = videoStream == null ? null : new EncodingHelper(_mediaEncoder, _fileSystem, null).GetVideoDecoder(VideoType.VideoFile, videoStream, GetEncodingOptions());
+
+            if (!string.IsNullOrWhiteSpace(videoDecoder))
             {
-                inputModifier += " -hwaccel auto";
+                inputModifier += " " + videoDecoder;
             }
 
             if (mediaSource.ReadAtNativeFramerate)
@@ -281,8 +284,15 @@ namespace Emby.Server.Implementations.LiveTv.EmbyTV
         protected string GetOutputSizeParam()
         {
             var filters = new List<string>();
-
-            filters.Add("yadif=0:-1:0");
+            
+            if (string.Equals(GetEncodingOptions().DeinterlaceMethod, "bobandweave", StringComparison.OrdinalIgnoreCase))
+            {
+                filters.Add("yadif=1:-1:0");
+            }
+            else
+            {
+                filters.Add("yadif=0:-1:0");
+            }
 
             var output = string.Empty;
 

@@ -1,7 +1,6 @@
 ﻿using MediaBrowser.Model.Logging;
 using System;
 using System.Globalization;
-using System.Linq;
 using MediaBrowser.Model.Services;
 using SocketHttpListener.Net;
 
@@ -29,7 +28,20 @@ namespace Emby.Server.Implementations.HttpServer
             }
             else
             {
-                var headerText = string.Join(", ", headers.Select(i => i.Name + "=" + i.Value).ToArray());
+                var headerText = string.Empty;
+                var index = 0;
+
+                foreach (var i in headers)
+                {
+                    if (index > 0)
+                    {
+                        headerText += ", ";
+                    }
+
+                    headerText += i.Name + "=" + i.Value;
+
+                    index++;
+                }
 
                 logger.Info("HTTP {0} {1}. {2}", method, url, headerText);
             }
@@ -48,7 +60,8 @@ namespace Emby.Server.Implementations.HttpServer
             var durationMs = duration.TotalMilliseconds;
             var logSuffix = durationMs >= 1000 && durationMs < 60000 ? "ms (slow)" : "ms";
 
-            var headerText = headers == null ? string.Empty : "Headers: " + string.Join(", ", headers.Where(i => i.Name.IndexOf("Access-", StringComparison.OrdinalIgnoreCase) == -1).Select(i => i.Name + "=" + i.Value).ToArray());
+            //var headerText = headers == null ? string.Empty : "Headers: " + string.Join(", ", headers.Where(i => i.Name.IndexOf("Access-", StringComparison.OrdinalIgnoreCase) == -1).Select(i => i.Name + "=" + i.Value).ToArray());
+            var headerText = string.Empty;
             logger.Info("HTTP Response {0} to {1}. Time: {2}{3}. {4} {5}", statusCode, endPoint, Convert.ToInt32(durationMs).ToString(CultureInfo.InvariantCulture), logSuffix, url, headerText);
         }
     }

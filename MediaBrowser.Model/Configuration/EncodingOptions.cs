@@ -13,8 +13,11 @@ namespace MediaBrowser.Model.Configuration
         public string VaapiDevice { get; set; }
         public int H264Crf { get; set; }
         public string H264Preset { get; set; }
-        public bool EnableHardwareDecoding { get; set; }
+        public string DeinterlaceMethod { get; set; }
         public bool EnableHardwareEncoding { get; set; }
+        public bool EnableSubtitleExtraction { get; set; }
+
+        public string[] HardwareDecodingCodecs { get; set; }
 
         public EncodingOptions()
         {
@@ -22,10 +25,12 @@ namespace MediaBrowser.Model.Configuration
             EnableThrottling = true;
             ThrottleDelaySeconds = 180;
             EncodingThreadCount = -1;
-            VaapiDevice = "/dev/dri/card0";
+            // This is a DRM device that is almost guaranteed to be there on every intel platform, plus it's the default one in ffmpeg if you don't specify anything
+            VaapiDevice = "/dev/dri/renderD128";
             H264Crf = 23;
-            EnableHardwareDecoding = true;
             EnableHardwareEncoding = true;
+            EnableSubtitleExtraction = true;
+            HardwareDecodingCodecs = new string[] { "h264", "vc1" };
         }
     }
 }

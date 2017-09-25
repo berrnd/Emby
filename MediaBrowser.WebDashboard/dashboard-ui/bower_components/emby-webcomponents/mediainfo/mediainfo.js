@@ -1,4 +1,4 @@
-define(["datetime", "globalize", "embyRouter", "itemHelper", "material-icons", "css!./mediainfo.css", "programStyles", "emby-linkbutton"], function(datetime, globalize, embyRouter, itemHelper) {
+define(["datetime", "globalize", "appRouter", "itemHelper", "material-icons", "css!./mediainfo.css", "programStyles", "emby-linkbutton"], function(datetime, globalize, appRouter, itemHelper) {
     "use strict";
 
     function getTimerIndicator(item) {
@@ -25,7 +25,7 @@ define(["datetime", "globalize", "embyRouter", "itemHelper", "material-icons", "
             console.log("Error parsing date: " + item.StartDate)
         }
         if (item.ChannelNumber && miscInfo.push("CH " + item.ChannelNumber), item.ChannelName && (options.interactive && item.ChannelId ? miscInfo.push({
-                html: '<a is="emby-linkbutton" class="button-flat mediaInfoItem" href="' + embyRouter.getRouteUrl({
+                html: '<a is="emby-linkbutton" class="button-flat mediaInfoItem" href="' + appRouter.getRouteUrl({
                     ServerId: item.ServerId,
                     Type: "TvChannel",
                     Name: item.ChannelName,
@@ -86,7 +86,7 @@ define(["datetime", "globalize", "embyRouter", "itemHelper", "material-icons", "
         } catch (e) {
             console.log("Error parsing date: " + item.PremiereDate)
         } else item.ProductionYear && miscInfo.push(item.ProductionYear);
-        if (options.year !== !1 && "Series" !== item.Type && "Episode" !== item.Type && "Person" !== item.Type && "Photo" !== item.MediaType && "Program" !== item.Type)
+        if (options.year !== !1 && "Series" !== item.Type && "Episode" !== item.Type && "Person" !== item.Type && "Photo" !== item.MediaType && "Program" !== item.Type && "Season" !== item.Type)
             if (item.ProductionYear) miscInfo.push(item.ProductionYear);
             else if (item.PremiereDate) try {
             text = datetime.parseISO8601Date(item.PremiereDate).getFullYear(), miscInfo.push(text)
@@ -184,7 +184,7 @@ define(["datetime", "globalize", "embyRouter", "itemHelper", "material-icons", "
     function onChannelLinkClick(e) {
         var channelId = this.getAttribute("data-id"),
             serverId = this.getAttribute("data-serverid");
-        return embyRouter.showItem(channelId, serverId), e.preventDefault(), !1
+        return appRouter.showItem(channelId, serverId), e.preventDefault(), !1
     }
 
     function getPrimaryMediaInfoHtml(item, options) {
@@ -242,15 +242,17 @@ define(["datetime", "globalize", "embyRouter", "itemHelper", "material-icons", "
             text: videoStream.Codec
         });
         var channelText, channels = audioStream.Channels;
-        if (8 === channels ? channelText = "7.1" : 7 === channels ? channelText = "6.1" : 6 === channels ? channelText = "5.1" : 2 === channels && (channelText = "2.0"), channelText && list.push({
-                type: "mediainfo",
-                text: channelText
-            }), "dca" === audioStream.Codec && audioStream.Profile ? list.push({
-                type: "mediainfo",
-                text: audioStream.Profile
-            }) : audioStream.Codec && list.push({
+        8 === channels ? channelText = "7.1" : 7 === channels ? channelText = "6.1" : 6 === channels ? channelText = "5.1" : 2 === channels && (channelText = "2.0"), channelText && list.push({
+            type: "mediainfo",
+            text: channelText
+        });
+        var audioCodec = (audioStream.Codec || "").toLowerCase();
+        if ("dca" !== audioCodec && "dts" !== audioCodec || !audioStream.Profile ? audioStream.Codec && list.push({
                 type: "mediainfo",
                 text: audioStream.Codec
+            }) : list.push({
+                type: "mediainfo",
+                text: audioStream.Profile
             }), item.DateCreated && itemHelper.enableDateAddedDisplay(item)) {
             var dateCreated = datetime.parseISO8601Date(item.DateCreated);
             list.push({

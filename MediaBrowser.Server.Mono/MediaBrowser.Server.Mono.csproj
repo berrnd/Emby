@@ -51,32 +51,24 @@
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\packages\Mono.Posix.4.0.0.0\lib\net40\Mono.Posix.dll</HintPath>
     </Reference>
-    <Reference Include="NLog, Version=4.0.0.0, Culture=neutral, PublicKeyToken=5120e14c03d0593c, processorArchitecture=MSIL">
-      <HintPath>..\packages\NLog.4.4.11\lib\net45\NLog.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
     <Reference Include="ServiceStack.Text, Version=4.5.8.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\ServiceStack.Text.4.5.8\lib\net45\ServiceStack.Text.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="SharpCompress, Version=0.14.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\SharpCompress.0.14.0\lib\net45\SharpCompress.dll</HintPath>
-      <Private>True</Private>
+    <Reference Include="SharpCompress, Version=0.18.2.0, Culture=neutral, PublicKeyToken=afb0a02973931d96, processorArchitecture=MSIL">
+      <HintPath>..\packages\SharpCompress.0.18.2\lib\net45\SharpCompress.dll</HintPath>
     </Reference>
     <Reference Include="SimpleInjector, Version=4.0.8.0, Culture=neutral, PublicKeyToken=984cb50dea722e99, processorArchitecture=MSIL">
       <HintPath>..\packages\SimpleInjector.4.0.8\lib\net45\SimpleInjector.dll</HintPath>
     </Reference>
     <Reference Include="SkiaSharp, Version=1.58.0.0, Culture=neutral, PublicKeyToken=0738eb9f132ed756, processorArchitecture=MSIL">
-      <HintPath>..\packages\SkiaSharp.1.58.0\lib\net45\SkiaSharp.dll</HintPath>
-      <Private>True</Private>
+      <HintPath>..\packages\SkiaSharp.1.58.1\lib\net45\SkiaSharp.dll</HintPath>
     </Reference>
     <Reference Include="SQLitePCLRaw.core, Version=1.0.0.0, Culture=neutral, PublicKeyToken=1488e028ca7ab535, processorArchitecture=MSIL">
-      <HintPath>..\packages\SQLitePCLRaw.core.1.1.6\lib\net45\SQLitePCLRaw.core.dll</HintPath>
-      <Private>True</Private>
+      <HintPath>..\packages\SQLitePCLRaw.core.1.1.8\lib\net45\SQLitePCLRaw.core.dll</HintPath>
     </Reference>
     <Reference Include="SQLitePCLRaw.provider.sqlite3, Version=1.0.0.0, Culture=neutral, PublicKeyToken=62684c7b4f184e3f, processorArchitecture=MSIL">
-      <HintPath>..\packages\SQLitePCLRaw.provider.sqlite3.net45.1.1.6\lib\net45\SQLitePCLRaw.provider.sqlite3.dll</HintPath>
-      <Private>True</Private>
+      <HintPath>..\packages\SQLitePCLRaw.provider.sqlite3.net45.1.1.8\lib\net45\SQLitePCLRaw.provider.sqlite3.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="MediaBrowser.IsoMounting.Linux">
@@ -92,6 +84,7 @@
     <Compile Include="..\SharedVersion.cs">
       <Link>Properties\SharedVersion.cs</Link>
     </Compile>
+    <Compile Include="ApplicationPathHelper.cs" />
     <Compile Include="ImageEncoderHelper.cs" />
     <Compile Include="MonoAppHost.cs" />
     <Compile Include="Native\MonoFileSystem.cs" />
@@ -108,10 +101,6 @@
     <ProjectReference Include="..\DvdLib\DvdLib.csproj">
       <Project>{713f42b5-878e-499d-a878-e4c652b1d5e8}</Project>
       <Name>DvdLib</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\Emby.Common.Implementations\Emby.Common.Implementations.csproj">
-      <Project>{1e37a338-9f57-4b70-bd6d-bb9c591e319b}</Project>
-      <Name>Emby.Common.Implementations</Name>
     </ProjectReference>
     <ProjectReference Include="..\Emby.Dlna\Emby.Dlna.csproj">
       <Project>{805844ab-e92f-45e6-9d99-4f6d48d129a5}</Project>
@@ -133,10 +122,6 @@
       <Project>{89ab4548-770d-41fd-a891-8daff44f452c}</Project>
       <Name>Emby.Photos</Name>
     </ProjectReference>
-    <ProjectReference Include="..\Emby.Server.Core\Emby.Server.Core.csproj">
-      <Project>{776b9f0c-5195-45e3-9a36-1cc1f0d8e0b0}</Project>
-      <Name>Emby.Server.Core</Name>
-    </ProjectReference>
     <ProjectReference Include="..\Emby.Server.Implementations\Emby.Server.Implementations.csproj">
       <Project>{e383961b-9356-4d5d-8233-9a1079d03055}</Project>
       <Name>Emby.Server.Implementations</Name>
@@ -144,10 +129,6 @@
     <ProjectReference Include="..\MediaBrowser.WebDashboard\MediaBrowser.WebDashboard.csproj">
       <Project>{5624B7B5-B5A7-41D8-9F10-CC5611109619}</Project>
       <Name>MediaBrowser.WebDashboard</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\MediaBrowser.Server.Implementations\MediaBrowser.Server.Implementations.csproj">
-      <Project>{2E781478-814D-4A48-9D80-BFF206441A65}</Project>
-      <Name>MediaBrowser.Server.Implementations</Name>
     </ProjectReference>
     <ProjectReference Include="..\MediaBrowser.Providers\MediaBrowser.Providers.csproj">
       <Project>{442B5058-DCAF-4263-BB6A-F21E31120A1B}</Project>
@@ -168,10 +149,6 @@
     <ProjectReference Include="..\MediaBrowser.Api\MediaBrowser.Api.csproj">
       <Project>{4FD51AC5-2C16-4308-A993-C3A84F3B4582}</Project>
       <Name>MediaBrowser.Api</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\MediaBrowser.MediaEncoding\MediaBrowser.MediaEncoding.csproj">
-      <Project>{0BD82FA6-EB8A-4452-8AF5-74F9C3849451}</Project>
-      <Name>MediaBrowser.MediaEncoding</Name>
     </ProjectReference>
     <ProjectReference Include="..\MediaBrowser.LocalMetadata\MediaBrowser.LocalMetadata.csproj">
       <Project>{7EF9F3E0-697D-42F3-A08F-19DEB5F84392}</Project>

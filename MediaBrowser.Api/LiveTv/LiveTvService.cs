@@ -15,14 +15,14 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using MediaBrowser.Api.UserLibrary;
 using MediaBrowser.Model.IO;
-using MediaBrowser.Api.Playback.Progressive;
 
 using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Controller.Entities.TV;
-using MediaBrowser.Controller.IO;
 using MediaBrowser.Model.Services;
 using MediaBrowser.Model.System;
+using MediaBrowser.Model.Extensions;
 
 namespace MediaBrowser.Api.LiveTv
 {
@@ -374,7 +374,7 @@ namespace MediaBrowser.Api.LiveTv
         public string SortBy { get; set; }
 
         [ApiMember(Name = "SortOrder", Description = "Sort Order - Ascending,Descending", IsRequired = false, DataType = "string", ParameterType = "query", Verb = "GET")]
-        public SortOrder? SortOrder { get; set; }
+        public string SortOrder { get; set; }
 
         [ApiMember(Name = "Genres", Description = "The genres to return guide information for.", IsRequired = false, DataType = "string", ParameterType = "query", Verb = "GET,POST")]
         public string Genres { get; set; }
@@ -649,7 +649,7 @@ namespace MediaBrowser.Api.LiveTv
     {
         public List<TunerChannelMapping> TunerChannels { get; set; }
         public List<NameIdPair> ProviderChannels { get; set; }
-        public List<NameValuePair> Mappings { get; set; }
+        public NameValuePair[] Mappings { get; set; }
         public string ProviderName { get; set; }
     }
 
@@ -734,7 +734,7 @@ namespace MediaBrowser.Api.LiveTv
 
             outputHeaders["Content-Type"] = Model.Net.MimeTypes.GetMimeType(path);
 
-            return new ProgressiveFileCopier(_fileSystem, path, outputHeaders, null, Logger, _environment, CancellationToken.None)
+            return new ProgressiveFileCopier(_fileSystem, path, outputHeaders, Logger, _environment, CancellationToken.None)
             {
                 AllowEndOfFile = false
             };
@@ -753,7 +753,7 @@ namespace MediaBrowser.Api.LiveTv
 
             outputHeaders["Content-Type"] = Model.Net.MimeTypes.GetMimeType("file." + request.Container);
 
-            return new ProgressiveFileCopier(directStreamProvider, outputHeaders, null, Logger, _environment, CancellationToken.None)
+            return new ProgressiveFileCopier(directStreamProvider, outputHeaders, Logger, _environment, CancellationToken.None)
             {
                 AllowEndOfFile = false
             };
@@ -790,7 +790,7 @@ namespace MediaBrowser.Api.LiveTv
             var providerChannels = await _liveTvManager.GetChannelsFromListingsProviderData(request.ProviderId, CancellationToken.None)
                      .ConfigureAwait(false);
 
-            var mappings = listingsProviderInfo.ChannelMappings.ToList();
+            var mappings = listingsProviderInfo.ChannelMappings;
 
             var result = new ChannelMappingOptions
             {
@@ -853,6 +853,8 @@ namespace MediaBrowser.Api.LiveTv
 
         public async Task<object> Post(AddTunerHost request)
         {
+            request.EnableNewHdhrChannelIds = true;
+
             var result = await _liveTvManager.SaveTunerHost(request).ConfigureAwait(false);
             return ToOptimizedResult(result);
         }
@@ -861,7 +863,7 @@ namespace MediaBrowser.Api.LiveTv
         {
             var config = GetConfiguration();
 
-            config.TunerHosts = config.TunerHosts.Where(i => !string.Equals(request.Id, i.Id, StringComparison.OrdinalIgnoreCase)).ToList();
+            config.TunerHosts = config.TunerHosts.Where(i => !string.Equals(request.Id, i.Id, StringComparison.OrdinalIgnoreCase)).ToArray();
 
             _config.SaveConfiguration("livetv", config);
         }
@@ -921,7 +923,7 @@ namespace MediaBrowser.Api.LiveTv
 
             options.AddCurrentProgram = request.AddCurrentProgram;
 
-            var returnArray = (await _dtoService.GetBaseItemDtos(channelResult.Items, options, user).ConfigureAwait(false)).ToArray();
+            var returnArray = _dtoService.GetBaseItemDtos(channelResult.Items, options, user);
 
             var result = new QueryResult<BaseItemDto>
             {
@@ -934,10 +936,13 @@ namespace MediaBrowser.Api.LiveTv
 
         private void RemoveFields(DtoOptions options)
         {
-            options.Fields.Remove(ItemFields.CanDelete);
-            options.Fields.Remove(ItemFields.CanDownload);
-            options.Fields.Remove(ItemFields.DisplayPreferencesId);
-            options.Fields.Remove(ItemFields.Etag);
+            var fields = options.Fields.ToList();
+
+            fields.Remove(ItemFields.CanDelete);
+            fields.Remove(ItemFields.CanDownload);
+            fields.Remove(ItemFields.DisplayPreferencesId);
+            fields.Remove(ItemFields.Etag);
+            options.Fields = fields.ToArray(fields.Count);
         }
 
         public object Get(GetChannel request)
@@ -962,7 +967,7 @@ namespace MediaBrowser.Api.LiveTv
         {
             var query = new ProgramQuery
             {
-                ChannelIds = (request.ChannelIds ?? string.Empty).Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).ToArray(),
+                ChannelIds = ApiEntryPoint.Split(request.ChannelIds, ',', true),
                 UserId = request.UserId,
                 HasAired = request.HasAired,
                 EnableTotalRecordCount = request.EnableTotalRecordCount
@@ -990,8 +995,7 @@ namespace MediaBrowser.Api.LiveTv
 
             query.StartIndex = request.StartIndex;
             query.Limit = request.Limit;
-            query.SortBy = (request.SortBy ?? String.Empty).Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
-            query.SortOrder = request.SortOrder;
+            query.OrderBy = BaseItemsRequest.GetOrderBy(request.SortBy, request.SortOrder);
             query.IsNews = request.IsNews;
             query.IsMovie = request.IsMovie;
             query.IsSeries = request.IsSeries;
@@ -1070,12 +1074,12 @@ namespace MediaBrowser.Api.LiveTv
             return ToOptimizedResult(result);
         }
 
-        public async Task<object> Get(GetRecordingSeries request)
+        public object Get(GetRecordingSeries request)
         {
             var options = GetDtoOptions(_authContext, request);
             options.DeviceId = _authContext.GetAuthorizationInfo(Request).DeviceId;
 
-            var result = await _liveTvManager.GetRecordingSeries(new RecordingQuery
+            var result = _liveTvManager.GetRecordingSeries(new RecordingQuery
             {
                 ChannelId = request.ChannelId,
                 UserId = request.UserId,
@@ -1087,7 +1091,7 @@ namespace MediaBrowser.Api.LiveTv
                 IsInProgress = request.IsInProgress,
                 EnableTotalRecordCount = request.EnableTotalRecordCount
 
-            }, options, CancellationToken.None).ConfigureAwait(false);
+            }, options, CancellationToken.None);
 
             return ToOptimizedResult(result);
         }

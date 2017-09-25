@@ -64,10 +64,10 @@ namespace MediaBrowser.Api
 
             var info = new MetadataEditorInfo
             {
-                ParentalRatingOptions = _localizationManager.GetParentalRatings().ToList(),
-                ExternalIdInfos = _providerManager.GetExternalIdInfos(item).ToList(),
-                Countries = _localizationManager.GetCountries().ToList(),
-                Cultures = _localizationManager.GetCultures().ToList()
+                ParentalRatingOptions = _localizationManager.GetParentalRatings(),
+                ExternalIdInfos = _providerManager.GetExternalIdInfos(item).ToArray(),
+                Countries = _localizationManager.GetCountries(),
+                Cultures = _localizationManager.GetCultures()
             };
 
             if (!item.IsVirtualItem && !(item is ICollectionFolder) && !(item is UserView) && !(item is AggregateFolder) && !(item is LiveTvChannel) && !(item is IItemByName) &&
@@ -78,14 +78,14 @@ namespace MediaBrowser.Api
 
                 if (string.IsNullOrWhiteSpace(inheritedContentType) || !string.IsNullOrWhiteSpace(configuredContentType))
                 {
-                    info.ContentTypeOptions = GetContentTypeOptions(true);
+                    info.ContentTypeOptions = GetContentTypeOptions(true).ToArray();
                     info.ContentType = configuredContentType;
 
                     if (string.IsNullOrWhiteSpace(inheritedContentType) || string.Equals(inheritedContentType, CollectionType.TvShows, StringComparison.OrdinalIgnoreCase))
                     {
                         info.ContentTypeOptions = info.ContentTypeOptions
                             .Where(i => string.IsNullOrWhiteSpace(i.Value) || string.Equals(i.Value, CollectionType.TvShows, StringComparison.OrdinalIgnoreCase))
-                            .ToList();
+                            .ToArray();
                     }
                 }
             }
@@ -209,10 +209,12 @@ namespace MediaBrowser.Api
             // Do this first so that metadata savers can pull the updates from the database.
             if (request.People != null)
             {
-                await _libraryManager.UpdatePeople(item, request.People.Select(x => new PersonInfo { Name = x.Name, Role = x.Role, Type = x.Type }).ToList());
+                _libraryManager.UpdatePeople(item, request.People.Select(x => new PersonInfo { Name = x.Name, Role = x.Role, Type = x.Type }).ToList());
             }
 
             UpdateItem(request, item);
+
+            item.OnMetadataChanged();
 
             await item.UpdateToRepository(ItemUpdateType.MetadataEdit, CancellationToken.None).ConfigureAwait(false);
 
@@ -242,7 +244,6 @@ namespace MediaBrowser.Api
 
             item.CriticRating = request.CriticRating;
 
-            item.DisplayMediaType = request.DisplayMediaType;
             item.CommunityRating = request.CommunityRating;
             item.HomePageUrl = request.HomePageUrl;
             item.IndexNumber = request.IndexNumber;
@@ -268,11 +269,9 @@ namespace MediaBrowser.Api
                 item.Tagline = request.Taglines.FirstOrDefault();
             }
 
-            item.Keywords = request.Keywords;
-
             if (request.Studios != null)
             {
-                item.Studios = request.Studios.Select(x => x.Name).ToList();
+                item.Studios = request.Studios.Select(x => x.Name).ToArray();
             }
 
             if (request.DateCreated.HasValue)
@@ -288,7 +287,7 @@ namespace MediaBrowser.Api
 
             if (request.ProductionLocations != null)
             {
-                item.ProductionLocations = request.ProductionLocations.ToList();
+                item.ProductionLocations = request.ProductionLocations;
             }
 
             item.PreferredMetadataCountryCode = request.PreferredMetadataCountryCode;
@@ -335,13 +334,6 @@ namespace MediaBrowser.Api
                 video.Video3DFormat = request.Video3DFormat;
             }
 
-            var game = item as Game;
-
-            if (game != null)
-            {
-                game.PlayersSupported = request.Players;
-            }
-
             if (request.AlbumArtists != null)
             {
                 var hasAlbumArtists = item as IHasAlbumArtist;
@@ -350,7 +342,7 @@ namespace MediaBrowser.Api
                     hasAlbumArtists.AlbumArtists = request
                         .AlbumArtists
                         .Select(i => i.Name)
-                        .ToList();
+                        .ToArray();
                 }
             }
 
@@ -362,7 +354,7 @@ namespace MediaBrowser.Api
                     hasArtists.Artists = request
                         .ArtistItems
                         .Select(i => i.Name)
-                        .ToList();
+                        .ToArray();
                 }
             }
 
@@ -382,8 +374,12 @@ namespace MediaBrowser.Api
             if (series != null)
             {
                 series.Status = GetSeriesStatus(request);
-                series.AirDays = request.AirDays;
-                series.AirTime = request.AirTime;
+
+                if (request.AirDays != null)
+                {
+                    series.AirDays = request.AirDays;
+                    series.AirTime = request.AirTime;
+                }
             }
         }
 

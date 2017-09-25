@@ -1,4 +1,5 @@
-﻿using MediaBrowser.Controller.Drawing;
+﻿using System.Linq;
+using MediaBrowser.Controller.Drawing;
 using MediaBrowser.Controller.Dto;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Audio;
@@ -7,7 +8,6 @@ using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Net;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Search;
-using System.Linq;
 using System.Threading.Tasks;
 using MediaBrowser.Controller.LiveTv;
 using MediaBrowser.Model.Services;
@@ -159,9 +159,9 @@ namespace MediaBrowser.Api
                 IncludeStudios = request.IncludeStudios,
                 StartIndex = request.StartIndex,
                 UserId = request.UserId,
-                IncludeItemTypes = (request.IncludeItemTypes ?? string.Empty).Split(',').Where(i => !string.IsNullOrWhiteSpace(i)).ToArray(),
-                ExcludeItemTypes = (request.ExcludeItemTypes ?? string.Empty).Split(',').Where(i => !string.IsNullOrWhiteSpace(i)).ToArray(),
-                MediaTypes = (request.MediaTypes ?? string.Empty).Split(',').Where(i => !string.IsNullOrWhiteSpace(i)).ToArray(),
+                IncludeItemTypes = ApiEntryPoint.Split(request.IncludeItemTypes, ',', true),
+                ExcludeItemTypes = ApiEntryPoint.Split(request.ExcludeItemTypes, ',', true),
+                MediaTypes = ApiEntryPoint.Split(request.MediaTypes, ',', true),
                 ParentId = request.ParentId,
 
                 IsKids = request.IsKids,
@@ -198,7 +198,6 @@ namespace MediaBrowser.Api
                 Type = item.GetClientTypeName(),
                 MediaType = item.MediaType,
                 MatchedTerm = hintInfo.MatchedTerm,
-                DisplayMediaType = item.DisplayMediaType,
                 RunTimeTicks = item.RunTimeTicks,
                 ProductionYear = item.ProductionYear,
                 ChannelId = item.ChannelId,
@@ -241,7 +240,7 @@ namespace MediaBrowser.Api
 
             if (album != null)
             {
-                result.Artists = album.Artists.ToArray();
+                result.Artists = album.Artists;
                 result.AlbumArtist = album.AlbumArtist;
             }
 
@@ -251,7 +250,7 @@ namespace MediaBrowser.Api
             {
                 result.Album = song.Album;
                 result.AlbumArtist = song.AlbumArtists.FirstOrDefault();
-                result.Artists = song.Artists.ToArray();
+                result.Artists = song.Artists;
             }
 
             if (!string.IsNullOrWhiteSpace(item.ChannelId))

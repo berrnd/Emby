@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-
 using MediaBrowser.Controller.IO;
 using MediaBrowser.Model.IO;
 
@@ -32,7 +31,7 @@ namespace MediaBrowser.LocalMetadata.Images
             get { return 0; }
         }
 
-        public bool Supports(IHasImages item)
+        public bool Supports(IHasMetadata item)
         {
             if (item.SupportsLocalMetadata)
             {
@@ -63,7 +62,7 @@ namespace MediaBrowser.LocalMetadata.Images
             return false;
         }
 
-        private IEnumerable<FileSystemMetadata> GetFiles(IHasImages item, bool includeDirectories, IDirectoryService directoryService)
+        private IEnumerable<FileSystemMetadata> GetFiles(IHasMetadata item, bool includeDirectories, IDirectoryService directoryService)
         {
             if (item.LocationType != LocationType.FileSystem)
             {
@@ -85,7 +84,7 @@ namespace MediaBrowser.LocalMetadata.Images
                 .OrderBy(i => BaseItem.SupportedImageExtensionsList.IndexOf(i.Extension ?? string.Empty));
         }
 
-        public List<LocalImageInfo> GetImages(IHasImages item, IDirectoryService directoryService)
+        public List<LocalImageInfo> GetImages(IHasMetadata item, IDirectoryService directoryService)
         {
             var files = GetFiles(item, true, directoryService).ToList();
 
@@ -96,30 +95,14 @@ namespace MediaBrowser.LocalMetadata.Images
             return list;
         }
 
-        public List<LocalImageInfo> GetImages(IHasImages item, string path, bool isPathInMediaFolder, IDirectoryService directoryService)
+        public List<LocalImageInfo> GetImages(IHasMetadata item, string path, bool isPathInMediaFolder, IDirectoryService directoryService)
         {
             return GetImages(item, new[] { path }, isPathInMediaFolder, directoryService);
         }
 
-        public List<LocalImageInfo> GetImages(IHasImages item, IEnumerable<string> paths, bool arePathsInMediaFolders, IDirectoryService directoryService)
+        public List<LocalImageInfo> GetImages(IHasMetadata item, IEnumerable<string> paths, bool arePathsInMediaFolders, IDirectoryService directoryService)
         {
-            IEnumerable<FileSystemMetadata> files;
-
-            if (arePathsInMediaFolders)
-            {
-                files = paths.SelectMany(i => _fileSystem.GetFiles(i, BaseItem.SupportedImageExtensions, true, false));
-            }
-            else
-            {
-                files = paths.SelectMany(directoryService.GetFiles)
-                    .Where(i =>
-                    {
-                        var ext = i.Extension;
-
-                        return !string.IsNullOrEmpty(ext) &&
-                               BaseItem.SupportedImageExtensions.Contains(ext, StringComparer.OrdinalIgnoreCase);
-                    });
-            }
+            IEnumerable<FileSystemMetadata> files = paths.SelectMany(i => _fileSystem.GetFiles(i, BaseItem.SupportedImageExtensions, true, false));
 
             files = files
                 .OrderBy(i => BaseItem.SupportedImageExtensionsList.IndexOf(i.Extension ?? string.Empty));
@@ -131,7 +114,7 @@ namespace MediaBrowser.LocalMetadata.Images
             return list;
         }
 
-        private void PopulateImages(IHasImages item, List<LocalImageInfo> images, List<FileSystemMetadata> files, bool supportParentSeriesFiles, IDirectoryService directoryService)
+        private void PopulateImages(IHasMetadata item, List<LocalImageInfo> images, List<FileSystemMetadata> files, bool supportParentSeriesFiles, IDirectoryService directoryService)
         {
             if (supportParentSeriesFiles)
             {
@@ -144,7 +127,7 @@ namespace MediaBrowser.LocalMetadata.Images
             }
 
             var imagePrefix = item.FileNameWithoutExtension + "-";
-            var isInMixedFolder = item.DetectIsInMixedFolder();
+            var isInMixedFolder = item.IsInMixedFolder;
 
             PopulatePrimaryImages(item, images, files, imagePrefix, isInMixedFolder);
 
@@ -179,36 +162,71 @@ namespace MediaBrowser.LocalMetadata.Images
             PopulateScreenshots(images, files, imagePrefix, isInMixedFolder);
         }
 
-        private void PopulatePrimaryImages(IHasImages item, List<LocalImageInfo> images, List<FileSystemMetadata> files, string imagePrefix, bool isInMixedFolder)
+        private static readonly string[] CommonImageFileNames = new[]
         {
-            var names = new List<string>
-            {
-                "cover",
-                "default"
-            };
+            "poster",
+            "folder",
+            "cover",
+            "default"
+        };
 
-            if (item is MusicAlbum || item is MusicArtist || item is PhotoAlbum || item is Person)
+        private static readonly string[] MusicImageFileNames = new[]
+        {
+            "folder",
+            "poster",
+            "cover",
+            "default"
+        };
+
+        private static readonly string[] PersonImageFileNames = new[]
+        {
+            "folder",
+            "poster"
+        };
+
+        private static readonly string[] SeriesImageFileNames = new[]
+        {
+            "poster",
+            "folder",
+            "cover",
+            "default",
+            "show"
+        };
+
+        private static readonly string[] VideoImageFileNames = new[]
+        {
+            "poster",
+            "folder",
+            "cover",
+            "default",
+            "movie"
+        };
+
+        private void PopulatePrimaryImages(IHasMetadata item, List<LocalImageInfo> images, List<FileSystemMetadata> files, string imagePrefix, bool isInMixedFolder)
+        {
+            string[] imageFileNames;
+
+            if (item is MusicAlbum || item is MusicArtist || item is PhotoAlbum)
             {
                 // these prefer folder
-                names.Insert(0, "poster");
-                names.Insert(0, "folder");
+                imageFileNames = MusicImageFileNames;
+            }
+            else if (item is Person)
+            {
+                // these prefer folder
+                imageFileNames = PersonImageFileNames;
+            }
+            else if (item is Series)
+            {
+                imageFileNames = SeriesImageFileNames;
+            }
+            else if (item is Video && !(item is Episode))
+            {
+                imageFileNames = VideoImageFileNames;
             }
             else
             {
-                names.Insert(0, "folder");
-                names.Insert(0, "poster");
-            }
-
-            // Support plex/kodi convention
-            if (item is Series)
-            {
-                names.Add("show");
-            }
-
-            // Support plex/kodi convention
-            if (item is Video && !(item is Episode))
-            {
-                names.Add("movie");
+                imageFileNames = CommonImageFileNames;
             }
 
             var fileNameWithoutExtension = item.FileNameWithoutExtension;
@@ -217,21 +235,21 @@ namespace MediaBrowser.LocalMetadata.Images
                 AddImage(files, images, fileNameWithoutExtension, ImageType.Primary);
             }
 
-            foreach (var name in names)
+            foreach (var name in imageFileNames)
             {
                 AddImage(files, images, imagePrefix + name, ImageType.Primary);
             }
 
             if (!isInMixedFolder)
             {
-                foreach (var name in names)
+                foreach (var name in imageFileNames)
                 {
                     AddImage(files, images, name, ImageType.Primary);
                 }
             }
         }
 
-        private void PopulateBackdrops(IHasImages item, List<LocalImageInfo> images, List<FileSystemMetadata> files, string imagePrefix, bool isInMixedFolder, IDirectoryService directoryService)
+        private void PopulateBackdrops(IHasMetadata item, List<LocalImageInfo> images, List<FileSystemMetadata> files, string imagePrefix, bool isInMixedFolder, IDirectoryService directoryService)
         {
             if (!string.IsNullOrEmpty(item.Path))
             {

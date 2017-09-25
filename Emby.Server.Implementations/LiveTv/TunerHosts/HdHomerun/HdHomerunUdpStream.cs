@@ -34,8 +34,6 @@ namespace Emby.Server.Implementations.LiveTv.TunerHosts.HdHomerun
         private readonly INetworkManager _networkManager;
 
         private readonly string _tempFilePath;
-        private bool _enableFileBuffer = false;
-        private readonly MulticastStream _multicastStream;
 
         public HdHomerunUdpStream(MediaSourceInfo mediaSource, string originalStreamId, IHdHomerunChannelCommands channelCommands, int numTuners, IFileSystem fileSystem, IHttpClient httpClient, ILogger logger, IServerApplicationPaths appPaths, IServerApplicationHost appHost, ISocketFactory socketFactory, INetworkManager networkManager, IEnvironmentInfo environment)
             : base(mediaSource, environment, fileSystem)
@@ -48,7 +46,6 @@ namespace Emby.Server.Implementations.LiveTv.TunerHosts.HdHomerun
             _channelCommands = channelCommands;
             _numTuners = numTuners;
             _tempFilePath = Path.Combine(appPaths.TranscodingTempPath, UniqueId + ".ts");
-            _multicastStream = new MulticastStream(_logger);
         }
 
         protected override async Task OpenInternal(CancellationToken openCancellationToken)
@@ -126,17 +123,10 @@ namespace Emby.Server.Implementations.LiveTv.TunerHosts.HdHomerun
 
                                 if (!cancellationToken.IsCancellationRequested)
                                 {
-                                    if (_enableFileBuffer)
+                                    FileSystem.CreateDirectory(FileSystem.GetDirectoryName(_tempFilePath));
+                                    using (var fileStream = FileSystem.GetFileStream(_tempFilePath, FileOpenMode.Create, FileAccessMode.Write, FileShareMode.Read, FileOpenOptions.None))
                                     {
-                                        FileSystem.CreateDirectory(FileSystem.GetDirectoryName(_tempFilePath));
-                                        using (var fileStream = FileSystem.GetFileStream(_tempFilePath, FileOpenMode.Create, FileAccessMode.Write, FileShareMode.Read, FileOpenOptions.None))
-                                        {
-                                            CopyTo(udpClient, fileStream, openTaskCompletionSource, cancellationToken);
-                                        }
-                                    }
-                                    else
-                                    {
-                                        await _multicastStream.CopyUntilCancelled(new UdpClientStream(udpClient), () => Resolve(openTaskCompletionSource), cancellationToken).ConfigureAwait(false);
+                                        CopyTo(udpClient, fileStream, openTaskCompletionSource, cancellationToken);
                                     }
                                 }
                             }
@@ -178,57 +168,34 @@ namespace Emby.Server.Implementations.LiveTv.TunerHosts.HdHomerun
            });
         }
 
-        public async Task CopyToAsync(Stream outputStream, CancellationToken cancellationToken)
+        public async Task CopyToAsync(Stream stream, CancellationToken cancellationToken)
         {
-            if (!_enableFileBuffer)
-            {
-                await _multicastStream.CopyToAsync(outputStream, cancellationToken).ConfigureAwait(false);
-                return;
-            }
-
-            var path = _tempFilePath;
-
-            long startPosition = -20000;
-            if (startPosition < 0)
-            {
-                var length = FileSystem.GetFileInfo(path).Length;
-                startPosition = Math.Max(length - startPosition, 0);
-            }
-
-            _logger.Info("Live stream starting position is {0} bytes", startPosition.ToString(CultureInfo.InvariantCulture));
-
-            var allowAsync = Environment.OperatingSystem != MediaBrowser.Model.System.OperatingSystem.Windows;
+            var allowAsync = false;//Environment.OperatingSystem != MediaBrowser.Model.System.OperatingSystem.Windows;
             // use non-async filestream along with read due to https://github.com/dotnet/corefx/issues/6039
 
-            using (var inputStream = GetInputStream(path, startPosition, allowAsync))
+            using (var inputStream = (FileStream)GetInputStream(_tempFilePath, allowAsync))
             {
-                if (startPosition > 0)
-                {
-                    inputStream.Position = startPosition;
-                }
+                TrySeek(inputStream, -20000);
 
                 while (!cancellationToken.IsCancellationRequested)
                 {
-                    long bytesRead;
-
-                    if (allowAsync)
-                    {
-                        bytesRead = await AsyncStreamCopier.CopyStream(inputStream, outputStream, 81920, 2, cancellationToken).ConfigureAwait(false);
-                    }
-                    else
-                    {
-                        StreamHelper.CopyTo(inputStream, outputStream, 81920, cancellationToken);
-                        bytesRead = 1;
-                    }
+                    StreamHelper.CopyTo(inputStream, stream, 81920, cancellationToken);
 
                     //var position = fs.Position;
                     //_logger.Debug("Streamed {0} bytes to position {1} from file {2}", bytesRead, position, path);
-
-                    if (bytesRead == 0)
-                    {
-                        await Task.Delay(100, cancellationToken).ConfigureAwait(false);
-                    }
                 }
+            }
+        }
+
+        private void TrySeek(FileStream stream, long offset)
+        {
+            try
+            {
+                stream.Seek(offset, SeekOrigin.End);
+            }
+            catch (Exception ex)
+            {
+                _logger.ErrorException("Error seeking stream", ex);
             }
         }
 
@@ -283,22 +250,6 @@ namespace Emby.Server.Implementations.LiveTv.TunerHosts.HdHomerun
             //cancellationToken.Register(() => taskCompletion.TrySetCanceled());
 
             //return taskCompletion.Task;
-        }
-
-        private void StreamCopyCallback(IAsyncResult result)
-        {
-            var copier = (AsyncStreamCopier)result.AsyncState;
-            var taskCompletion = copier.TaskCompletionSource;
-
-            try
-            {
-                copier.EndCopy(result);
-                taskCompletion.TrySetResult(0);
-            }
-            catch (Exception ex)
-            {
-                taskCompletion.TrySetException(ex);
-            }
         }
 
         public class UdpClientStream : Stream

@@ -32,6 +32,7 @@ namespace MediaBrowser.WebDashboard.Api
         /// </summary>
         /// <value>The type of the page.</value>
         public ConfigurationPageType? PageType { get; set; }
+        public bool? EnableInMainMenu { get; set; }
     }
 
     /// <summary>
@@ -47,13 +48,13 @@ namespace MediaBrowser.WebDashboard.Api
         public string Name { get; set; }
     }
 
-    [Route("/web/Package", "GET")]
+    [Route("/web/Package", "GET", IsHidden = true)]
     public class GetDashboardPackage
     {
         public string Mode { get; set; }
     }
 
-    [Route("/robots.txt", "GET")]
+    [Route("/robots.txt", "GET", IsHidden = true)]
     public class GetRobotsTxt
     {
     }
@@ -61,7 +62,7 @@ namespace MediaBrowser.WebDashboard.Api
     /// <summary>
     /// Class GetDashboardResource
     /// </summary>
-    [Route("/web/{ResourceName*}", "GET")]
+    [Route("/web/{ResourceName*}", "GET", IsHidden = true)]
     public class GetDashboardResource
     {
         /// <summary>
@@ -76,7 +77,7 @@ namespace MediaBrowser.WebDashboard.Api
         public string V { get; set; }
     }
 
-    [Route("/favicon.ico", "GET")]
+    [Route("/favicon.ico", "GET", IsHidden = true)]
     public class GetFavIcon
     {
     }
@@ -174,6 +175,9 @@ namespace MediaBrowser.WebDashboard.Api
             IPlugin plugin = null;
             Stream stream = null;
 
+            var isJs = false;
+            var isTemplate = false;
+
             var page = ServerEntryPoint.Instance.PluginConfigurationPages.FirstOrDefault(p => string.Equals(p.Name, request.Name, StringComparison.OrdinalIgnoreCase));
             if (page != null)
             {
@@ -188,11 +192,23 @@ namespace MediaBrowser.WebDashboard.Api
                 {
                     plugin = altPage.Item2;
                     stream = _assemblyInfo.GetManifestResourceStream(plugin.GetType(), altPage.Item1.EmbeddedResourcePath);
+
+                    isJs = string.Equals(Path.GetExtension(altPage.Item1.EmbeddedResourcePath), ".js", StringComparison.OrdinalIgnoreCase);
+                    isTemplate = altPage.Item1.EmbeddedResourcePath.EndsWith(".template.html");
                 }
             }
 
             if (plugin != null && stream != null)
             {
+                if (isJs)
+                {
+                    return _resultFactory.GetStaticResult(Request, plugin.Version.ToString().GetMD5(), null, null, MimeTypes.GetMimeType("page.js"), () => Task.FromResult(stream));
+                }
+                if (isTemplate)
+                {
+                    return _resultFactory.GetStaticResult(Request, plugin.Version.ToString().GetMD5(), null, null, MimeTypes.GetMimeType("page.html"), () => Task.FromResult(stream));
+                }
+
                 return _resultFactory.GetStaticResult(Request, plugin.Version.ToString().GetMD5(), null, null, MimeTypes.GetMimeType("page.html"), () => GetPackageCreator(DashboardUIPath).ModifyHtml("dummy.html", stream, null, _appHost.ApplicationVersion.ToString(), null));
             }
 
@@ -206,25 +222,20 @@ namespace MediaBrowser.WebDashboard.Api
         /// <returns>System.Object.</returns>
         public object Get(GetDashboardConfigurationPages request)
         {
-            const string unavilableMessage = "The server is still loading. Please try again momentarily.";
+            const string unavailableMessage = "The server is still loading. Please try again momentarily.";
 
             var instance = ServerEntryPoint.Instance;
 
             if (instance == null)
             {
-                throw new InvalidOperationException(unavilableMessage);
+                throw new InvalidOperationException(unavailableMessage);
             }
 
             var pages = instance.PluginConfigurationPages;
 
             if (pages == null)
             {
-                throw new InvalidOperationException(unavilableMessage);
-            }
-
-            if (request.PageType.HasValue)
-            {
-                pages = pages.Where(p => p.ConfigurationPageType == request.PageType.Value).ToList();
+                throw new InvalidOperationException(unavailableMessage);
             }
 
             // Don't allow a failing plugin to fail them all
@@ -245,6 +256,16 @@ namespace MediaBrowser.WebDashboard.Api
                 .ToList();
 
             configPages.AddRange(_appHost.Plugins.SelectMany(GetConfigPages));
+
+            if (request.PageType.HasValue)
+            {
+                configPages = configPages.Where(p => p.ConfigurationPageType == request.PageType.Value).ToList();
+            }
+
+            if (request.EnableInMainMenu.HasValue)
+            {
+                configPages = configPages.Where(p => p.EnableInMainMenu == request.EnableInMainMenu.Value).ToList();
+            }
 
             return _resultFactory.GetOptimizedResult(Request, configPages);
         }

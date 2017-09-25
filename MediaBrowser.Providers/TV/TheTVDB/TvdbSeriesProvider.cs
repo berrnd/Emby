@@ -438,25 +438,25 @@ namespace MediaBrowser.Providers.TV
 
                 var seriesXmlFilename = preferredMetadataLanguage + ".xml";
 
-                const int cacheDays = 1;
+                const int cacheHours = 12;
 
                 var seriesFile = files.FirstOrDefault(i => string.Equals(seriesXmlFilename, i.Name, StringComparison.OrdinalIgnoreCase));
                 // No need to check age if automatic updates are enabled
-                if (seriesFile == null || !seriesFile.Exists || (DateTime.UtcNow - _fileSystem.GetLastWriteTimeUtc(seriesFile)).TotalDays > cacheDays)
+                if (seriesFile == null || !seriesFile.Exists || (DateTime.UtcNow - _fileSystem.GetLastWriteTimeUtc(seriesFile)).TotalHours > cacheHours)
                 {
                     return false;
                 }
 
                 var actorsXml = files.FirstOrDefault(i => string.Equals("actors.xml", i.Name, StringComparison.OrdinalIgnoreCase));
                 // No need to check age if automatic updates are enabled
-                if (actorsXml == null || !actorsXml.Exists || (DateTime.UtcNow - _fileSystem.GetLastWriteTimeUtc(actorsXml)).TotalDays > cacheDays)
+                if (actorsXml == null || !actorsXml.Exists || (DateTime.UtcNow - _fileSystem.GetLastWriteTimeUtc(actorsXml)).TotalHours > cacheHours)
                 {
                     return false;
                 }
 
                 var bannersXml = files.FirstOrDefault(i => string.Equals("banners.xml", i.Name, StringComparison.OrdinalIgnoreCase));
                 // No need to check age if automatic updates are enabled
-                if (bannersXml == null || !bannersXml.Exists || (DateTime.UtcNow - _fileSystem.GetLastWriteTimeUtc(bannersXml)).TotalDays > cacheDays)
+                if (bannersXml == null || !bannersXml.Exists || (DateTime.UtcNow - _fileSystem.GetLastWriteTimeUtc(bannersXml)).TotalHours > cacheHours)
                 {
                     return false;
                 }
@@ -482,7 +482,7 @@ namespace MediaBrowser.Providers.TV
         /// <returns>Task{System.String}.</returns>
         private async Task<IEnumerable<RemoteSearchResult>> FindSeries(string name, int? year, string language, CancellationToken cancellationToken)
         {
-            var results = (await FindSeriesInternal(name, language, cancellationToken).ConfigureAwait(false)).ToList();
+            var results = (await FindSeriesInternal(name, language, cancellationToken).ConfigureAwait(false));
 
             if (results.Count == 0)
             {
@@ -491,7 +491,7 @@ namespace MediaBrowser.Providers.TV
 
                 if (!string.IsNullOrWhiteSpace(nameWithoutYear) && !string.Equals(nameWithoutYear, name, StringComparison.OrdinalIgnoreCase))
                 {
-                    results = (await FindSeriesInternal(nameWithoutYear, language, cancellationToken).ConfigureAwait(false)).ToList();
+                    results = (await FindSeriesInternal(nameWithoutYear, language, cancellationToken).ConfigureAwait(false));
                 }
             }
 
@@ -507,7 +507,7 @@ namespace MediaBrowser.Providers.TV
             });
         }
 
-        private async Task<IEnumerable<RemoteSearchResult>> FindSeriesInternal(string name, string language, CancellationToken cancellationToken)
+        private async Task<List<RemoteSearchResult>> FindSeriesInternal(string name, string language, CancellationToken cancellationToken)
         {
             var url = string.Format(SeriesSearchUrl, WebUtility.UrlEncode(name), NormalizeLanguage(language));
             var searchResults = new List<RemoteSearchResult>();
@@ -1091,26 +1091,26 @@ namespace MediaBrowser.Providers.TV
                             }
 
                         case "Airs_DayOfWeek":
-                            {
-                                var val = reader.ReadElementContentAsString();
+                        {
+                            var val = reader.ReadElementContentAsString();
 
-                                if (!string.IsNullOrWhiteSpace(val))
-                                {
-                                    item.AirDays = TVUtils.GetAirDays(val);
-                                }
-                                break;
+                            if (!string.IsNullOrWhiteSpace(val))
+                            {
+                                item.AirDays = TVUtils.GetAirDays(val);
                             }
+                            break;
+                        }
 
                         case "Airs_Time":
-                            {
-                                var val = reader.ReadElementContentAsString();
+                        {
+                            var val = reader.ReadElementContentAsString();
 
-                                if (!string.IsNullOrWhiteSpace(val))
-                                {
-                                    item.AirTime = val;
-                                }
-                                break;
+                            if (!string.IsNullOrWhiteSpace(val))
+                            {
+                                item.AirTime = val;
                             }
+                            break;
+                        }
 
                         case "ContentRating":
                             {
@@ -1273,12 +1273,7 @@ namespace MediaBrowser.Providers.TV
 
                                     if (vals.Count > 0)
                                     {
-                                        item.Studios.Clear();
-
-                                        foreach (var genre in vals)
-                                        {
-                                            item.AddStudio(genre);
-                                        }
+                                        item.SetStudios(vals);
                                     }
                                 }
 

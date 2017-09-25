@@ -90,12 +90,7 @@ namespace MediaBrowser.Model.Sync
         /// Gets or sets the additional files.
         /// </summary>
         /// <value>The additional files.</value>
-        public List<ItemFileInfo> AdditionalFiles { get; set; }
-        /// <summary>
-        /// Gets or sets a value indicating whether this instance is marked for removal.
-        /// </summary>
-        /// <value><c>true</c> if this instance is marked for removal; otherwise, <c>false</c>.</value>
-        public bool IsMarkedForRemoval { get; set; }
+        public ItemFileInfo[] AdditionalFiles { get; set; }
         /// <summary>
         /// Gets or sets the index of the job item.
         /// </summary>
@@ -106,7 +101,7 @@ namespace MediaBrowser.Model.Sync
 
         public SyncJobItem()
         {
-            AdditionalFiles = new List<ItemFileInfo>();
+            AdditionalFiles = new ItemFileInfo[] { };
         }
     }
 }

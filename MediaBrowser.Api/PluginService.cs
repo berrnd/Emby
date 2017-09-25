@@ -23,7 +23,7 @@ namespace MediaBrowser.Api
     /// </summary>
     [Route("/Plugins", "GET", Summary = "Gets a list of currently installed plugins")]
     [Authenticated]
-    public class GetPlugins : IReturn<List<PluginInfo>>
+    public class GetPlugins : IReturn<PluginInfo[]>
     {
         public bool? IsAppStoreEnabled { get; set; }
     }
@@ -82,7 +82,7 @@ namespace MediaBrowser.Api
     /// <summary>
     /// Class GetPluginSecurityInfo
     /// </summary>
-    [Route("/Plugins/SecurityInfo", "GET", Summary = "Gets plugin registration information")]
+    [Route("/Plugins/SecurityInfo", "GET", Summary = "Gets plugin registration information", IsHidden = true)]
     [Authenticated]
     public class GetPluginSecurityInfo : IReturn<PluginSecurityInfo>
     {
@@ -91,13 +91,13 @@ namespace MediaBrowser.Api
     /// <summary>
     /// Class UpdatePluginSecurityInfo
     /// </summary>
-    [Route("/Plugins/SecurityInfo", "POST", Summary = "Updates plugin registration information")]
+    [Route("/Plugins/SecurityInfo", "POST", Summary = "Updates plugin registration information", IsHidden = true)]
     [Authenticated(Roles = "Admin")]
     public class UpdatePluginSecurityInfo : PluginSecurityInfo, IReturnVoid
     {
     }
 
-    [Route("/Plugins/RegistrationRecords/{Name}", "GET", Summary = "Gets registration status for a feature")]
+    [Route("/Plugins/RegistrationRecords/{Name}", "GET", Summary = "Gets registration status for a feature", IsHidden = true)]
     [Authenticated]
     public class GetRegistrationStatus
     {
@@ -108,7 +108,7 @@ namespace MediaBrowser.Api
         public string Mb2Equivalent { get; set; }
     }
 
-    [Route("/Registrations/{Name}", "GET", Summary = "Gets registration status for a feature")]
+    [Route("/Registrations/{Name}", "GET", Summary = "Gets registration status for a feature", IsHidden = true)]
     [Authenticated]
     public class GetRegistration : IReturn<RegistrationInfo>
     {
@@ -116,7 +116,7 @@ namespace MediaBrowser.Api
         public string Name { get; set; }
     }
 
-    [Route("/Appstore/Register", "POST", Summary = "Registers an appstore sale")]
+    [Route("/Appstore/Register", "POST", Summary = "Registers an appstore sale", IsHidden = true)]
     [Authenticated]
     public class RegisterAppstoreSale
     {
@@ -195,14 +195,13 @@ namespace MediaBrowser.Api
         /// <returns>System.Object.</returns>
         public async Task<object> Get(GetPlugins request)
         {
-            var result = _appHost.Plugins.OrderBy(p => p.Name).Select(p => p.GetPluginInfo()).ToList();
+            var result = _appHost.Plugins.OrderBy(p => p.Name).Select(p => p.GetPluginInfo()).ToArray();
             var requireAppStoreEnabled = request.IsAppStoreEnabled.HasValue && request.IsAppStoreEnabled.Value;
 
             // Don't fail just on account of image url's
             try
             {
-                var packages = (await _installationManager.GetAvailablePackagesWithoutRegistrationInfo(CancellationToken.None))
-                    .ToList();
+                var packages = (await _installationManager.GetAvailablePackagesWithoutRegistrationInfo(CancellationToken.None));
 
                 foreach (var plugin in result)
                 {
@@ -223,7 +222,7 @@ namespace MediaBrowser.Api
                             return pkg != null && pkg.enableInAppStore;
                   
                         })
-                        .ToList();
+                        .ToArray();
                 }
             }
             catch
@@ -232,7 +231,7 @@ namespace MediaBrowser.Api
                 // Play it safe here
                 if (requireAppStoreEnabled)
                 {
-                    result = new List<PluginInfo>();
+                    result = new PluginInfo[] { };
                 }
             }
 

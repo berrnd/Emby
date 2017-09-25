@@ -51,7 +51,7 @@ namespace Emby.Server.Implementations.LiveTv
             return new[] { 
             
                 // Every so often
-                new TaskTriggerInfo { Type = TaskTriggerInfo.TriggerInterval, IntervalTicks = TimeSpan.FromHours(12).Ticks}
+                new TaskTriggerInfo { Type = TaskTriggerInfo.TriggerInterval, IntervalTicks = TimeSpan.FromHours(24).Ticks}
             };
         }
 
@@ -62,7 +62,7 @@ namespace Emby.Server.Implementations.LiveTv
 
         public bool IsHidden
         {
-            get { return _liveTvManager.Services.Count == 1 && GetConfiguration().TunerHosts.Count == 0; }
+            get { return _liveTvManager.Services.Count == 1 && GetConfiguration().TunerHosts.Length == 0; }
         }
 
         public bool IsEnabled

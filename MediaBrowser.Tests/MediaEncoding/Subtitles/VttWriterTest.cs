@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.IO;
 using System.Threading;
-using MediaBrowser.MediaEncoding.Subtitles;
+using Emby.Server.MediaEncoding.Subtitles;
 using MediaBrowser.Model.MediaInfo;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -14,7 +14,7 @@ namespace MediaBrowser.Tests.MediaEncoding.Subtitles {
             var infoSubs =
                 new SubtitleTrackInfo
                 {
-                    TrackEvents = new List<SubtitleTrackEvent> {
+                    TrackEvents = new SubtitleTrackEvent[] {
                                                                                          new SubtitleTrackEvent {
                                                                                                                     Id = "1",
                                                                                                                     StartPositionTicks = 24000000,

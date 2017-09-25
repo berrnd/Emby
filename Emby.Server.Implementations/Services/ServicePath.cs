@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using MediaBrowser.Model.Logging;
+using MediaBrowser.Model.Extensions;
 
 namespace Emby.Server.Implementations.Services
 {
@@ -20,8 +21,6 @@ namespace Emby.Server.Implementations.Services
         readonly bool[] componentsWithSeparators;
 
         private readonly string restPath;
-        private readonly string allowedVerbs;
-        private readonly bool allowsAllVerbs;
         public bool IsWildCardPath { get; private set; }
 
         private readonly string[] literalsToMatch;
@@ -45,35 +44,21 @@ namespace Emby.Server.Implementations.Services
         /// </summary>
         public int TotalComponentsCount { get; set; }
 
-        public string[] Verbs
-        {
-            get
-            {
-                return allowsAllVerbs
-                    ? new[] { "ANY" }
-                    : AllowedVerbs.Split(new[] { ',', ' ' }, StringSplitOptions.RemoveEmptyEntries);
-            }
-        }
+        public string[] Verbs { get; private set; }
 
         public Type RequestType { get; private set; }
 
         public string Path { get { return this.restPath; } }
 
         public string Summary { get; private set; }
-
-        public string Notes { get; private set; }
-
-        public bool AllowsAllVerbs { get { return this.allowsAllVerbs; } }
-
-        public string AllowedVerbs { get { return this.allowedVerbs; } }
+        public string Description { get; private set; }
+        public bool IsHidden { get; private set; }
 
         public int Priority { get; set; } //passed back to RouteAttribute
 
         public static string[] GetPathPartsForMatching(string pathInfo)
         {
-            var parts = pathInfo.ToLower().Split(PathSeperatorChar)
-                .Where(x => !String.IsNullOrEmpty(x)).ToArray();
-            return parts;
+            return pathInfo.ToLower().Split(new[] { PathSeperatorChar }, StringSplitOptions.RemoveEmptyEntries);
         }
 
         public static List<string> GetFirstMatchHashKeys(string[] pathPartsForMatching)
@@ -108,18 +93,15 @@ namespace Emby.Server.Implementations.Services
             return list;
         }
 
-        public RestPath(Func<Type, object> createInstanceFn, Func<Type, Func<string, object>> getParseFn, Type requestType, string path, string verbs, string summary = null, string notes = null)
+        public RestPath(Func<Type, object> createInstanceFn, Func<Type, Func<string, object>> getParseFn, Type requestType, string path, string verbs, bool isHidden = false, string summary = null, string description = null)
         {
             this.RequestType = requestType;
             this.Summary = summary;
-            this.Notes = notes;
+            this.IsHidden = isHidden;
+            this.Description = description;
             this.restPath = path;
 
-            this.allowsAllVerbs = verbs == null || String.Equals(verbs, WildCard, StringComparison.OrdinalIgnoreCase);
-            if (!this.allowsAllVerbs)
-            {
-                this.allowedVerbs = verbs.ToUpper();
-            }
+            this.Verbs = string.IsNullOrWhiteSpace(verbs) ? ServiceExecExtensions.AllVerbs : verbs.ToUpper().Split(new[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries);
 
             var componentsList = new List<string>();
 
@@ -142,17 +124,16 @@ namespace Emby.Server.Implementations.Services
                 }
             }
 
-            var components = componentsList.ToArray();
+            var components = componentsList.ToArray(componentsList.Count);
             this.TotalComponentsCount = components.Length;
 
             this.literalsToMatch = new string[this.TotalComponentsCount];
             this.variablesNames = new string[this.TotalComponentsCount];
             this.isWildcard = new bool[this.TotalComponentsCount];
-            this.componentsWithSeparators = hasSeparators.ToArray();
+            this.componentsWithSeparators = hasSeparators.ToArray(hasSeparators.Count);
             this.PathComponentsCount = this.componentsWithSeparators.Length;
             string firstLiteralMatch = null;
 
-            var sbHashKey = new StringBuilder();
             for (var i = 0; i < components.Length; i++)
             {
                 var component = components[i];
@@ -171,7 +152,6 @@ namespace Emby.Server.Implementations.Services
                 else
                 {
                     this.literalsToMatch[i] = component.ToLower();
-                    sbHashKey.Append(i + PathSeperatorChar.ToString() + this.literalsToMatch);
 
                     if (firstLiteralMatch == null)
                     {
@@ -197,9 +177,6 @@ namespace Emby.Server.Implementations.Services
                 ? this.PathComponentsCount + PathSeperator + firstLiteralMatch
                 : WildCardChar + PathSeperator + firstLiteralMatch;
 
-            this.IsValid = sbHashKey.Length > 0;
-            this.UniqueMatchHashKey = sbHashKey.ToString();
-
             this.typeDeserializer = new StringMapTypeDeserializer(createInstanceFn, getParseFn, this.RequestType);
             RegisterCaseInsenstivePropertyNameMappings();
         }
@@ -219,26 +196,46 @@ namespace Emby.Server.Implementations.Services
         };
 
 
-        private static List<Type> _excludeTypes = new List<Type> { typeof(Stream) };
+        private static Type excludeType = typeof(Stream);
 
-        internal static PropertyInfo[] GetSerializableProperties(Type type)
+        internal static List<PropertyInfo> GetSerializableProperties(Type type)
         {
-            var properties = GetPublicProperties(type);
-            var readableProperties = properties.Where(x => x.GetMethod != null);
+            var list = new List<PropertyInfo>();
+            var props = GetPublicProperties(type);
+
+            foreach (var prop in props)
+            {
+                if (prop.GetMethod == null)
+                {
+                    continue;
+                }
+
+                if (excludeType == prop.PropertyType)
+                {
+                    continue;
+                }
+
+                var ignored = false;
+                foreach (var attr in prop.GetCustomAttributes(true))
+                {
+                    if (IgnoreAttributesNamed.Contains(attr.GetType().Name))
+                    {
+                        ignored = true;
+                        break;
+                    }
+                }
+
+                if (!ignored)
+                {
+                    list.Add(prop);
+                }
+            }
 
             // else return those properties that are not decorated with IgnoreDataMember
-            return readableProperties
-                .Where(prop => prop.GetCustomAttributes(true)
-                    .All(attr =>
-                    {
-                        var name = attr.GetType().Name;
-                        return !IgnoreAttributesNamed.Contains(name);
-                    }))
-                .Where(prop => !_excludeTypes.Contains(prop.PropertyType))
-                .ToArray();
+            return list;
         }
 
-        private static PropertyInfo[] GetPublicProperties(Type type)
+        private static List<PropertyInfo> GetPublicProperties(Type type)
         {
             if (type.GetTypeInfo().IsInterface)
             {
@@ -268,12 +265,19 @@ namespace Emby.Server.Implementations.Services
                     propertyInfos.InsertRange(0, newPropertyInfos);
                 }
 
-                return propertyInfos.ToArray();
+                return propertyInfos;
             }
 
-            return GetTypesPublicProperties(type)
-                .Where(t => t.GetIndexParameters().Length == 0) // ignore indexed properties
-                .ToArray();
+            var list = new List<PropertyInfo>();
+
+            foreach (var t in GetTypesPublicProperties(type))
+            {
+                if (t.GetIndexParameters().Length == 0)
+                {
+                    list.Add(t);
+                }
+            }
+            return list;
         }
 
         private static PropertyInfo[] GetTypesPublicProperties(Type subType)
@@ -285,18 +289,13 @@ namespace Emby.Server.Implementations.Services
                 if (mi != null && mi.IsStatic) continue;
                 pis.Add(pi);
             }
-            return pis.ToArray();
+            return pis.ToArray(pis.Count);
         }
-
-
-        public bool IsValid { get; set; }
 
         /// <summary>
         /// Provide for quick lookups based on hashes that can be determined from a request url
         /// </summary>
         public string FirstMatchHashKey { get; private set; }
-
-        public string UniqueMatchHashKey { get; private set; }
 
         private readonly StringMapTypeDeserializer typeDeserializer;
 
@@ -320,8 +319,14 @@ namespace Emby.Server.Implementations.Services
             score += Math.Max((10 - VariableArgsCount), 1) * 100;
 
             //Exact verb match is better than ANY
-            var exactVerb = String.Equals(httpMethod, AllowedVerbs, StringComparison.OrdinalIgnoreCase);
-            score += exactVerb ? 10 : 1;
+            if (Verbs.Length == 1 && string.Equals(httpMethod, Verbs[0], StringComparison.OrdinalIgnoreCase))
+            {
+                score += 10;
+            }
+            else
+            {
+                score += 1;
+            }
 
             return score;
         }
@@ -345,7 +350,7 @@ namespace Emby.Server.Implementations.Services
                 return false;
             }
 
-            if (!this.allowsAllVerbs && !StringContains(this.allowedVerbs, httpMethod))
+            if (!Verbs.Contains(httpMethod, StringComparer.OrdinalIgnoreCase))
             {
                 //logger.Info("allowsAllVerbs mismatch for {0} for {1} allowedverbs {2}", httpMethod, string.Join("/", withPathInfoParts), this.allowedVerbs);
                 return false;
@@ -450,14 +455,13 @@ namespace Emby.Server.Implementations.Services
                 }
             }
 
-            withPathInfoParts = totalComponents.ToArray();
+            withPathInfoParts = totalComponents.ToArray(totalComponents.Count);
             return true;
         }
 
         public object CreateRequest(string pathInfo, Dictionary<string, string> queryStringAndFormData, object fromInstance)
         {
-            var requestComponents = pathInfo.Split(PathSeperatorChar)
-                .Where(x => !String.IsNullOrEmpty(x)).ToArray();
+            var requestComponents = pathInfo.Split(new[] { PathSeperatorChar }, StringSplitOptions.RemoveEmptyEntries);
 
             ExplodeComponents(ref requestComponents);
 
@@ -553,11 +557,6 @@ namespace Emby.Server.Implementations.Services
             }
 
             return this.typeDeserializer.PopulateFromMap(fromInstance, requestKeyValuesMap);
-        }
-
-        public override int GetHashCode()
-        {
-            return UniqueMatchHashKey.GetHashCode();
         }
     }
 }

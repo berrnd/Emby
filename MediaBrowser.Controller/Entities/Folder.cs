@@ -20,6 +20,7 @@ using MediaBrowser.Controller.IO;
 using MediaBrowser.Model.Channels;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Serialization;
+using MediaBrowser.Model.Extensions;
 
 namespace MediaBrowser.Controller.Entities
 {
@@ -37,14 +38,14 @@ namespace MediaBrowser.Controller.Entities
         /// <value><c>true</c> if this instance is root; otherwise, <c>false</c>.</value>
         public bool IsRoot { get; set; }
 
-        public virtual List<LinkedChild> LinkedChildren { get; set; }
+        public LinkedChild[] LinkedChildren { get; set; }
 
         [IgnoreDataMember]
         public DateTime? DateLastMediaAdded { get; set; }
 
         public Folder()
         {
-            LinkedChildren = new List<LinkedChild>();
+            LinkedChildren = EmptyLinkedChildArray;
         }
 
         [IgnoreDataMember]
@@ -185,7 +186,7 @@ namespace MediaBrowser.Controller.Entities
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>Task.</returns>
         /// <exception cref="System.InvalidOperationException">Unable to add  + item.Name</exception>
-        public async Task AddChild(BaseItem item, CancellationToken cancellationToken)
+        public void AddChild(BaseItem item, CancellationToken cancellationToken)
         {
             item.SetParent(this);
 
@@ -208,7 +209,7 @@ namespace MediaBrowser.Controller.Entities
                 item.DateModified = DateTime.UtcNow;
             }
 
-            await LibraryManager.CreateItem(item, cancellationToken).ConfigureAwait(false);
+            LibraryManager.CreateItem(item, cancellationToken);
         }
 
         /// <summary>
@@ -377,6 +378,7 @@ namespace MediaBrowser.Controller.Entities
             cancellationToken.ThrowIfCancellationRequested();
 
             var validChildren = new List<BaseItem>();
+            var validChildrenNeedGeneration = false;
 
             var allLibraryPaths = LibraryManager
               .GetVirtualFolders()
@@ -468,16 +470,12 @@ namespace MediaBrowser.Controller.Entities
                         }
                     }
 
-                    await LibraryManager.CreateItems(newItems, cancellationToken).ConfigureAwait(false);
+                    LibraryManager.CreateItems(newItems, cancellationToken);
                 }
             }
             else
             {
-                if (recursive || refreshChildMetadata)
-                {
-                    // used below
-                    validChildren = Children.ToList();
-                }
+                validChildrenNeedGeneration = true;
             }
 
             progress.Report(10);
@@ -500,6 +498,12 @@ namespace MediaBrowser.Controller.Entities
                         progress.Report(newPct);
                         ProviderManager.OnRefreshProgress(folder, newPct);
                     });
+
+                    if (validChildrenNeedGeneration)
+                    {
+                        validChildren = Children.ToList();
+                        validChildrenNeedGeneration = false;
+                    }
 
                     await ValidateSubFolders(validChildren.OfType<Folder>().ToList(), directoryService, innerProgress, cancellationToken).ConfigureAwait(false);
                 }
@@ -535,6 +539,12 @@ namespace MediaBrowser.Controller.Entities
                     }
                     else
                     {
+                        if (validChildrenNeedGeneration)
+                        {
+                            validChildren = Children.ToList();
+                            validChildrenNeedGeneration = false;
+                        }
+
                         await RefreshMetadataRecursive(validChildren, refreshOptions, recursive, innerProgress, cancellationToken);
                     }
                 }
@@ -564,7 +574,7 @@ namespace MediaBrowser.Controller.Entities
                     });
 
                     await RefreshChildMetadata(child, refreshOptions, recursive && child.IsFolder, innerProgress, cancellationToken)
-                      .ConfigureAwait(false);
+                        .ConfigureAwait(false);
                 }
 
                 numComplete++;
@@ -587,7 +597,10 @@ namespace MediaBrowser.Controller.Entities
             }
             else
             {
-                await child.RefreshMetadata(refreshOptions, cancellationToken).ConfigureAwait(false);
+                if (refreshOptions.RefreshItem(child))
+                {
+                    await child.RefreshMetadata(refreshOptions, cancellationToken).ConfigureAwait(false);
+                }
 
                 if (recursive)
                 {
@@ -647,15 +660,15 @@ namespace MediaBrowser.Controller.Entities
 
         public static bool IsPathOffline(string path, List<string> allLibraryPaths)
         {
-            if (FileSystem.FileExists(path))
-            {
-                return false;
-            }
+            //if (FileSystem.FileExists(path))
+            //{
+            //    return false;
+            //}
 
             var originalPath = path;
 
             // Depending on whether the path is local or unc, it may return either null or '\' at the top
-            while (!string.IsNullOrEmpty(path) && path.Length > 1)
+            while (!string.IsNullOrWhiteSpace(path) && path.Length > 1)
             {
                 if (FileSystem.DirectoryExists(path))
                 {
@@ -706,11 +719,11 @@ namespace MediaBrowser.Controller.Entities
 
         public virtual int GetChildCount(User user)
         {
-            if (LinkedChildren.Count > 0)
+            if (LinkedChildren.Length > 0)
             {
                 if (!(this is ICollectionFolder))
                 {
-                    return GetChildren(user, true).Count();
+                    return GetChildren(user, true).Count;
                 }
             }
 
@@ -797,10 +810,10 @@ namespace MediaBrowser.Controller.Entities
             if (user != null)
             {
                 // needed for boxsets
-                itemsList = itemsList.Where(i => i.IsVisibleStandalone(query.User));
+                itemsList = itemsList.Where(i => i.IsVisibleStandalone(query.User)).ToList();
             }
 
-            IEnumerable<BaseItem> returnItems;
+            BaseItem[] returnItems;
             int totalCount = 0;
 
             if (query.EnableTotalRecordCount)
@@ -811,16 +824,16 @@ namespace MediaBrowser.Controller.Entities
             }
             else
             {
-                returnItems = itemsList;
+                returnItems = itemsList.ToArray();
             }
 
             if (limit.HasValue)
             {
-                returnItems = returnItems.Skip(startIndex ?? 0).Take(limit.Value);
+                returnItems = returnItems.Skip(startIndex ?? 0).Take(limit.Value).ToArray();
             }
             else if (startIndex.HasValue)
             {
-                returnItems = returnItems.Skip(startIndex.Value);
+                returnItems = returnItems.Skip(startIndex.Value).ToArray();
             }
 
             return new QueryResult<BaseItem>
@@ -843,7 +856,7 @@ namespace MediaBrowser.Controller.Entities
 
         private bool RequiresPostFiltering(InternalItemsQuery query)
         {
-            if (LinkedChildren.Count > 0)
+            if (LinkedChildren.Length > 0)
             {
                 if (!(this is ICollectionFolder))
                 {
@@ -921,12 +934,6 @@ namespace MediaBrowser.Controller.Entities
                 return true;
             }
 
-            if (query.AirDays.Length > 0)
-            {
-                Logger.Debug("Query requires post-filtering due to AirDays");
-                return true;
-            }
-
             if (query.SeriesStatuses.Length > 0)
             {
                 Logger.Debug("Query requires post-filtering due to SeriesStatuses");
@@ -957,7 +964,7 @@ namespace MediaBrowser.Controller.Entities
             {
                 var result = LibraryManager.GetItemsResult(query);
 
-                if (query.SortBy.Length == 0)
+                if (query.OrderBy.Length == 0)
                 {
                     var ids = query.ItemIds.ToList();
 
@@ -968,6 +975,27 @@ namespace MediaBrowser.Controller.Entities
             }
 
             return GetItemsInternal(query);
+        }
+
+        public BaseItem[] GetItemList(InternalItemsQuery query)
+        {
+            query.EnableTotalRecordCount = false;
+
+            if (query.ItemIds.Length > 0)
+            {
+                var result = LibraryManager.GetItemList(query);
+
+                if (query.OrderBy.Length == 0)
+                {
+                    var ids = query.ItemIds.ToList();
+
+                    // Try to preserve order
+                    return result.OrderBy(i => ids.IndexOf(i.Id.ToString("N"))).ToArray();
+                }
+                return result.ToArray(result.Count);
+            }
+
+            return GetItemsInternal(query).Items;
         }
 
         protected virtual QueryResult<BaseItem> GetItemsInternal(InternalItemsQuery query)
@@ -984,8 +1012,7 @@ namespace MediaBrowser.Controller.Entities
                         Limit = query.Limit,
                         StartIndex = query.StartIndex,
                         UserId = query.User.Id.ToString("N"),
-                        SortBy = query.SortBy,
-                        SortOrder = query.SortOrder
+                        OrderBy = query.OrderBy
 
                     }, new SimpleProgress<double>(), CancellationToken.None).Result;
                 }
@@ -1028,7 +1055,7 @@ namespace MediaBrowser.Controller.Entities
             return UserViewBuilder.PostFilterAndSort(items, this, null, query, LibraryManager, ConfigurationManager, collapseBoxSetItems, enableSorting);
         }
 
-        public virtual IEnumerable<BaseItem> GetChildren(User user, bool includeLinkedChildren)
+        public virtual List<BaseItem> GetChildren(User user, bool includeLinkedChildren)
         {
             if (user == null)
             {
@@ -1042,7 +1069,7 @@ namespace MediaBrowser.Controller.Entities
 
             AddChildren(user, includeLinkedChildren, result, false, null);
 
-            return result.Values;
+            return result.Values.ToList();
         }
 
         protected virtual IEnumerable<BaseItem> GetEligibleChildrenForRecursiveChildren(User user)
@@ -1181,11 +1208,21 @@ namespace MediaBrowser.Controller.Entities
         /// Gets the linked children.
         /// </summary>
         /// <returns>IEnumerable{BaseItem}.</returns>
-        public IEnumerable<BaseItem> GetLinkedChildren()
+        public List<BaseItem> GetLinkedChildren()
         {
-            return LinkedChildren
-                .Select(GetLinkedChild)
-                .Where(i => i != null);
+            var linkedChildren = LinkedChildren;
+            var list = new List<BaseItem>(linkedChildren.Length);
+
+            foreach (var i in linkedChildren)
+            {
+                var child = GetLinkedChild(i);
+
+                if (child != null)
+                {
+                    list.Add(child);
+                }
+            }
+            return list;
         }
 
         protected virtual bool FilterLinkedChildrenPerUser
@@ -1196,16 +1233,19 @@ namespace MediaBrowser.Controller.Entities
             }
         }
 
-        public IEnumerable<BaseItem> GetLinkedChildren(User user)
+        public List<BaseItem> GetLinkedChildren(User user)
         {
             if (!FilterLinkedChildrenPerUser || user == null)
             {
                 return GetLinkedChildren();
             }
 
-            if (LinkedChildren.Count == 0)
+            var linkedChildren = LinkedChildren;
+            var list = new List<BaseItem>(linkedChildren.Length);
+
+            if (linkedChildren.Length == 0)
             {
-                return new List<BaseItem>();
+                return list;
             }
 
             var allUserRootChildren = user.RootFolder.Children.OfType<Folder>().ToList();
@@ -1216,37 +1256,43 @@ namespace MediaBrowser.Controller.Entities
                 .Select(i => i.Id)
                 .ToList();
 
-            return LinkedChildren
-                .Select(i =>
+            foreach (var i in linkedChildren)
+            {
+                var child = GetLinkedChild(i);
+
+                if (child == null)
                 {
-                    var child = GetLinkedChild(i);
+                    continue;
+                }
 
-                    if (child != null)
+                var childOwner = child.IsOwnedItem ? (child.GetOwner() ?? child) : child;
+
+                if (childOwner != null)
+                {
+                    var childLocationType = childOwner.LocationType;
+                    if (childLocationType == LocationType.Remote || childLocationType == LocationType.Virtual)
                     {
-                        var childLocationType = child.LocationType;
-                        if (childLocationType == LocationType.Remote || childLocationType == LocationType.Virtual)
+                        if (!childOwner.IsVisibleStandalone(user))
                         {
-                            if (!child.IsVisibleStandalone(user))
-                            {
-                                return null;
-                            }
-                        }
-                        else if (childLocationType == LocationType.FileSystem)
-                        {
-                            var itemCollectionFolderIds =
-                                LibraryManager.GetCollectionFolders(child, allUserRootChildren)
-                                .Select(f => f.Id).ToList();
-
-                            if (!itemCollectionFolderIds.Any(collectionFolderIds.Contains))
-                            {
-                                return null;
-                            }
+                            continue;
                         }
                     }
+                    else if (childLocationType == LocationType.FileSystem)
+                    {
+                        var itemCollectionFolderIds =
+                            LibraryManager.GetCollectionFolders(childOwner, allUserRootChildren).Select(f => f.Id);
 
-                    return child;
-                })
-                .Where(i => i != null);
+                        if (!itemCollectionFolderIds.Any(collectionFolderIds.Contains))
+                        {
+                            continue;
+                        }
+                    }
+                }
+
+                list.Add(child);
+            }
+
+            return list;
         }
 
         /// <summary>
@@ -1292,14 +1338,9 @@ namespace MediaBrowser.Controller.Entities
         /// <returns><c>true</c> if XXXX, <c>false</c> otherwise</returns>
         protected virtual bool RefreshLinkedChildren(IEnumerable<FileSystemMetadata> fileSystemChildren)
         {
-            var currentManualLinks = LinkedChildren.Where(i => i.Type == LinkedChildType.Manual).ToList();
-            var currentShortcutLinks = LinkedChildren.Where(i => i.Type == LinkedChildType.Shortcut).ToList();
-
-            List<LinkedChild> newShortcutLinks;
-
             if (SupportsShortcutChildren)
             {
-                newShortcutLinks = fileSystemChildren
+                var newShortcutLinks = fileSystemChildren
                     .Where(i => !i.IsDirectory && FileSystem.IsShortcut(i.FullName))
                     .Select(i =>
                     {
@@ -1330,16 +1371,17 @@ namespace MediaBrowser.Controller.Entities
                     })
                     .Where(i => i != null)
                     .ToList();
-            }
-            else { newShortcutLinks = new List<LinkedChild>(); }
 
-            if (!newShortcutLinks.SequenceEqual(currentShortcutLinks, new LinkedChildComparer(FileSystem)))
-            {
-                Logger.Info("Shortcut links have changed for {0}", Path);
+                var currentShortcutLinks = LinkedChildren.Where(i => i.Type == LinkedChildType.Shortcut).ToList();
 
-                newShortcutLinks.AddRange(currentManualLinks);
-                LinkedChildren = newShortcutLinks;
-                return true;
+                if (!newShortcutLinks.SequenceEqual(currentShortcutLinks, new LinkedChildComparer(FileSystem)))
+                {
+                    Logger.Info("Shortcut links have changed for {0}", Path);
+
+                    newShortcutLinks.AddRange(LinkedChildren.Where(i => i.Type == LinkedChildType.Manual));
+                    LinkedChildren = newShortcutLinks.ToArray(newShortcutLinks.Count);
+                    return true;
+                }
             }
 
             foreach (var child in LinkedChildren)
@@ -1358,7 +1400,7 @@ namespace MediaBrowser.Controller.Entities
         /// <param name="datePlayed">The date played.</param>
         /// <param name="resetPosition">if set to <c>true</c> [reset position].</param>
         /// <returns>Task.</returns>
-        public override async Task MarkPlayed(User user,
+        public override void MarkPlayed(User user,
             DateTime? datePlayed,
             bool resetPosition)
         {
@@ -1370,17 +1412,18 @@ namespace MediaBrowser.Controller.Entities
                 EnableTotalRecordCount = false
             };
 
-            if (!user.Configuration.DisplayMissingEpisodes || !user.Configuration.DisplayUnairedEpisodes)
+            if (!user.Configuration.DisplayMissingEpisodes)
             {
                 query.IsVirtualItem = false;
             }
 
-            var itemsResult = GetItems(query);
+            var itemsResult = GetItemList(query);
 
             // Sweep through recursively and update status
-            var tasks = itemsResult.Items.Select(c => c.MarkPlayed(user, datePlayed, resetPosition));
-
-            await Task.WhenAll(tasks).ConfigureAwait(false);
+            foreach (var item in itemsResult)
+            {
+                item.MarkPlayed(user, datePlayed, resetPosition);
+            }
         }
 
         /// <summary>
@@ -1388,9 +1431,9 @@ namespace MediaBrowser.Controller.Entities
         /// </summary>
         /// <param name="user">The user.</param>
         /// <returns>Task.</returns>
-        public override async Task MarkUnplayed(User user)
+        public override void MarkUnplayed(User user)
         {
-            var itemsResult = GetItems(new InternalItemsQuery
+            var itemsResult = GetItemList(new InternalItemsQuery
             {
                 User = user,
                 Recursive = true,
@@ -1400,14 +1443,15 @@ namespace MediaBrowser.Controller.Entities
             });
 
             // Sweep through recursively and update status
-            var tasks = itemsResult.Items.Select(c => c.MarkUnplayed(user));
-
-            await Task.WhenAll(tasks).ConfigureAwait(false);
+            foreach (var item in itemsResult)
+            {
+                item.MarkUnplayed(user);
+            }
         }
 
         public override bool IsPlayed(User user)
         {
-            var itemsResult = GetItems(new InternalItemsQuery(user)
+            var itemsResult = GetItemList(new InternalItemsQuery(user)
             {
                 Recursive = true,
                 IsFolder = false,
@@ -1416,7 +1460,7 @@ namespace MediaBrowser.Controller.Entities
 
             });
 
-            return itemsResult.Items
+            return itemsResult
                 .All(i => i.IsPlayed(user));
         }
 
@@ -1465,7 +1509,7 @@ namespace MediaBrowser.Controller.Entities
             }
         }
 
-        public override void FillUserDataDtoValues(UserItemDataDto dto, UserItemData userData, BaseItemDto itemDto, User user, List<ItemFields> fields)
+        public override void FillUserDataDtoValues(UserItemDataDto dto, UserItemData userData, BaseItemDto itemDto, User user, ItemFields[] fields)
         {
             if (!SupportsUserDataFromChildren)
             {

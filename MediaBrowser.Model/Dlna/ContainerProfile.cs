@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Xml.Serialization;
 using MediaBrowser.Model.Dlna;
 using MediaBrowser.Model.Extensions;
@@ -19,21 +20,53 @@ namespace MediaBrowser.Model.Dlna
             Conditions = new ProfileCondition[] { };
         }
 
-        public List<string> GetContainers()
+        public string[] GetContainers()
         {
-            List<string> list = new List<string>();
-            foreach (string i in (Container ?? string.Empty).Split(','))
+            return SplitValue(Container);
+        }
+
+        private static readonly string[] EmptyStringArray = new string[] { };
+
+        public static string[] SplitValue(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
             {
-                if (!string.IsNullOrEmpty(i)) list.Add(i);
+                return EmptyStringArray;
             }
-            return list;
+
+            return value.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
         }
 
         public bool ContainsContainer(string container)
         {
-            List<string> containers = GetContainers();
+            var containers = GetContainers();
 
-            return containers.Count == 0 || ListHelper.ContainsIgnoreCase(containers, container ?? string.Empty);
+            return ContainsContainer(containers, container);
+        }
+
+        public static bool ContainsContainer(string profileContainers, string inputContainer)
+        {
+            return ContainsContainer(SplitValue(profileContainers), inputContainer);
+        }
+
+        public static bool ContainsContainer(string[] profileContainers, string inputContainer)
+        {
+            if (profileContainers.Length == 0)
+            {
+                return true;
+            }
+
+            var allInputContainers = SplitValue(inputContainer);
+
+            foreach (var container in allInputContainers)
+            {
+                if (ListHelper.ContainsIgnoreCase(profileContainers, container))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }

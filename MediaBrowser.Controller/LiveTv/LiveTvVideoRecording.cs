@@ -5,7 +5,6 @@ using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.LiveTv;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using MediaBrowser.Model.Serialization;
 using System.Threading.Tasks;
 using MediaBrowser.Controller.Library;
@@ -50,15 +49,6 @@ namespace MediaBrowser.Controller.LiveTv
             get
             {
                 return Model.Entities.MediaType.Video;
-            }
-        }
-
-        [IgnoreDataMember]
-        protected override bool SupportsIsInMixedFolderDetection
-        {
-            get
-            {
-                return false;
             }
         }
 
@@ -110,20 +100,7 @@ namespace MediaBrowser.Controller.LiveTv
 
         public override double? GetDefaultPrimaryImageAspectRatio()
         {
-            if (IsMovie)
-            {
-                double value = 2;
-                value /= 3;
-
-                return value;
-            }
-            else
-            {
-                double value = 2;
-                value /= 3;
-
-                return value;
-            }
+            return LiveTvProgram.GetDefaultPrimaryImageAspectRatio(this);
         }
 
         [IgnoreDataMember]
@@ -159,9 +136,9 @@ namespace MediaBrowser.Controller.LiveTv
             return user.Policy.EnableLiveTvManagement;
         }
 
-        public override IEnumerable<MediaSourceInfo> GetMediaSources(bool enablePathSubstitution)
+        public override List<MediaSourceInfo> GetMediaSources(bool enablePathSubstitution)
         {
-            var list = base.GetMediaSources(enablePathSubstitution).ToList();
+            var list = base.GetMediaSources(enablePathSubstitution);
 
             foreach (var mediaSource in list)
             {

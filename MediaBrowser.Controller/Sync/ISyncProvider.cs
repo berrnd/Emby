@@ -11,22 +11,24 @@ namespace MediaBrowser.Controller.Sync
         /// <value>The name.</value>
         string Name { get; }
 
+        bool SupportsRemoteSync { get; }
+
         /// <summary>
         /// Gets the synchronize targets.
         /// </summary>
         /// <param name="userId">The user identifier.</param>
         /// <returns>IEnumerable&lt;SyncTarget&gt;.</returns>
-        IEnumerable<SyncTarget> GetSyncTargets(string userId);
+        List<SyncTarget> GetSyncTargets(string userId);
 
         /// <summary>
         /// Gets all synchronize targets.
         /// </summary>
         /// <returns>IEnumerable&lt;SyncTarget&gt;.</returns>
-        IEnumerable<SyncTarget> GetAllSyncTargets();
+        List<SyncTarget> GetAllSyncTargets();
     }
 
     public interface IHasUniqueTargetIds
     {
-        
+
     }
 }

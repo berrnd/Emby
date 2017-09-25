@@ -11,6 +11,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using MediaBrowser.Model.Dto;
 using MediaBrowser.Model.Services;
+using MediaBrowser.Model.Extensions;
 
 namespace MediaBrowser.Api
 {
@@ -29,7 +30,7 @@ namespace MediaBrowser.Api
         public string ExcludeArtistIds { get; set; }
     }
 
-    public class BaseGetSimilarItems : IReturn<ItemsResult>, IHasDtoOptions
+    public class BaseGetSimilarItems : IReturn<QueryResult<BaseItemDto>>, IHasDtoOptions
     {
         [ApiMember(Name = "EnableImages", Description = "Optional, include image information in output", IsRequired = false, DataType = "boolean", ParameterType = "query", Verb = "GET")]
         public bool? EnableImages { get; set; }
@@ -70,7 +71,7 @@ namespace MediaBrowser.Api
     /// </summary>
     public static class SimilarItemsHelper
     {
-        internal static async Task<QueryResult<BaseItemDto>> GetSimilarItemsResult(DtoOptions dtoOptions, IUserManager userManager, IItemRepository itemRepository, ILibraryManager libraryManager, IUserDataManager userDataRepository, IDtoService dtoService, ILogger logger, BaseGetSimilarItemsFromItem request, Type[] includeTypes, Func<BaseItem, List<PersonInfo>, List<PersonInfo>, BaseItem, int> getSimilarityScore)
+        internal static QueryResult<BaseItemDto> GetSimilarItemsResult(DtoOptions dtoOptions, IUserManager userManager, IItemRepository itemRepository, ILibraryManager libraryManager, IUserDataManager userDataRepository, IDtoService dtoService, ILogger logger, BaseGetSimilarItemsFromItem request, Type[] includeTypes, Func<BaseItem, List<PersonInfo>, List<PersonInfo>, BaseItem, int> getSimilarityScore)
         {
             var user = !string.IsNullOrWhiteSpace(request.UserId) ? userManager.GetUserById(request.UserId) : null;
 
@@ -80,7 +81,7 @@ namespace MediaBrowser.Api
 
             var query = new InternalItemsQuery(user)
             {
-                IncludeItemTypes = includeTypes.Select(i => i.Name).ToArray(),
+                IncludeItemTypes = includeTypes.Select(i => i.Name).ToArray(includeTypes.Length),
                 Recursive = true,
                 DtoOptions = dtoOptions
             };
@@ -96,18 +97,18 @@ namespace MediaBrowser.Api
             var items = GetSimilaritems(item, libraryManager, inputItems, getSimilarityScore)
                 .ToList();
 
-            IEnumerable<BaseItem> returnItems = items;
+            List<BaseItem> returnItems = items;
 
             if (request.Limit.HasValue)
             {
-                returnItems = returnItems.Take(request.Limit.Value);
+                returnItems = returnItems.Take(request.Limit.Value).ToList();
             }
 
-            var dtos = await dtoService.GetBaseItemDtos(returnItems, dtoOptions, user).ConfigureAwait(false);
+            var dtos = dtoService.GetBaseItemDtos(returnItems, dtoOptions, user);
 
             return new QueryResult<BaseItemDto>
             {
-                Items = dtos.ToArray(),
+                Items = dtos,
 
                 TotalRecordCount = items.Count
             };
@@ -142,11 +143,6 @@ namespace MediaBrowser.Api
             return item.Tags;
         }
 
-        private static IEnumerable<string> GetKeywords(BaseItem item)
-        {
-            return item.Keywords;
-        }
-
         /// <summary>
         /// Gets the similiarity score.
         /// </summary>
@@ -169,9 +165,6 @@ namespace MediaBrowser.Api
 
             // Find common tags
             points += GetTags(item1).Where(i => GetTags(item2).Contains(i, StringComparer.OrdinalIgnoreCase)).Sum(i => 10);
-
-            // Find common keywords
-            points += GetKeywords(item1).Where(i => GetKeywords(item2).Contains(i, StringComparer.OrdinalIgnoreCase)).Sum(i => 10);
 
             // Find common studios
             points += item1.Studios.Where(i => item2.Studios.Contains(i, StringComparer.OrdinalIgnoreCase)).Sum(i => 3);

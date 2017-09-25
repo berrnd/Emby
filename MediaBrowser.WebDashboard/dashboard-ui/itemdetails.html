@@ -1,7 +1,7 @@
-﻿<div id="itemDetailPage" data-role="page" class="page libraryPage itemDetailPage noSecondaryNavPage selfBackdropPage" data-theme="b" data-backbutton="true">
+﻿<div id="itemDetailPage" data-role="page" class="page libraryPage itemDetailPage noSecondaryNavPage selfBackdropPage" data-backbutton="true">
 
     <style>
-        @media all and (min-width: 800px) {
+        @media all and (min-width: 1000px) {
 
             .itemBackdrop {
                 display: none;
@@ -12,7 +12,7 @@
     <div id="itemBackdrop" class="itemBackdrop noBackdrop">
         <div class="itemBackdropFader">
         </div>
-        <button is="emby-button" type="button" class="btnPlay detailFloatingButton hide fab autoSize" title="${ButtonPlay}" data-mode="playmenu"><i class="md-icon">play_arrow</i></button>
+        <button is="emby-button" type="button" class="btnPlay detailFloatingButton hide fab autoSize" title="${ButtonPlay}" data-mode="resume"><i class="md-icon">&#xE037;</i></button>
     </div>
 
     <div class="detailLogo"></div>
@@ -41,14 +41,14 @@
 
                         <button is="emby-button" type="button" class="button-flat btnResume btnPlaySimple hide detailButton-mobile" data-mode="resume">
                             <div class="detailButton-mobile-content">
-                                <i class="md-icon detailButton-mobile-icon">play_arrow</i>
+                                <i class="md-icon detailButton-mobile-icon">&#xE037;</i>
                                 <div class="detailButton-mobile-text">${ButtonResume}</div>
                             </div>
                         </button>
 
                         <button is="emby-button" type="button" class="button-flat btnPlay btnPlaySimple hide detailButton-mobile" data-mode="play">
                             <div class="detailButton-mobile-content">
-                                <i class="md-icon detailButton-mobile-icon">play_arrow</i>
+                                <i class="md-icon detailButton-mobile-icon">&#xE037;</i>
                                 <div class="detailButton-mobile-text">${ButtonPlay}</div>
                             </div>
                         </button>
@@ -76,14 +76,14 @@
 
                         <button is="emby-downloadbutton" type="button" class="button-flat btnSyncDownload hide detailButton-mobile">
                             <div class="detailButton-mobile-content">
-                                <i class="md-icon detailButton-mobile-icon">file_download</i>
+                                <i class="md-icon detailButton-mobile-icon">&#xE2C4;</i>
                                 <div class="detailButton-mobile-text emby-downloadbutton-downloadtext">${ButtonDownload}</div>
                             </div>
                         </button>
 
                         <button is="emby-button" type="button" class="button-flat btnMoreCommands hide detailButton-mobile">
                             <div class="detailButton-mobile-content">
-                                <i class="md-icon detailButton-mobile-icon">more_vert</i>
+                                <i class="md-icon detailButton-mobile-icon">&#xE5D4;</i>
                                 <div class="detailButton-mobile-text">${ButtonMore}</div>
                             </div>
                         </button>
@@ -91,7 +91,14 @@
                         <button is="emby-button" type="button" class="button-flat btnCancelSeriesTimer hide detailButton-mobile">
                             <div class="detailButton-mobile-content">
                                 <i class="md-icon detailButton-mobile-icon">&#xE872;</i>
-                                <div class="detailButton-mobile-text">${ButtonCancelSeries}</div>
+                                <div class="detailButton-mobile-text">${CancelSeries}</div>
+                            </div>
+                        </button>
+
+                        <button is="emby-button" type="button" class="button-flat btnCancelTimer hide detailButton-mobile">
+                            <div class="detailButton-mobile-content">
+                                <i class="md-icon detailButton-mobile-icon">&#xE047;</i>
+                                <div class="detailButton-mobile-text">${StopRecording}</div>
                             </div>
                         </button>
 
@@ -104,7 +111,7 @@
 
                         <button is="emby-playstatebutton" type="button" class="button-flat btnPlaystate hide detailButton-mobile">
                             <div class="detailButton-mobile-content">
-                                <i class="md-icon detailButton-mobile-icon">check</i>
+                                <i class="md-icon detailButton-mobile-icon">&#xE5CA;</i>
                                 <div class="detailButton-mobile-text"></div>
                             </div>
                         </button>
@@ -142,17 +149,20 @@
                         <button is="emby-button" type="button" class="raised subdued btnCancelSeriesTimer hide">
                             <span>${ButtonCancelSeries}</span>
                         </button>
+                        <button is="emby-button" type="button" class="raised subdued btnCancelTimer hide">
+                            <span>${ButtonStopRecording}</span>
+                        </button>
 
                         <div style="margin-left: .5em; display: flex; align-items: center;">
-                            <button is="emby-button" type="button" class="btnMoreCommands fab mini hide" title="${ButtonMore}"><i class="md-icon">more_vert</i></button>
+                            <button is="emby-button" type="button" class="btnMoreCommands fab mini hide" title="${ButtonMore}"><i class="md-icon">&#xE5D4;</i></button>
                             <button is="emby-button" type="button" class="btnDeleteItem fab mini hide" title="${DeleteMedia}"><i class="md-icon">&#xE872;</i></button>
-                            <button is="emby-playstatebutton" type="button" class="btnPlaystate fab mini hide"><i class="md-icon">check</i></button>
+                            <button is="emby-playstatebutton" type="button" class="btnPlaystate fab mini hide"><i class="md-icon">&#xE5CA;</i></button>
                             <button is="emby-ratingbutton" type="button" class="btnUserRating fab mini hide"><i class="md-icon">&#xE87D;</i></button>
                         </div>
                     </div>
 
                     <button is="emby-downloadbutton" type="button" class="button-flat btnSyncDownload hide mainDetailButtons-nonmobile" style="margin: 1em 0 0;">
-                        <i class="md-icon">file_download</i>
+                        <i class="md-icon">&#xE2C4;</i>
                         <span class="emby-downloadbutton-downloadtext">${ButtonDownload}</span>
                     </button>
 

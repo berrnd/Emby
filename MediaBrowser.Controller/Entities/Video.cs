@@ -16,6 +16,7 @@ using MediaBrowser.Controller.Channels;
 using MediaBrowser.Controller.IO;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Serialization;
+using MediaBrowser.Model.Extensions;
 
 namespace MediaBrowser.Controller.Entities
 {
@@ -30,9 +31,9 @@ namespace MediaBrowser.Controller.Entities
         [IgnoreDataMember]
         public string PrimaryVersionId { get; set; }
 
-        public List<string> AdditionalParts { get; set; }
-        public List<string> LocalAlternateVersions { get; set; }
-        public List<LinkedChild> LinkedAlternateVersions { get; set; }
+        public string[] AdditionalParts { get; set; }
+        public string[] LocalAlternateVersions { get; set; }
+        public LinkedChild[] LinkedAlternateVersions { get; set; }
 
         [IgnoreDataMember]
         public override bool SupportsPlayedStatus
@@ -57,15 +58,22 @@ namespace MediaBrowser.Controller.Entities
         {
             get
             {
-                return true;
-            }
-        }
-
-        [IgnoreDataMember]
-        protected override bool SupportsIsInMixedFolderDetection
-        {
-            get
-            {
+                var extraType = ExtraType;
+                if (extraType.HasValue)
+                {
+                    if (extraType.Value == Model.Entities.ExtraType.Sample)
+                    {
+                        return false;
+                    }
+                    if (extraType.Value == Model.Entities.ExtraType.ThemeVideo)
+                    {
+                        return false;
+                    }
+                    if (extraType.Value == Model.Entities.ExtraType.Trailer)
+                    {
+                        return false;
+                    }
+                }
                 return true;
             }
         }
@@ -105,7 +113,7 @@ namespace MediaBrowser.Controller.Entities
         /// Gets or sets the subtitle paths.
         /// </summary>
         /// <value>The subtitle paths.</value>
-        public List<string> SubtitleFiles { get; set; }
+        public string[] SubtitleFiles { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether this instance has subtitles.
@@ -141,18 +149,23 @@ namespace MediaBrowser.Controller.Entities
         /// <value>The video3 D format.</value>
         public Video3DFormat? Video3DFormat { get; set; }
 
-        /// <summary>
-        /// If the video is a folder-rip, this will hold the file list for the largest playlist
-        /// </summary>
-        public List<string> PlayableStreamFileNames { get; set; }
-
-        /// <summary>
-        /// Gets the playable stream files.
-        /// </summary>
-        /// <returns>List{System.String}.</returns>
-        public List<string> GetPlayableStreamFiles()
+        public string[] GetPlayableStreamFileNames()
         {
-            return GetPlayableStreamFiles(Path);
+            var videoType = VideoType;
+
+            if (videoType == VideoType.Iso && IsoType == Model.Entities.IsoType.BluRay)
+            {
+                videoType = VideoType.BluRay;
+            }
+            else if (videoType == VideoType.Iso && IsoType == Model.Entities.IsoType.Dvd)
+            {
+                videoType = VideoType.Dvd;
+            }
+            else
+            {
+                return new string[] { };
+            }
+            return MediaEncoder.GetPlayableStreamFileNames(Path, videoType);
         }
 
         /// <summary>
@@ -163,17 +176,15 @@ namespace MediaBrowser.Controller.Entities
 
         public Video()
         {
-            PlayableStreamFileNames = new List<string>();
-            AdditionalParts = new List<string>();
-            LocalAlternateVersions = new List<string>();
-            SubtitleFiles = new List<string>();
-            LinkedAlternateVersions = new List<LinkedChild>();
+            AdditionalParts = EmptyStringArray;
+            LocalAlternateVersions = EmptyStringArray;
+            SubtitleFiles = EmptyStringArray;
+            LinkedAlternateVersions = EmptyLinkedChildArray;
         }
 
         public override bool CanDownload()
         {
-            if (VideoType == VideoType.HdDvd || VideoType == VideoType.Dvd ||
-                VideoType == VideoType.BluRay)
+            if (VideoType == VideoType.Dvd || VideoType == VideoType.BluRay)
             {
                 return false;
             }
@@ -202,20 +213,20 @@ namespace MediaBrowser.Controller.Entities
                         return item.MediaSourceCount;
                     }
                 }
-                return LinkedAlternateVersions.Count + LocalAlternateVersions.Count + 1;
+                return LinkedAlternateVersions.Length + LocalAlternateVersions.Length + 1;
             }
         }
 
         [IgnoreDataMember]
         public bool IsStacked
         {
-            get { return AdditionalParts.Count > 0; }
+            get { return AdditionalParts.Length > 0; }
         }
 
         [IgnoreDataMember]
         public bool HasLocalAlternateVersions
         {
-            get { return LocalAlternateVersions.Count > 0; }
+            get { return LocalAlternateVersions.Length > 0; }
         }
 
         public IEnumerable<Guid> GetAdditionalPartIds()
@@ -226,6 +237,41 @@ namespace MediaBrowser.Controller.Entities
         public IEnumerable<Guid> GetLocalAlternateVersionIds()
         {
             return LocalAlternateVersions.Select(i => LibraryManager.GetNewItemId(i, typeof(Video)));
+        }
+
+        [IgnoreDataMember]
+        public override SourceType SourceType
+        {
+            get
+            {
+                if (IsActiveRecording())
+                {
+                    return SourceType.LiveTV;
+                }
+
+                return base.SourceType;
+            }
+        }
+
+        protected bool IsActiveRecording()
+        {
+            return LiveTvManager.GetActiveRecordingInfo(Path) != null;
+        }
+
+        public override bool CanDelete()
+        {
+            if (IsActiveRecording())
+            {
+                return false;
+            }
+
+            return base.CanDelete();
+        }
+
+        [IgnoreDataMember]
+        public bool IsCompleteMedia
+        {
+            get { return !IsActiveRecording(); }
         }
 
         [IgnoreDataMember]
@@ -323,8 +369,7 @@ namespace MediaBrowser.Controller.Entities
 
                 if (!IsPlaceHolder)
                 {
-                    if (VideoType == VideoType.BluRay || VideoType == VideoType.Dvd ||
-                        VideoType == VideoType.HdDvd)
+                    if (VideoType == VideoType.BluRay || VideoType == VideoType.Dvd)
                     {
                         return Path;
                     }
@@ -341,7 +386,7 @@ namespace MediaBrowser.Controller.Entities
             {
                 if (LocationType == LocationType.FileSystem)
                 {
-                    if (VideoType == VideoType.BluRay || VideoType == VideoType.Dvd || VideoType == VideoType.HdDvd)
+                    if (VideoType == VideoType.BluRay || VideoType == VideoType.Dvd)
                     {
                         return System.IO.Path.GetFileName(Path);
                     }
@@ -379,18 +424,27 @@ namespace MediaBrowser.Controller.Entities
             return base.IsValidFromResolver(newItem);
         }
 
-        /// <summary>
-        /// Gets the playable stream files.
-        /// </summary>
-        /// <param name="rootPath">The root path.</param>
-        /// <returns>List{System.String}.</returns>
-        public List<string> GetPlayableStreamFiles(string rootPath)
+        public static string[] QueryPlayableStreamFiles(string rootPath, VideoType videoType)
         {
-            var allFiles = FileSystem.GetFilePaths(rootPath, true).ToList();
-
-            return PlayableStreamFileNames.Select(name => allFiles.FirstOrDefault(f => string.Equals(System.IO.Path.GetFileName(f), name, StringComparison.OrdinalIgnoreCase)))
-                .Where(f => !string.IsNullOrEmpty(f))
-                .ToList();
+            if (videoType == VideoType.Dvd)
+            {
+                return FileSystem.GetFiles(rootPath, new[] { ".vob" }, false, true)
+                    .OrderByDescending(i => i.Length)
+                    .ThenBy(i => i.FullName)
+                    .Take(1)
+                    .Select(i => i.FullName)
+                    .ToArray();
+            }
+            if (videoType == VideoType.BluRay)
+            {
+                return FileSystem.GetFiles(rootPath, new[] { ".m2ts" }, false, true)
+                    .OrderByDescending(i => i.Length)
+                    .ThenBy(i => i.FullName)
+                    .Take(1)
+                    .Select(i => i.FullName)
+                    .ToArray();
+            }
+            return new string[] { };
         }
 
         /// <summary>
@@ -484,7 +538,7 @@ namespace MediaBrowser.Controller.Entities
 
         public override IEnumerable<FileSystemMetadata> GetDeletePaths()
         {
-            if (!DetectIsInMixedFolder())
+            if (!IsInMixedFolder)
             {
                 return new[] {
                     new FileSystemMetadata
@@ -498,17 +552,12 @@ namespace MediaBrowser.Controller.Entities
             return base.GetDeletePaths();
         }
 
-        public IEnumerable<MediaStream> GetMediaStreams()
+        public List<MediaStream> GetMediaStreams()
         {
-            var mediaSource = GetMediaSources(false)
-                .FirstOrDefault();
-
-            if (mediaSource == null)
+            return MediaSourceManager.GetMediaStreams(new MediaStreamQuery
             {
-                return new List<MediaStream>();
-            }
-
-            return mediaSource.MediaStreams;
+                ItemId = Id
+            });
         }
 
         public virtual MediaStream GetDefaultVideoStream()
@@ -556,7 +605,7 @@ namespace MediaBrowser.Controller.Entities
             return list;
         }
 
-        public virtual IEnumerable<MediaSourceInfo> GetMediaSources(bool enablePathSubstitution)
+        public virtual List<MediaSourceInfo> GetMediaSources(bool enablePathSubstitution)
         {
             if (SourceType == SourceType.Channel)
             {
@@ -576,6 +625,14 @@ namespace MediaBrowser.Controller.Entities
 
             var list = GetAllVideosForMediaSources();
             var result = list.Select(i => GetVersionInfo(enablePathSubstitution, i.Item1, i.Item2)).ToList();
+
+            if (IsActiveRecording())
+            {
+                foreach (var mediaSource in result)
+                {
+                    mediaSource.Type = MediaSourceType.Placeholder;
+                }
+            }
 
             return result.OrderBy(i =>
             {
@@ -603,8 +660,7 @@ namespace MediaBrowser.Controller.Entities
                 throw new ArgumentNullException("media");
             }
 
-            var mediaStreams = MediaSourceManager.GetMediaStreams(media.Id)
-                .ToList();
+            var mediaStreams = MediaSourceManager.GetMediaStreams(media.Id);
 
             var locationType = media.LocationType;
 
@@ -623,7 +679,6 @@ namespace MediaBrowser.Controller.Entities
                 Size = media.Size,
                 Timestamp = media.Timestamp,
                 Type = type,
-                PlayableStreamFileNames = media.PlayableStreamFileNames.ToList(),
                 SupportsDirectStream = media.VideoType == VideoType.VideoFile,
                 IsRemote = media.IsShortcut
             };
@@ -698,10 +753,6 @@ namespace MediaBrowser.Controller.Entities
             {
                 terms.Add("DVD");
             }
-            else if (video.VideoType == VideoType.HdDvd)
-            {
-                terms.Add("HD-DVD");
-            }
             else if (video.VideoType == VideoType.Iso)
             {
                 if (video.IsoType.HasValue)
@@ -765,7 +816,7 @@ namespace MediaBrowser.Controller.Entities
                 }
             }
 
-            return string.Join("/", terms.ToArray());
+            return string.Join("/", terms.ToArray(terms.Count));
         }
 
     }

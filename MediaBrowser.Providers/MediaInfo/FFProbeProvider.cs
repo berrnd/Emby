@@ -141,12 +141,12 @@ namespace MediaBrowser.Providers.MediaInfo
                 return _cachedTask;
             }
 
-            if (item.VideoType == VideoType.HdDvd)
+            if (item.IsPlaceHolder)
             {
                 return _cachedTask;
             }
 
-            if (item.IsPlaceHolder)
+            if (!item.IsCompleteMedia)
             {
                 return _cachedTask;
             }

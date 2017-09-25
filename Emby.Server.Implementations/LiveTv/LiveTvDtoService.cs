@@ -9,12 +9,12 @@ using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.LiveTv;
 using MediaBrowser.Model.Logging;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Model.Dto;
+using MediaBrowser.Model.Extensions;
 
 namespace Emby.Server.Implementations.LiveTv
 {
@@ -23,15 +23,13 @@ namespace Emby.Server.Implementations.LiveTv
         private readonly ILogger _logger;
         private readonly IImageProcessor _imageProcessor;
 
-        private readonly IUserDataManager _userDataManager;
         private readonly IDtoService _dtoService;
         private readonly IApplicationHost _appHost;
         private readonly ILibraryManager _libraryManager;
 
-        public LiveTvDtoService(IDtoService dtoService, IUserDataManager userDataManager, IImageProcessor imageProcessor, ILogger logger, IApplicationHost appHost, ILibraryManager libraryManager)
+        public LiveTvDtoService(IDtoService dtoService, IImageProcessor imageProcessor, ILogger logger, IApplicationHost appHost, ILibraryManager libraryManager)
         {
             _dtoService = dtoService;
-            _userDataManager = userDataManager;
             _imageProcessor = imageProcessor;
             _logger = logger;
             _appHost = appHost;
@@ -110,7 +108,7 @@ namespace Emby.Server.Implementations.LiveTv
                 PostPaddingSeconds = info.PostPaddingSeconds,
                 IsPostPaddingRequired = info.IsPostPaddingRequired,
                 IsPrePaddingRequired = info.IsPrePaddingRequired,
-                Days = info.Days,
+                Days = info.Days.ToArray(),
                 Priority = info.Priority,
                 RecordAnyChannel = info.RecordAnyChannel,
                 RecordAnyTime = info.RecordAnyTime,
@@ -135,7 +133,7 @@ namespace Emby.Server.Implementations.LiveTv
                 dto.ProgramId = GetInternalProgramId(service.Name, info.ProgramId).ToString("N");
             }
 
-            dto.DayPattern = info.Days == null ? null : GetDayPattern(info.Days);
+            dto.DayPattern = info.Days == null ? null : GetDayPattern(info.Days.ToArray(info.Days.Count));
 
             FillImages(dto, info.Name, info.SeriesId);
 
@@ -150,10 +148,7 @@ namespace Emby.Server.Implementations.LiveTv
                 Name = seriesName,
                 Limit = 1,
                 ImageTypes = new ImageType[] { ImageType.Thumb },
-                DtoOptions = new DtoOptions
-                {
-                    Fields = new List<MediaBrowser.Model.Querying.ItemFields>()
-                }
+                DtoOptions = new DtoOptions(false)
 
             }).FirstOrDefault();
 
@@ -176,7 +171,7 @@ namespace Emby.Server.Implementations.LiveTv
                 {
                     try
                     {
-                        dto.ParentBackdropImageTags = new List<string>
+                        dto.ParentBackdropImageTags = new string[]
                             {
                                 _imageProcessor.GetImageCacheTag(librarySeries, image)
                             };
@@ -196,10 +191,7 @@ namespace Emby.Server.Implementations.LiveTv
                     ExternalSeriesId = programSeriesId,
                     Limit = 1,
                     ImageTypes = new ImageType[] { ImageType.Primary },
-                    DtoOptions = new DtoOptions
-                    {
-                        Fields = new List<MediaBrowser.Model.Querying.ItemFields>()
-                    }
+                    DtoOptions = new DtoOptions(false)
 
                 }).FirstOrDefault();
 
@@ -218,14 +210,14 @@ namespace Emby.Server.Implementations.LiveTv
                         }
                     }
 
-                    if (dto.ParentBackdropImageTags == null || dto.ParentBackdropImageTags.Count == 0)
+                    if (dto.ParentBackdropImageTags == null || dto.ParentBackdropImageTags.Length == 0)
                     {
                         image = program.GetImageInfo(ImageType.Backdrop, 0);
                         if (image != null)
                         {
                             try
                             {
-                                dto.ParentBackdropImageTags = new List<string>
+                                dto.ParentBackdropImageTags = new string[]
                             {
                                 _imageProcessor.GetImageCacheTag(program, image)
                             };
@@ -248,10 +240,7 @@ namespace Emby.Server.Implementations.LiveTv
                 Name = seriesName,
                 Limit = 1,
                 ImageTypes = new ImageType[] { ImageType.Thumb },
-                DtoOptions = new DtoOptions
-                {
-                    Fields = new List<MediaBrowser.Model.Querying.ItemFields>()
-                }
+                DtoOptions = new DtoOptions(false)
 
             }).FirstOrDefault();
 
@@ -274,7 +263,7 @@ namespace Emby.Server.Implementations.LiveTv
                 {
                     try
                     {
-                        dto.ParentBackdropImageTags = new List<string>
+                        dto.ParentBackdropImageTags = new string[]
                             {
                                 _imageProcessor.GetImageCacheTag(librarySeries, image)
                             };
@@ -294,10 +283,7 @@ namespace Emby.Server.Implementations.LiveTv
                     Name = seriesName,
                     Limit = 1,
                     ImageTypes = new ImageType[] { ImageType.Primary },
-                    DtoOptions = new DtoOptions
-                    {
-                        Fields = new List<MediaBrowser.Model.Querying.ItemFields>()
-                    }
+                    DtoOptions = new DtoOptions(false)
 
                 }).FirstOrDefault() ?? _libraryManager.GetItemList(new InternalItemsQuery
                 {
@@ -305,10 +291,7 @@ namespace Emby.Server.Implementations.LiveTv
                     ExternalSeriesId = programSeriesId,
                     Limit = 1,
                     ImageTypes = new ImageType[] { ImageType.Primary },
-                    DtoOptions = new DtoOptions
-                    {
-                        Fields = new List<MediaBrowser.Model.Querying.ItemFields>()
-                    }
+                    DtoOptions = new DtoOptions(false)
 
                 }).FirstOrDefault();
 
@@ -327,14 +310,14 @@ namespace Emby.Server.Implementations.LiveTv
                         }
                     }
 
-                    if (dto.ParentBackdropImageTags == null || dto.ParentBackdropImageTags.Count == 0)
+                    if (dto.ParentBackdropImageTags == null || dto.ParentBackdropImageTags.Length == 0)
                     {
                         image = program.GetImageInfo(ImageType.Backdrop, 0);
                         if (image != null)
                         {
                             try
                             {
-                                dto.ParentBackdropImageTags = new List<string>
+                                dto.ParentBackdropImageTags = new string[]
                             {
                                 _imageProcessor.GetImageCacheTag(program, image)
                             };
@@ -349,24 +332,24 @@ namespace Emby.Server.Implementations.LiveTv
             }
         }
 
-        public DayPattern? GetDayPattern(List<DayOfWeek> days)
+        public DayPattern? GetDayPattern(DayOfWeek[] days)
         {
             DayPattern? pattern = null;
 
-            if (days.Count > 0)
+            if (days.Length > 0)
             {
-                if (days.Count == 7)
+                if (days.Length == 7)
                 {
                     pattern = DayPattern.Daily;
                 }
-                else if (days.Count == 2)
+                else if (days.Length == 2)
                 {
                     if (days.Contains(DayOfWeek.Saturday) && days.Contains(DayOfWeek.Sunday))
                     {
                         pattern = DayPattern.Weekends;
                     }
                 }
-                else if (days.Count == 5)
+                else if (days.Length == 5)
                 {
                     if (days.Contains(DayOfWeek.Monday) && days.Contains(DayOfWeek.Tuesday) && days.Contains(DayOfWeek.Wednesday) && days.Contains(DayOfWeek.Thursday) && days.Contains(DayOfWeek.Friday))
                     {
@@ -384,7 +367,7 @@ namespace Emby.Server.Implementations.LiveTv
             {
                 Name = info.Name,
                 Id = info.Id,
-                Clients = info.Clients,
+                Clients = info.Clients.ToArray(),
                 ProgramName = info.ProgramName,
                 SourceType = info.SourceType,
                 Status = info.Status,
@@ -406,7 +389,7 @@ namespace Emby.Server.Implementations.LiveTv
             return dto;
         }
 
-        internal string GetImageTag(IHasImages info)
+        internal string GetImageTag(IHasMetadata info)
         {
             try
             {
@@ -543,7 +526,7 @@ namespace Emby.Server.Implementations.LiveTv
                 PostPaddingSeconds = dto.PostPaddingSeconds,
                 IsPostPaddingRequired = dto.IsPostPaddingRequired,
                 IsPrePaddingRequired = dto.IsPrePaddingRequired,
-                Days = dto.Days,
+                Days = dto.Days.ToList(),
                 Priority = dto.Priority,
                 RecordAnyChannel = dto.RecordAnyChannel,
                 RecordAnyTime = dto.RecordAnyTime,

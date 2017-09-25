@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using MediaBrowser.Model.Serialization;
 using MediaBrowser.Common.Extensions;
 using MediaBrowser.Controller.Extensions;
@@ -21,6 +20,11 @@ namespace MediaBrowser.Controller.Entities
         public override string CreatePresentationUniqueKey()
         {
             return GetUserDataKeys()[0];
+        }
+
+        public override double? GetDefaultPrimaryImageAspectRatio()
+        {
+            return 1;
         }
 
         /// <summary>

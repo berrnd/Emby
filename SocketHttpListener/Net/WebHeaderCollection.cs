@@ -7,6 +7,7 @@ using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 using System.Text;
 using MediaBrowser.Model.Services;
+using MediaBrowser.Model.Extensions;
 
 namespace SocketHttpListener.Net
 {
@@ -130,13 +131,13 @@ namespace SocketHttpListener.Net
             base.Add(headerName, headerValue);
         }
 
-        internal string[] GetValues_internal(string header, bool split)
+        internal List<string> GetValues_internal(string header, bool split)
         {
             if (header == null)
                 throw new ArgumentNullException("header");
 
-            string[] values = base.GetValues(header);
-            if (values == null || values.Length == 0)
+            var values = base.GetValues(header);
+            if (values == null || values.Count == 0)
                 return null;
 
             if (split && IsMultiValue(header))
@@ -154,7 +155,7 @@ namespace SocketHttpListener.Net
 
                     if (separated == null)
                     {
-                        separated = new List<string>(values.Length + 1);
+                        separated = new List<string>(values.Count + 1);
                         foreach (var v in values)
                         {
                             if (v == value)
@@ -176,13 +177,13 @@ namespace SocketHttpListener.Net
                 }
 
                 if (separated != null)
-                    return separated.ToArray();
+                    return separated;
             }
 
             return values;
         }
 
-        public override string[] GetValues(string header)
+        public override List<string> GetValues(string header)
         {
             return GetValues_internal(header, true);
         }

@@ -12,14 +12,12 @@ using MediaBrowser.IsoMounter;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Logging;
 using MediaBrowser.Model.System;
-using MediaBrowser.Model.Updates;
-using MediaBrowser.Server.Startup.Common;
 
 namespace MediaBrowser.Server.Mono
 {
     public class MonoAppHost : ApplicationHost
     {
-        public MonoAppHost(ServerApplicationPaths applicationPaths, ILogManager logManager, StartupOptions options, IFileSystem fileSystem, IPowerManagement powerManagement, string releaseAssetFilename, IEnvironmentInfo environmentInfo, MediaBrowser.Controller.Drawing.IImageEncoder imageEncoder, ISystemEvents systemEvents, IMemoryStreamFactory memoryStreamFactory, MediaBrowser.Common.Net.INetworkManager networkManager, Action<string, string, string> certificateGenerator, Func<string> defaultUsernameFactory) : base(applicationPaths, logManager, options, fileSystem, powerManagement, releaseAssetFilename, environmentInfo, imageEncoder, systemEvents, memoryStreamFactory, networkManager, certificateGenerator, defaultUsernameFactory)
+        public MonoAppHost(ServerApplicationPaths applicationPaths, ILogManager logManager, StartupOptions options, IFileSystem fileSystem, IPowerManagement powerManagement, string releaseAssetFilename, IEnvironmentInfo environmentInfo, MediaBrowser.Controller.Drawing.IImageEncoder imageEncoder, ISystemEvents systemEvents, MediaBrowser.Common.Net.INetworkManager networkManager) : base(applicationPaths, logManager, options, fileSystem, powerManagement, releaseAssetFilename, environmentInfo, imageEncoder, systemEvents, networkManager)
         {
         }
 
@@ -28,7 +26,7 @@ namespace MediaBrowser.Server.Mono
             get
             {
                 // A restart script must be provided
-                return StartupOptions.ContainsOption("-restartpath");
+                return false;
             }
         }
 
@@ -44,7 +42,7 @@ namespace MediaBrowser.Server.Mono
 
         protected override void RestartInternal()
         {
-            MainClass.Restart(StartupOptions);
+            MainClass.Restart();
         }
 
         protected override List<Assembly> GetAssembliesWithPartsInternal()
