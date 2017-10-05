@@ -914,10 +914,11 @@ namespace Emby.Server.Implementations.Dto
 
 			//myproduction-change-start
 			//Include file size (don't know why this is always empty in item, so load the file...)
-			if (_fileSystem.FileExists(item.Path))
+			if ((item.Size == null || item.Size == 0) && _fileSystem.FileExists(item.Path))
 			{
-				dto.Size = _fileSystem.GetFileInfo(item.Path).Length;
+				item.Size = _fileSystem.GetFileInfo(item.Path).Length;
 			}
+			dto.Size = item.Size;
 			//myproduction-change-start
 
 			if (fields.Contains(ItemFields.DateCreated))

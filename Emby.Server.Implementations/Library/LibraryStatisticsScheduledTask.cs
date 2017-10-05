@@ -95,6 +95,12 @@ namespace Emby.Server.Implementations.Library
 						{
 							totalFileSizeWithRedundancy += fileInfo.Length;
 						}
+
+						//Also cache this in item here to reduce filesystem access, see Emby.Server.Implementations\Dto\DtoService.cs
+						if ((item.Size == null || item.Size == 0))
+						{
+							item.Size = fileInfo.Length;
+						}
 					}
 				}
 				_libraryManager.Statistics.TotalFileSize = totalFileSize;
