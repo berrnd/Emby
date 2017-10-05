@@ -346,7 +346,8 @@ namespace MediaBrowser.Controller.MediaEncoding
                 "Constrained High"
             };
 
-            return Array.FindIndex(list.ToArray(), t => string.Equals(t, profile, StringComparison.OrdinalIgnoreCase));
+            // strip spaces because they may be stripped out on the query string
+            return Array.FindIndex(list.ToArray(), t => string.Equals(t.Replace(" ", ""), profile.Replace(" ", ""), StringComparison.OrdinalIgnoreCase));
         }
 
         public string GetInputPathArgument(EncodingJobInfo state)
@@ -529,7 +530,8 @@ namespace MediaBrowser.Controller.MediaEncoding
         {
             var seconds = Math.Round(TimeSpan.FromTicks(state.StartTimeTicks ?? 0).TotalSeconds);
 
-            var setPtsParam = state.CopyTimestamps
+            // hls always copies timestamps
+            var setPtsParam = state.CopyTimestamps || state.TranscodingType != TranscodingJobType.Progressive
                 ? string.Empty
                 : string.Format(",setpts=PTS -{0}/TB", seconds.ToString(_usCulture));
 
@@ -799,12 +801,11 @@ namespace MediaBrowser.Controller.MediaEncoding
 
             if (videoStream.IsInterlaced)
             {
-                if (state.DeInterlace(videoStream.Codec))
+                if (state.DeInterlace(videoStream.Codec, false))
                 {
                     return false;
                 }
             }
-
 
             if (videoStream.IsAnamorphic ?? false)
             {
@@ -832,7 +833,7 @@ namespace MediaBrowser.Controller.MediaEncoding
             }
 
             // Source and target codecs must match
-            if (string.IsNullOrEmpty(videoStream.Codec) || !state.SupportedVideoCodecs.Contains(videoStream.Codec, StringComparer.OrdinalIgnoreCase))
+            if (string.IsNullOrWhiteSpace(videoStream.Codec) || !state.SupportedVideoCodecs.Contains(videoStream.Codec, StringComparer.OrdinalIgnoreCase))
             {
                 return false;
             }
@@ -842,13 +843,14 @@ namespace MediaBrowser.Controller.MediaEncoding
             // If client is requesting a specific video profile, it must match the source
             if (requestedProfiles.Length > 0)
             {
-                if (string.IsNullOrEmpty(videoStream.Profile))
+                if (string.IsNullOrWhiteSpace(videoStream.Profile))
                 {
                     //return false;
                 }
 
                 var requestedProfile = requestedProfiles[0];
-                if (!string.IsNullOrEmpty(videoStream.Profile) && !string.Equals(requestedProfile, videoStream.Profile, StringComparison.OrdinalIgnoreCase))
+                // strip spaces because they may be stripped out on the query string as well
+                if (!string.IsNullOrWhiteSpace(videoStream.Profile) && !requestedProfiles.Contains(videoStream.Profile.Replace(" ", ""), StringComparer.OrdinalIgnoreCase))
                 {
                     var currentScore = GetVideoProfileScore(videoStream.Profile);
                     var requestedScore = GetVideoProfileScore(requestedProfile);
@@ -1082,7 +1084,8 @@ namespace MediaBrowser.Controller.MediaEncoding
                 }
             }
 
-            if (state.SubtitleStream != null && state.SubtitleStream.IsTextSubtitleStream && state.SubtitleDeliveryMethod == SubtitleDeliveryMethod.Encode && !state.CopyTimestamps)
+            var isCopyingTimestamps = state.CopyTimestamps || state.TranscodingType != TranscodingJobType.Progressive;
+            if (state.SubtitleStream != null && state.SubtitleStream.IsTextSubtitleStream && state.SubtitleDeliveryMethod == SubtitleDeliveryMethod.Encode && !isCopyingTimestamps)
             {
                 var seconds = TimeSpan.FromTicks(state.StartTimeTicks ?? 0).TotalSeconds;
 
@@ -1365,9 +1368,10 @@ namespace MediaBrowser.Controller.MediaEncoding
                 filters.Add("hwupload");
             }
 
-            if (state.DeInterlace("h264") && !string.Equals(outputVideoCodec, "h264_vaapi", StringComparison.OrdinalIgnoreCase))
+            if (state.DeInterlace("h264", true) && !string.Equals(outputVideoCodec, "h264_vaapi", StringComparison.OrdinalIgnoreCase))
             {
-                if (string.Equals(options.DeinterlaceMethod, "bobandweave", StringComparison.OrdinalIgnoreCase))
+                // If it is already 60fps then it will create an output framerate that is much too high for roku and others to handle
+                if (string.Equals(options.DeinterlaceMethod, "bobandweave", StringComparison.OrdinalIgnoreCase) && (state.VideoStream.RealFrameRate ?? 60) <= 30)
                 {
                     filters.Add("yadif=1:-1:0");
                 }
@@ -1531,11 +1535,18 @@ namespace MediaBrowser.Controller.MediaEncoding
         /// <returns>System.Int32.</returns>
         public int GetNumberOfThreads(EncodingJobInfo state, EncodingOptions encodingOptions, bool isWebm)
         {
-            var threads = GetNumberOfThreadsInternal(state, encodingOptions, isWebm);
-
-            if (state.BaseRequest.CpuCoreLimit.HasValue && state.BaseRequest.CpuCoreLimit.Value > 0)
+            if (isWebm)
             {
-                threads = Math.Min(threads, state.BaseRequest.CpuCoreLimit.Value);
+                // Recommended per docs
+                return Math.Max(Environment.ProcessorCount - 1, 2);
+            }
+
+            var threads = state.BaseRequest.CpuCoreLimit ?? encodingOptions.EncodingThreadCount;
+
+            // Automatic
+            if (threads <= 0 || threads >= Environment.ProcessorCount)
+            {
+                return 0;
             }
 
             return threads;
@@ -1955,29 +1966,6 @@ namespace MediaBrowser.Controller.MediaEncoding
 
             // leave blank so ffmpeg will decide
             return null;
-        }
-
-        /// <summary>
-        /// Gets the number of threads.
-        /// </summary>
-        /// <returns>System.Int32.</returns>
-        private int GetNumberOfThreadsInternal(EncodingJobInfo state, EncodingOptions encodingOptions, bool isWebm)
-        {
-            var threads = encodingOptions.EncodingThreadCount;
-
-            if (isWebm)
-            {
-                // Recommended per docs
-                return Math.Max(Environment.ProcessorCount - 1, 2);
-            }
-
-            // Automatic
-            if (threads == -1)
-            {
-                return 0;
-            }
-
-            return threads;
         }
 
         public string GetSubtitleEmbedArguments(EncodingJobInfo state)

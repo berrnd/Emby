@@ -169,7 +169,9 @@ namespace MediaBrowser.Model.Dlna
                     continue;
                 }
 
-                list.Add(string.Format("{0}={1}", pair.Name, pair.Value));
+                var encodedValue = pair.Value.Replace(" ", "%20");
+
+                list.Add(string.Format("{0}={1}", pair.Name, encodedValue));
             }
 
             string queryString = string.Join("&", list.ToArray(list.Count));
@@ -295,7 +297,10 @@ namespace MediaBrowser.Model.Dlna
                 // dlna needs to be update to support the qualified params
                 var profile = item.GetOption("h264", "profile");
 
-                list.Add(new NameValuePair("Profile", profile ?? string.Empty));
+                // Avoid having to encode
+                profile = (profile ?? string.Empty).Replace(" ", "");
+
+                list.Add(new NameValuePair("Profile", profile));
             }
 
             // no longer used
@@ -370,7 +375,8 @@ namespace MediaBrowser.Model.Dlna
                         continue;
                     }
 
-                    list.Add(new NameValuePair(pair.Key, pair.Value));
+                    // strip spaces to avoid having to encode h264 profile names
+                    list.Add(new NameValuePair(pair.Key, pair.Value.Replace(" ", "")));
                 }
             }
 

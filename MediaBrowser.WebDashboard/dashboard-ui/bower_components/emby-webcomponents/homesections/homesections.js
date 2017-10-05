@@ -1,4 +1,4 @@
-define(["cardBuilder", "appSettings", "dom", "apphost", "layoutManager", "imageLoader", "globalize", "itemShortcuts", "itemHelper", "appRouter", "emby-button", "paper-icon-button-light", "emby-itemscontainer", "emby-scroller", "emby-linkbutton", "css!./homesections"], function(cardBuilder, appSettings, dom, appHost, layoutManager, imageLoader, globalize, itemShortcuts, itemHelper, appRouter) {
+define(["cardBuilder", "registrationServices", "appSettings", "dom", "apphost", "layoutManager", "imageLoader", "globalize", "itemShortcuts", "itemHelper", "appRouter", "emby-button", "paper-icon-button-light", "emby-itemscontainer", "emby-scroller", "emby-linkbutton", "css!./homesections"], function(cardBuilder, registrationServices, appSettings, dom, appHost, layoutManager, imageLoader, globalize, itemShortcuts, itemHelper, appRouter) {
     "use strict";
 
     function getDefaultSection(index) {
@@ -55,7 +55,7 @@ define(["cardBuilder", "appSettings", "dom", "apphost", "layoutManager", "imageL
 		
 		//myproduction-change-start
 		//Only use settings provided by getDefaultSection
-		var section = getDefaultSection(index);
+		section = getDefaultSection(index);
 		//myproduction-change-end
 		
         return "latestmedia" === section ? loadRecentlyAdded(elem, apiClient, user, userViews) : "librarytiles" === section || "smalllibrarytiles" === section || "smalllibrarytiles-automobile" === section || "librarytiles-automobile" === section ? loadLibraryTiles(elem, apiClient, user, userSettings, "smallBackdrop", userViews, allSections) : "librarybuttons" === section ? loadlibraryButtons(elem, apiClient, user, userSettings, userViews, allSections) : "resume" === section ? loadResumeVideo(elem, apiClient, userId) : "resumeaudio" === section ? loadResumeAudio(elem, apiClient, userId) : "activerecordings" === section ? loadActiveRecordings(elem, apiClient, userId) : "nextup" === section ? loadNextUp(elem, apiClient, userId) : "onnow" === section || "livetv" === section ? loadOnNow(elem, apiClient, user) : "latesttvrecordings" === section ? loadLatestLiveTvRecordings(elem, apiClient, userId) : "latestchannelmedia" === section ? loadLatestChannelMedia(elem, apiClient, userId) : (elem.innerHTML = "", Promise.resolve())
@@ -139,15 +139,13 @@ define(["cardBuilder", "appSettings", "dom", "apphost", "layoutManager", "imageL
                 downloadsHtml = responses[1];
             elem.classList.remove("verticalSection");
             var html = getLibraryButtonsHtml(userViews);
-            elem.innerHTML = html + downloadsHtml + infoHtml, bindHomeScreenSettingsIcon(elem, apiClient, user.Id, userSettings), infoHtml && bindAppInfoEvents(elem)
+            elem.innerHTML = html + downloadsHtml + infoHtml, bindHomeScreenSettingsIcon(elem, apiClient, user.Id, userSettings), infoHtml && bindAppInfoEvents(elem), imageLoader.lazyChildren(elem)
         })
     }
 
     function bindAppInfoEvents(elem) {
-        getRequirePromise(["registrationServices"]).then(function(registrationServices) {
-            elem.querySelector(".appInfoSection").addEventListener("click", function(e) {
-                dom.parentWithClass(e.target, "card") && registrationServices.showPremiereInfo()
-            })
+        elem.querySelector(".appInfoSection").addEventListener("click", function(e) {
+            dom.parentWithClass(e.target, "card") && registrationServices.showPremiereInfo()
         })
     }
 
@@ -159,17 +157,15 @@ define(["cardBuilder", "appSettings", "dom", "apphost", "layoutManager", "imageL
         var frequency = 1728e5,
             cacheKey = "lastappinfopresent5",
             lastDatePresented = parseInt(appSettings.get(cacheKey) || "0");
-        return lastDatePresented ? (new Date).getTime() - lastDatePresented < frequency ? Promise.resolve("") : getRequirePromise(["registrationServices"]).then(function(registrationServices) {
-            return registrationServices.validateFeature("dvr", {
-                showDialog: !1,
-                viewOnly: !0
-            }).then(function() {
-                return appSettings.set(cacheKey, (new Date).getTime()), ""
-            }, function() {
-                appSettings.set(cacheKey, (new Date).getTime());
-                var infos = [getPremiereInfo];
-                return appHost.supports("otherapppromotions") && infos.push(getTheaterInfo), infos[getRandomInt(0, infos.length - 1)]()
-            })
+        return lastDatePresented ? (new Date).getTime() - lastDatePresented < frequency ? Promise.resolve("") : registrationServices.validateFeature("dvr", {
+            showDialog: !1,
+            viewOnly: !0
+        }).then(function() {
+            return appSettings.set(cacheKey, (new Date).getTime()), ""
+        }, function() {
+            appSettings.set(cacheKey, (new Date).getTime());
+            var infos = [getPremiereInfo];
+            return appHost.supports("otherapppromotions") && infos.push(getTheaterInfo), infos[getRandomInt(0, infos.length - 1)]()
         }) : (appSettings.set(cacheKey, (new Date).getTime()), Promise.resolve(""))
     }
 
@@ -193,7 +189,7 @@ define(["cardBuilder", "appSettings", "dom", "apphost", "layoutManager", "imageL
 
     function renderLatestSection(elem, apiClient, user, parent) {
         var limit = 16;
-        //myproduction-change-start
+         //myproduction-change-start
 		//Changed limit for tvshows to 50
 		enableScrollX() ? "music" === parent.CollectionType && (limit = 30) : limit = "tvshows" === parent.CollectionType ? 50 : "music" === parent.CollectionType ? 9 : 8;
 		//myproduction-change-end
@@ -336,7 +332,7 @@ define(["cardBuilder", "appSettings", "dom", "apphost", "layoutManager", "imageL
         elem.classList.remove("verticalSection");
         var html = "",
             scrollX = !layoutManager.desktop;
-		//myproduction-change-start
+        //myproduction-change-start
 		//Changed headline to "Medien"
         return userViews.length && (html += '<div class="verticalSection">', html += '<div class="sectionTitleContainer">', html += '<h2 class="sectionTitle sectionTitle-cards padded-left">' + globalize.translate("Medien") + "</h2>", layoutManager.tv || (html += '<button type="button" is="paper-icon-button-light" class="sectionTitleIconButton btnHomeScreenSettings"><i class="md-icon">&#xE8B8;</i></button>'), html += "</div>", html += scrollX ? '<div is="emby-scroller" class="padded-top-focusscale padded-bottom-focusscale" data-mousewheel="false" data-centerfocus="true"><div is="emby-itemscontainer" class="scrollSlider focuscontainer-x padded-left padded-right">' : '<div is="emby-itemscontainer" class="itemsContainer padded-left padded-right vertical-wrap focuscontainer-x">', html += cardBuilder.getCardsHtml({
 		//myproduction-change-end
@@ -360,20 +356,15 @@ define(["cardBuilder", "appSettings", "dom", "apphost", "layoutManager", "imageL
         var limit, screenWidth = dom.getWindowSize().innerWidth;
         enableScrollX() ? limit = 12 : (limit = screenWidth >= 1920 ? 8 : screenWidth >= 1600 ? 8 : screenWidth >= 1200 ? 9 : 6, limit = Math.min(limit, 5));
         var options = {
-            SortBy: "DatePlayed",
-            SortOrder: "Descending",
-            Filters: "IsResumable",
             Limit: limit,
             Recursive: !0,
             Fields: "PrimaryImageAspectRatio,BasicSyncInfo",
-            CollapseBoxSetItems: !1,
-            ExcludeLocationTypes: "Virtual",
             ImageTypeLimit: 1,
             EnableImageTypes: "Primary,Backdrop,Thumb",
             EnableTotalRecordCount: !1,
             MediaTypes: "Video"
         };
-        return apiClient.getItems(userId, options).then(function(result) {
+        return apiClient.getResumableItems(userId, options).then(function(result) {
             var html = "";
             if (result.Items.length) {
                 html += '<h2 class="sectionTitle sectionTitle-cards padded-left">' + globalize.translate("sharedcomponents#HeaderContinueWatching") + "</h2>", html += enableScrollX() ? '<div is="emby-scroller" data-mousewheel="false" data-centerfocus="true"><div class="scrollerframe padded-top-focusscale padded-bottom-focusscale"><div is="emby-itemscontainer" class="scrollSlider focuscontainer-x padded-left padded-right">' : '<div is="emby-itemscontainer" class="itemsContainer padded-left padded-right vertical-wrap focuscontainer-x">';
@@ -397,6 +388,8 @@ define(["cardBuilder", "appSettings", "dom", "apphost", "layoutManager", "imageL
                 }), enableScrollX() && (html += "</div>", html += "</div>"), html += "</div>"
             }
             elem.innerHTML = html, imageLoader.lazyChildren(elem)
+        }, function() {
+            return Promise.resolve()
         })
     }
 
@@ -404,20 +397,15 @@ define(["cardBuilder", "appSettings", "dom", "apphost", "layoutManager", "imageL
         var limit, screenWidth = dom.getWindowSize().innerWidth;
         enableScrollX() ? limit = 12 : (limit = screenWidth >= 1920 ? 8 : screenWidth >= 1600 ? 8 : screenWidth >= 1200 ? 9 : 6, limit = Math.min(limit, 5));
         var options = {
-            SortBy: "DatePlayed",
-            SortOrder: "Descending",
-            Filters: "IsResumable",
             Limit: limit,
             Recursive: !0,
             Fields: "PrimaryImageAspectRatio,BasicSyncInfo",
-            CollapseBoxSetItems: !1,
-            ExcludeLocationTypes: "Virtual",
             ImageTypeLimit: 1,
             EnableImageTypes: "Primary,Backdrop,Thumb",
             EnableTotalRecordCount: !1,
             MediaTypes: "Audio"
         };
-        return apiClient.getItems(userId, options).then(function(result) {
+        return apiClient.getResumableItems(userId, options).then(function(result) {
             var html = "";
             if (result.Items.length) {
                 html += '<h2 class="sectionTitle sectionTitle-cards padded-left">' + globalize.translate("sharedcomponents#HeaderContinueListening") + "</h2>", html += enableScrollX() ? '<div is="emby-scroller" data-mousewheel="false" data-centerfocus="true"><div class="scrollerframe padded-top-focusscale padded-bottom-focusscale"><div is="emby-itemscontainer" class="scrollSlider focuscontainer-x padded-left padded-right">' : '<div is="emby-itemscontainer" class="itemsContainer padded-left padded-right vertical-wrap focuscontainer-x">';
@@ -441,6 +429,8 @@ define(["cardBuilder", "appSettings", "dom", "apphost", "layoutManager", "imageL
                 }), enableScrollX() && (html += "</div>", html += "</div>"), html += "</div>", elem.classList.remove("hide")
             } else elem.classList.add("hide");
             elem.innerHTML = html, imageLoader.lazyChildren(elem)
+        }, function() {
+            return Promise.resolve()
         })
     }
 
@@ -481,11 +471,33 @@ define(["cardBuilder", "appSettings", "dom", "apphost", "layoutManager", "imageL
         })
     }
 
+    function bindUnlockClick(elem) {
+        var btnUnlock = elem.querySelector(".btnUnlock");
+        btnUnlock && btnUnlock.addEventListener("click", function(e) {
+            registrationServices.validateFeature("livetv", {
+                viewOnly: !0
+            }).then(function() {
+                dom.parentWithClass(elem, "homeSectionsContainer").dispatchEvent(new CustomEvent("settingschange", {
+                    cancelable: !1
+                }))
+            })
+        })
+    }
+
     function loadOnNow(elem, apiClient, user) {
         if (!user.Policy.EnableLiveTvAccess) return Promise.resolve("");
         elem.classList.remove("verticalSection");
+        var promises = [];
+        promises.push(registrationServices.validateFeature("livetv", {
+            viewOnly: !0,
+            showDialog: !1
+        }).then(function() {
+            return !0
+        }, function() {
+            return !1
+        }));
         user.Id;
-        return apiClient.getLiveTvRecommendedPrograms({
+        return promises.push(apiClient.getLiveTvRecommendedPrograms({
             userId: apiClient.getCurrentUserId(),
             IsAiring: !0,
             limit: enableScrollX() ? 24 : 8,
@@ -493,9 +505,11 @@ define(["cardBuilder", "appSettings", "dom", "apphost", "layoutManager", "imageL
             EnableImageTypes: "Primary,Thumb,Backdrop",
             EnableTotalRecordCount: !1,
             Fields: "ChannelInfo,PrimaryImageAspectRatio"
-        }).then(function(result) {
-            var html = "";
-            result.Items.length && (html += '<div class="verticalSection">', html += '<div class="sectionTitleContainer padded-left">', html += '<h2 class="sectionTitle">' + globalize.translate("sharedcomponents#LiveTV") + "</h2>", html += "</div>", enableScrollX() ? (html += '<div is="emby-scroller" class="padded-top-focusscale padded-bottom-focusscale" data-mousewheel="false" data-centerfocus="true" data-scrollbuttons="false">', html += '<div class="scrollSlider padded-left padded-right padded-top padded-bottom focuscontainer-x">') : html += '<div class="padded-left padded-right padded-top focuscontainer-x">', html += '<a style="margin:0;padding:.9em 1em;" is="emby-linkbutton" href="' + appRouter.getRouteUrl("livetv", {
+        })), Promise.all(promises).then(function(responses) {
+            var registered = responses[0],
+                result = responses[1],
+                html = "";
+            result.Items.length && registered ? (html += '<div class="verticalSection">', html += '<div class="sectionTitleContainer padded-left">', html += '<h2 class="sectionTitle">' + globalize.translate("sharedcomponents#LiveTV") + "</h2>", html += "</div>", enableScrollX() ? (html += '<div is="emby-scroller" class="padded-top-focusscale padded-bottom-focusscale" data-mousewheel="false" data-centerfocus="true" data-scrollbuttons="false">', html += '<div class="scrollSlider padded-left padded-right padded-top padded-bottom focuscontainer-x">') : html += '<div class="padded-left padded-right padded-top focuscontainer-x">', html += '<a style="margin:0;padding:.9em 1em;" is="emby-linkbutton" href="' + appRouter.getRouteUrl("livetv", {
                 serverId: apiClient.serverId()
             }) + '" class="raised"><i class="md-icon">&#xE639;</i><span>' + globalize.translate("sharedcomponents#Programs") + "</span></a>", html += '<a style="margin:0 0 0 1em;padding:.9em 1em;" is="emby-linkbutton" href="' + appRouter.getRouteUrl("livetv", {
                 serverId: apiClient.serverId(),
@@ -526,7 +540,7 @@ define(["cardBuilder", "appSettings", "dom", "apphost", "layoutManager", "imageL
                 defaultShape: getThumbShape(),
                 lines: 3,
                 overlayPlayButton: !0
-            }), enableScrollX() && (html += "</div>", html += "</div>"), html += "</div>", html += "</div>"), elem.innerHTML = html, imageLoader.lazyChildren(elem)
+            }), enableScrollX() && (html += "</div>", html += "</div>"), html += "</div>", html += "</div>") : result.Items.length && !registered && (html += '<div class="verticalSection padded-left padded-right padded-bottom">', html += '<h2 class="sectionTitle">' + globalize.translate("sharedcomponents#LiveTvRequiresUnlock") + "</h2>", html += '<button is="emby-button" type="button" class="raised button-submit block btnUnlock">', html += "<span>" + globalize.translate("sharedcomponents#HeaderBecomeProjectSupporter") + "</span>", html += "</button>", html += "</div>"), elem.innerHTML = html, imageLoader.lazyChildren(elem), bindUnlockClick(elem)
         })
     }
 

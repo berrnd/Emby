@@ -914,7 +914,7 @@ namespace Emby.Server.Implementations.Dto
 
 			//myproduction-change-start
 			//Include file size (don't know why this is always empty in item, so load the file...)
-			if ((item.Size == null || item.Size == 0) && _fileSystem.FileExists(item.Path))
+			if ((item.Size == null || item.Size == 0) && !String.IsNullOrEmpty(item.Path) && _fileSystem.FileExists(item.Path))
 			{
 				item.Size = _fileSystem.GetFileInfo(item.Path).Length;
 			}
@@ -1651,6 +1651,7 @@ namespace Emby.Server.Implementations.Dto
                     return null;
                 }
 
+                return null;
                 _logger.Info("Getting image size for item type {0}", item.GetType().Name);
 
                 try

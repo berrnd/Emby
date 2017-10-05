@@ -78,6 +78,14 @@ namespace MediaBrowser.Controller.Entities
             }
         }
 
+        public override double? GetDefaultPrimaryImageAspectRatio()
+        {
+            double value = 16;
+            value /= 9;
+
+            return value;
+        }
+
         public override string CreatePresentationUniqueKey()
         {
             if (!string.IsNullOrWhiteSpace(PrimaryVersionId))
@@ -398,30 +406,31 @@ namespace MediaBrowser.Controller.Entities
             }
         }
 
-        internal override bool IsValidFromResolver(BaseItem newItem)
+        internal override ItemUpdateType UpdateFromResolvedItem(BaseItem newItem)
         {
-            var current = this;
+            var updateType = base.UpdateFromResolvedItem(newItem);
 
-            var newAsVideo = newItem as Video;
-
-            if (newAsVideo != null)
+            var newVideo = newItem as Video;
+            if (newVideo != null)
             {
-                if (!current.AdditionalParts.SequenceEqual(newAsVideo.AdditionalParts, StringComparer.OrdinalIgnoreCase))
+                if (!AdditionalParts.SequenceEqual(newVideo.AdditionalParts, StringComparer.Ordinal))
                 {
-                    return false;
+                    AdditionalParts = newVideo.AdditionalParts;
+                    updateType |= ItemUpdateType.MetadataImport;
                 }
-                if (!current.LocalAlternateVersions.SequenceEqual(newAsVideo.LocalAlternateVersions, StringComparer.OrdinalIgnoreCase))
+                if (!LocalAlternateVersions.SequenceEqual(newVideo.LocalAlternateVersions, StringComparer.Ordinal))
                 {
-                    return false;
+                    LocalAlternateVersions = newVideo.LocalAlternateVersions;
+                    updateType |= ItemUpdateType.MetadataImport;
                 }
-
-                if (newAsVideo.VideoType != VideoType)
+                if (VideoType != newVideo.VideoType)
                 {
-                    return false;
+                    VideoType = newVideo.VideoType;
+                    updateType |= ItemUpdateType.MetadataImport;
                 }
             }
 
-            return base.IsValidFromResolver(newItem);
+            return updateType;
         }
 
         public static string[] QueryPlayableStreamFiles(string rootPath, VideoType videoType)
@@ -513,9 +522,9 @@ namespace MediaBrowser.Controller.Entities
             }
         }
 
-        public override async Task UpdateToRepository(ItemUpdateType updateReason, CancellationToken cancellationToken)
+        public override void UpdateToRepository(ItemUpdateType updateReason, CancellationToken cancellationToken)
         {
-            await base.UpdateToRepository(updateReason, cancellationToken).ConfigureAwait(false);
+            base.UpdateToRepository(updateReason, cancellationToken);
 
             var localAlternates = GetLocalAlternateVersionIds()
                 .Select(i => LibraryManager.GetItemById(i))
@@ -532,7 +541,7 @@ namespace MediaBrowser.Controller.Entities
                 item.Genres = Genres;
                 item.ProviderIds = ProviderIds;
 
-                await item.UpdateToRepository(ItemUpdateType.MetadataDownload, cancellationToken).ConfigureAwait(false);
+                item.UpdateToRepository(ItemUpdateType.MetadataDownload, cancellationToken);
             }
         }
 

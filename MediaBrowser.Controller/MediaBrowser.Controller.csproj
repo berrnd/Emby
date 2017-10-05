@@ -145,7 +145,6 @@
     <Compile Include="Library\UserDataSaveEventArgs.cs" />
     <Compile Include="LiveTv\IListingsProvider.cs" />
     <Compile Include="LiveTv\ITunerHost.cs" />
-    <Compile Include="LiveTv\LiveStream.cs" />
     <Compile Include="LiveTv\RecordingGroup.cs" />
     <Compile Include="LiveTv\RecordingStatusChangedEventArgs.cs" />
     <Compile Include="LiveTv\ILiveTvRecording.cs" />
@@ -177,6 +176,7 @@
     <Compile Include="MediaEncoding\MediaStreamSelector.cs" />
     <Compile Include="Net\AuthenticatedAttribute.cs" />
     <Compile Include="Net\AuthorizationInfo.cs" />
+    <Compile Include="Net\BasePeriodicWebSocketListener.cs" />
     <Compile Include="Net\IAuthorizationContext.cs" />
     <Compile Include="Net\IAuthService.cs" />
     <Compile Include="Net\IHasResultFactory.cs" />
