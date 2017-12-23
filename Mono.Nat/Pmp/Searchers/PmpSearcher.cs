@@ -37,33 +37,45 @@ using Mono.Nat.Pmp;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Threading.Tasks;
+using MediaBrowser.Model.Logging;
+using System.Linq;
 
 namespace Mono.Nat
 {
-    internal class PmpSearcher : ISearcher
+    internal class PmpSearcher : ISearcher, IDisposable
     {
-		static PmpSearcher instance = new PmpSearcher();
-        
-		
-		public static PmpSearcher Instance
-		{
-			get { return instance; }
-		}
+        private ILogger _logger;
 
-        private int timeout;
+        private int timeout = 250;
         private DateTime nextSearch;
         public event EventHandler<DeviceEventArgs> DeviceFound;
         public event EventHandler<DeviceEventArgs> DeviceLost;
 
-        static PmpSearcher()
+        public PmpSearcher(ILogger logger)
         {
+            _logger = logger;
+
             CreateSocketsAndAddGateways();
         }
 
-        public static List<UdpClient> sockets;
-        protected static Dictionary<UdpClient, List<IPEndPoint>> gatewayLists;
+        public void Dispose()
+        {
+            var list = sockets.ToList();
+            sockets.Clear();
 
-        internal static void CreateSocketsAndAddGateways()
+            foreach (var s in list)
+            {
+                using (s)
+                {
+                    s.Close();
+                }
+            }
+        }
+
+        private List<UdpClient> sockets;
+        protected Dictionary<UdpClient, List<IPEndPoint>> gatewayLists;
+
+        private void CreateSocketsAndAddGateways()
         {
             sockets = new List<UdpClient>();
             gatewayLists = new Dictionary<UdpClient, List<IPEndPoint>>();
@@ -137,27 +149,22 @@ namespace Mono.Nat
             }
         }
 
-        PmpSearcher()
+        public async void Search()
         {
-            timeout = 250;
+            foreach (UdpClient s in sockets)
+            {
+                try
+                {
+                    await Search(s).ConfigureAwait(false);
+                }
+                catch
+                {
+                    // Ignore any search errors
+                }
+            }
         }
 
-        public async void Search()
-		{
-			foreach (UdpClient s in sockets)
-			{
-				try
-				{
-					await Search(s).ConfigureAwait(false);
-				}
-				catch
-				{
-					// Ignore any search errors
-				}
-			}
-		}
-
-		async Task Search (UdpClient client)
+        async Task Search(UdpClient client)
         {
             // Sort out the time for the next search first. The spec says the 
             // timeout should double after each attempt. Once it reaches 64 seconds
@@ -175,10 +182,10 @@ namespace Mono.Nat
 
             // The nat-pmp search message. Must be sent to GatewayIP:53531
             byte[] buffer = new byte[] { PmpConstants.Version, PmpConstants.OperationCode };
-		    foreach (IPEndPoint gatewayEndpoint in gatewayLists[client])
-		    {
-		        await client.SendAsync(buffer, buffer.Length, gatewayEndpoint).ConfigureAwait(false);
-		    }
+            foreach (IPEndPoint gatewayEndpoint in gatewayLists[client])
+            {
+                await client.SendAsync(buffer, buffer.Length, gatewayEndpoint).ConfigureAwait(false);
+            }
         }
 
         bool IsSearchAddress(IPAddress address)
@@ -202,12 +209,12 @@ namespace Mono.Nat
                 return;
             int errorcode = IPAddress.NetworkToHostOrder(BitConverter.ToInt16(response, 2));
             if (errorcode != 0)
-                NatUtility.Log("Non zero error: {0}", errorcode);
+                _logger.Debug("Non zero error: {0}", errorcode);
 
             IPAddress publicIp = new IPAddress(new byte[] { response[8], response[9], response[10], response[11] });
             nextSearch = DateTime.Now.AddMinutes(5);
             timeout = 250;
-            OnDeviceFound(new DeviceEventArgs(new PmpNatDevice(endpoint.Address, publicIp)));
+            OnDeviceFound(new DeviceEventArgs(new PmpNatDevice(endpoint.Address, publicIp, _logger)));
         }
 
         public DateTime NextSearch

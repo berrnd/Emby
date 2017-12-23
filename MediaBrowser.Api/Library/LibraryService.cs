@@ -350,7 +350,8 @@ namespace MediaBrowser.Api.Library
                     Fields = request.Fields,
                     Id = request.Id,
                     Limit = request.Limit,
-                    UserId = request.UserId
+                    UserId = request.UserId,
+                    ImageTypeLimit = request.ImageTypeLimit
                 });
             }
             if (item is MusicAlbum)
@@ -365,7 +366,8 @@ namespace MediaBrowser.Api.Library
                     Id = request.Id,
                     Limit = request.Limit,
                     UserId = request.UserId,
-                    ExcludeArtistIds = request.ExcludeArtistIds
+                    ExcludeArtistIds = request.ExcludeArtistIds,
+                    ImageTypeLimit = request.ImageTypeLimit
                 });
             }
             if (item is MusicArtist)
@@ -379,7 +381,8 @@ namespace MediaBrowser.Api.Library
                     Fields = request.Fields,
                     Id = request.Id,
                     Limit = request.Limit,
-                    UserId = request.UserId
+                    UserId = request.UserId,
+                    ImageTypeLimit = request.ImageTypeLimit
                 });
             }
 
@@ -396,7 +399,8 @@ namespace MediaBrowser.Api.Library
                     Fields = request.Fields,
                     Id = request.Id,
                     Limit = request.Limit,
-                    UserId = request.UserId
+                    UserId = request.UserId,
+                    ImageTypeLimit = request.ImageTypeLimit
                 });
             }
 
@@ -411,7 +415,8 @@ namespace MediaBrowser.Api.Library
                     Fields = request.Fields,
                     Id = request.Id,
                     Limit = request.Limit,
-                    UserId = request.UserId
+                    UserId = request.UserId,
+                    ImageTypeLimit = request.ImageTypeLimit
                 });
             }
 

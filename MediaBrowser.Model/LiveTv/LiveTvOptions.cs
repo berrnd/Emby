@@ -13,7 +13,6 @@ namespace MediaBrowser.Model.LiveTv
         public string RecordingEncodingFormat { get; set; }
         public bool EnableRecordingSubfolders { get; set; }
         public bool EnableOriginalAudioWithEncodedRecordings { get; set; }
-        public string RecordedVideoCodec { get; set; }
 
         public TunerHostInfo[] TunerHosts { get; set; }
         public ListingsProviderInfo[] ListingProviders { get; set; }
@@ -46,9 +45,9 @@ namespace MediaBrowser.Model.LiveTv
         public bool ImportFavoritesOnly { get; set; }
         public bool AllowHWTranscoding { get; set; }
         public bool EnableStreamLooping { get; set; }
-        public bool EnableMpDecimate { get; set; }
         public bool EnableNewHdhrChannelIds { get; set; }
         public string Source { get; set; }
+        public int TunerCount { get; set; }
 
         public TunerHostInfo()
         {

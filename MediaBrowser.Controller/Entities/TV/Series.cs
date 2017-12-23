@@ -64,6 +64,12 @@ namespace MediaBrowser.Controller.Entities.TV
             }
         }
 
+        [IgnoreDataMember]
+        public override bool SupportsPeople
+        {
+            get { return true; }
+        }
+
         public Guid[] LocalTrailerIds { get; set; }
         public Guid[] RemoteTrailerIds { get; set; }
 
@@ -209,23 +215,6 @@ namespace MediaBrowser.Controller.Entities.TV
             return list;
         }
 
-        [IgnoreDataMember]
-        public bool ContainsEpisodesWithoutSeasonFolders
-        {
-            get
-            {
-                var children = Children;
-                foreach (var child in children)
-                {
-                    if (child is Video)
-                    {
-                        return true;
-                    }
-                }
-                return false;
-            }
-        }
-
         public override List<BaseItem> GetChildren(User user, bool includeLinkedChildren)
         {
             return GetSeasons(user, new DtoOptions(true));
@@ -333,9 +322,6 @@ namespace MediaBrowser.Controller.Entities.TV
 
             var totalItems = items.Count;
             var numComplete = 0;
-
-            // Refresh current item
-            await RefreshMetadata(refreshOptions, cancellationToken).ConfigureAwait(false);
 
             // Refresh seasons
             foreach (var item in items)

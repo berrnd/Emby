@@ -18,7 +18,7 @@ namespace MediaBrowser.Providers.TV
 {
     public abstract class MovieDbProviderBase
     {
-        private const string EpisodeUrlPattern = @"https://api.themoviedb.org/3/tv/{0}/season/{1}/episode/{2}?api_key={3}&append_to_response=images,external_ids,credits,videos";
+        private const string EpisodeUrlPattern = MovieDbProvider.BaseMovieDbUrl + @"3/tv/{0}/season/{1}/episode/{2}?api_key={3}&append_to_response=images,external_ids,credits,videos";
         private readonly IHttpClient _httpClient;
         private readonly IServerConfigurationManager _configurationManager;
         private readonly IJsonSerializer _jsonSerializer;
@@ -125,7 +125,7 @@ namespace MediaBrowser.Providers.TV
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            using (var json = await MovieDbProvider.Current.GetMovieDbResponse(new HttpRequestOptions
+            using (var response = await MovieDbProvider.Current.GetMovieDbResponse(new HttpRequestOptions
             {
                 Url = url,
                 CancellationToken = cancellationToken,
@@ -133,7 +133,10 @@ namespace MediaBrowser.Providers.TV
 
             }).ConfigureAwait(false))
             {
-                return _jsonSerializer.DeserializeFromStream<RootObject>(json);
+                using (var json = response.Content)
+                {
+                    return _jsonSerializer.DeserializeFromStream<RootObject>(json);
+                }
             }
         }
 

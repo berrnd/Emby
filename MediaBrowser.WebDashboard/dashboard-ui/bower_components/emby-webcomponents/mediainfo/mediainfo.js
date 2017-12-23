@@ -1,4 +1,4 @@
-define(["datetime", "globalize", "appRouter", "itemHelper", "material-icons", "css!./mediainfo.css", "programStyles", "emby-linkbutton"], function(datetime, globalize, appRouter, itemHelper) {
+define(["datetime", "globalize", "appRouter", "itemHelper", "indicators", "material-icons", "css!./mediainfo.css", "programStyles", "emby-linkbutton"], function(datetime, globalize, appRouter, itemHelper, indicators) {
     "use strict";
 
     function getTimerIndicator(item) {
@@ -111,7 +111,7 @@ define(["datetime", "globalize", "appRouter", "itemHelper", "material-icons", "c
             var endsAt = getEndsAt(item);
             endsAt && (html += getMediaInfoItem(endsAt, "endsAt"))
         }
-        return html
+        return html += indicators.getMissingIndicator(item)
     }
 	
 	//myproduction-change-start
@@ -195,19 +195,15 @@ define(["datetime", "globalize", "appRouter", "itemHelper", "material-icons", "c
         return options = options || {}, null == options.interactive && (options.interactive = !1), "Program" === item.Type ? getProgramInfoHtml(item, options) : ""
     }
 
-    function getResolutionText(item) {
-        return item.MediaSources && item.MediaSources.length ? item.MediaSources[0].MediaStreams.filter(function(i) {
-            return "Video" === i.Type
-        }).map(function(i) {
-            if (i.Height) {
-                if (i.Width >= 3800) return "4K";
-                if (i.Width >= 2500) return i.IsInterlaced ? "1440I" : "1440P";
-                if (i.Width >= 1900) return i.IsInterlaced ? "1080I" : "1080P";
-                if (i.Width >= 1260) return i.IsInterlaced ? "720I" : "720P";
-                if (i.Width >= 700) return i.IsInterlaced ? "480I" : "480P"
-            }
-            return null
-        })[0] : null
+    function getResolutionText(i) {
+        if (i.Width) {
+            if (i.Width >= 3800) return "4K";
+            if (i.Width >= 2500) return i.IsInterlaced ? "1440i" : "1440P";
+            if (i.Width >= 1900) return i.IsInterlaced ? "1080i" : "1080P";
+            if (i.Width >= 1260) return i.IsInterlaced ? "720i" : "720P";
+            if (i.Width >= 700) return i.IsInterlaced ? "480i" : "480P"
+        }
+        return null
     }
 
     function getAudioStreamForDisplay(item) {
@@ -233,7 +229,7 @@ define(["datetime", "globalize", "appRouter", "itemHelper", "material-icons", "c
             type: "mediainfo",
             text: "BluRay"
         });
-        var resolutionText = getResolutionText(item);
+        var resolutionText = getResolutionText(videoStream);
         resolutionText && list.push({
             type: "mediainfo",
             text: resolutionText
@@ -271,6 +267,7 @@ define(["datetime", "globalize", "appRouter", "itemHelper", "material-icons", "c
         getSecondaryMediaInfoHtml: getSecondaryMediaInfoHtml,
         fillPrimaryMediaInfo: fillPrimaryMediaInfo,
         fillSecondaryMediaInfo: fillSecondaryMediaInfo,
-        getMediaInfoStats: getMediaInfoStats
+        getMediaInfoStats: getMediaInfoStats,
+        getResolutionText: getResolutionText
     }
 });

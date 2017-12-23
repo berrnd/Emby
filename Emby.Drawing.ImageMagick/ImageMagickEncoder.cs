@@ -149,7 +149,7 @@ namespace Emby.Drawing.ImageMagick
 
                     var originalImageSize = new ImageSize(originalImage.CurrentImage.Width, originalImage.CurrentImage.Height);
 
-                    if (!options.CropWhiteSpace && options.HasDefaultOptions(inputPath, originalImageSize))
+                    if (!options.CropWhiteSpace && options.HasDefaultOptions(inputPath, originalImageSize) && !autoOrient)
                     {
                         // Just spit out the original file if all the options are default
                         return inputPath;
@@ -172,6 +172,8 @@ namespace Emby.Drawing.ImageMagick
 
                     originalImage.CurrentImage.CompressionQuality = quality;
                     originalImage.CurrentImage.StripImage();
+
+                    _fileSystem.CreateDirectory(_fileSystem.GetDirectoryName(outputPath));
 
                     originalImage.SaveImage(outputPath);
                 }

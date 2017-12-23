@@ -226,7 +226,19 @@ namespace MediaBrowser.LocalMetadata.Savers
 
             if (wasHidden || ConfigurationManager.Configuration.SaveMetadataHidden)
             {
-                FileSystem.SetHidden(path, true);
+                SetHidden(path, true);
+            }
+        }
+
+        private void SetHidden(string path, bool hidden)
+        {
+            try
+            {
+                FileSystem.SetHidden(path, hidden);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Error setting hidden attribute on {0} - {1}", path, ex.Message);
             }
         }
 
@@ -616,7 +628,7 @@ namespace MediaBrowser.LocalMetadata.Savers
             writer.WriteEndElement();
         }
 
-        private static bool IsPersonType(PersonInfo person, string type)
+        private bool IsPersonType(PersonInfo person, string type)
         {
             return string.Equals(person.Type, type, StringComparison.OrdinalIgnoreCase) || string.Equals(person.Role, type, StringComparison.OrdinalIgnoreCase);
         }

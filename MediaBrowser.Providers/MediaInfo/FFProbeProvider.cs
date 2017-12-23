@@ -34,7 +34,6 @@ namespace MediaBrowser.Providers.MediaInfo
         ICustomMetadataProvider<Audio>,
         ICustomMetadataProvider<AudioPodcast>,
         ICustomMetadataProvider<AudioBook>,
-        IHasItemChangeMonitor,
         IHasOrder,
         IForcedProvider,
         IPreRefreshProvider
@@ -154,7 +153,6 @@ namespace MediaBrowser.Providers.MediaInfo
             if (item.IsShortcut)
             {
                 FetchShortcutInfo(item);
-                return Task.FromResult(ItemUpdateType.MetadataImport);
             }
 
             var prober = new FFProbeVideoInfo(_logger, _isoManager, _mediaEncoder, _itemRepo, _blurayExaminer, _localization, _appPaths, _json, _encodingManager, _fileSystem, _config, _subtitleManager, _chapterManager, _libraryManager);
@@ -164,7 +162,11 @@ namespace MediaBrowser.Providers.MediaInfo
 
         private void FetchShortcutInfo(Video video)
         {
-			video.ShortcutPath = _fileSystem.ReadAllText(video.Path);
+			video.ShortcutPath = _fileSystem.ReadAllText(video.Path)
+                .Replace("\t", string.Empty)
+                .Replace("\r", string.Empty)
+                .Replace("\n", string.Empty)
+                .Trim();
         }
 
         public Task<ItemUpdateType> FetchAudioInfo<T>(T item, CancellationToken cancellationToken)
@@ -178,32 +180,6 @@ namespace MediaBrowser.Providers.MediaInfo
             var prober = new FFProbeAudioInfo(_mediaEncoder, _itemRepo, _appPaths, _json, _libraryManager);
 
             return prober.Probe(item, cancellationToken);
-        }
-
-        public bool HasChanged(IHasMetadata item, IDirectoryService directoryService)
-        {
-            if (item.EnableRefreshOnDateModifiedChange && !string.IsNullOrWhiteSpace(item.Path) && item.LocationType == LocationType.FileSystem)
-            {
-                var file = directoryService.GetFile(item.Path);
-                if (file != null && file.LastWriteTimeUtc != item.DateModified)
-                {
-                    return true;
-                }
-            }
-
-            if (item.SupportsLocalMetadata)
-            {
-                var video = item as Video;
-
-                if (video != null && !video.IsPlaceHolder)
-                {
-                    return !video.SubtitleFiles
-                        .SequenceEqual(SubtitleResolver.GetSubtitleFiles(video, directoryService, _fileSystem, false)
-                        .OrderBy(i => i), StringComparer.OrdinalIgnoreCase);
-                }
-            }
-
-            return false;
         }
 
         public int Order

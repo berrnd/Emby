@@ -128,6 +128,8 @@ namespace MediaBrowser.Controller.Library
         /// </summary>
         void QueueLibraryScan();
 
+        void UpdateImages(BaseItem item);
+
         /// <summary>
         /// Gets the default view.
         /// </summary>
@@ -193,16 +195,12 @@ namespace MediaBrowser.Controller.Library
         /// <summary>
         /// Creates the item.
         /// </summary>
-        /// <param name="item">The item.</param>
-        /// <param name="cancellationToken">The cancellation token.</param>
         void CreateItem(BaseItem item, CancellationToken cancellationToken);
 
         /// <summary>
         /// Creates the items.
         /// </summary>
-        /// <param name="items">The items.</param>
-        /// <param name="cancellationToken">The cancellation token.</param>
-        void CreateItems(IEnumerable<BaseItem> items, CancellationToken cancellationToken);
+        void CreateItems(IEnumerable<BaseItem> items, BaseItem parent, CancellationToken cancellationToken);
 
         /// <summary>
         /// Updates the item.
@@ -235,8 +233,7 @@ namespace MediaBrowser.Controller.Library
         /// <summary>
         /// Reports the item removed.
         /// </summary>
-        /// <param name="item">The item.</param>
-        void ReportItemRemoved(BaseItem item);
+        void ReportItemRemoved(BaseItem item, BaseItem parent);
 
 		//myproduction-change-start
 		event EventHandler<PlaybackProgressEventArgs> ItemDownloaded;

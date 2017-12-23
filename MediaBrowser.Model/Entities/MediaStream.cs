@@ -2,15 +2,14 @@
 using System.Collections.Generic;
 using MediaBrowser.Model.Dlna;
 using MediaBrowser.Model.Extensions;
-using System.Diagnostics;
 using MediaBrowser.Model.MediaInfo;
+using System.Globalization;
 
 namespace MediaBrowser.Model.Entities
 {
     /// <summary>
     /// Class MediaStream
     /// </summary>
-    [DebuggerDisplay("StreamType = {Type}")]
     public class MediaStream
     {
         /// <summary>
@@ -46,13 +45,13 @@ namespace MediaBrowser.Model.Entities
         {
             get
             {
-                if (!string.IsNullOrEmpty(Title))
-                {
-                    return AddLanguageIfNeeded(Title);
-                }
-
                 if (Type == MediaStreamType.Audio)
                 {
+                    //if (!string.IsNullOrEmpty(Title))
+                    //{
+                    //    return AddLanguageIfNeeded(Title);
+                    //}
+
                     List<string> attributes = new List<string>();
 
                     if (!string.IsNullOrEmpty(Language))
@@ -74,7 +73,7 @@ namespace MediaBrowser.Model.Entities
                     }
                     else if (Channels.HasValue)
                     {
-                        attributes.Add(StringHelper.ToStringCultureInvariant(Channels.Value) + " ch");
+                        attributes.Add(Channels.Value.ToString(CultureInfo.InvariantCulture) + " ch");
                     }
                     if (IsDefault)
                     {
@@ -84,8 +83,32 @@ namespace MediaBrowser.Model.Entities
                     return string.Join(" ", attributes.ToArray(attributes.Count));
                 }
 
+                if (Type == MediaStreamType.Video)
+                {
+                    List<string> attributes = new List<string>();
+
+                    var resolutionText = GetResolutionText();
+
+                    if (!string.IsNullOrEmpty(resolutionText))
+                    {
+                        attributes.Add(resolutionText);
+                    }
+
+                    if (!string.IsNullOrEmpty(Codec))
+                    {
+                        attributes.Add(Codec.ToUpper());
+                    }
+
+                    return string.Join(" ", attributes.ToArray(attributes.Count));
+                }
+
                 if (Type == MediaStreamType.Subtitle)
                 {
+                    //if (!string.IsNullOrEmpty(Title))
+                    //{
+                    //    return AddLanguageIfNeeded(Title);
+                    //}
+
                     List<string> attributes = new List<string>();
 
                     if (!string.IsNullOrEmpty(Language))
@@ -119,6 +142,54 @@ namespace MediaBrowser.Model.Entities
 
                 return null;
             }
+        }
+
+        private string GetResolutionText()
+        {
+            var i = this;
+
+            if (i.Width.HasValue)
+            {
+                if (i.Width >= 3800)
+                {
+                    return "4K";
+                }
+                if (i.Width >= 2500)
+                {
+                    if (i.IsInterlaced)
+                    {
+                        return "1440I";
+                    }
+                    return "1440P";
+                }
+                if (i.Width >= 1900)
+                {
+                    if (i.IsInterlaced)
+                    {
+                        return "1080I";
+                    }
+                    return "1080P";
+                }
+                if (i.Width >= 1260)
+                {
+                    if (i.IsInterlaced)
+                    {
+                        return "720I";
+                    }
+                    return "720P";
+                }
+                if (i.Width >= 700)
+                {
+
+                    if (i.IsInterlaced)
+                    {
+                        return "480I";
+                    }
+                    return "480P";
+                }
+
+            }
+            return null;
         }
 
         private string AddLanguageIfNeeded(string title)
@@ -304,9 +375,9 @@ namespace MediaBrowser.Model.Entities
 
             // sub = external .sub file
 
-            return StringHelper.IndexOfIgnoreCase(codec, "pgs") == -1 &&
-                   StringHelper.IndexOfIgnoreCase(codec, "dvd") == -1 &&
-                   StringHelper.IndexOfIgnoreCase(codec, "dvbsub") == -1 &&
+            return codec.IndexOf("pgs", StringComparison.OrdinalIgnoreCase) == -1 &&
+                   codec.IndexOf("dvd", StringComparison.OrdinalIgnoreCase) == -1 &&
+                   codec.IndexOf("dvbsub", StringComparison.OrdinalIgnoreCase) == -1 &&
                    !StringHelper.EqualsIgnoreCase(codec, "sub") &&
                    !StringHelper.EqualsIgnoreCase(codec, "dvb_subtitle");
         }

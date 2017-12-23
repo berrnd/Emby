@@ -24,6 +24,7 @@ using MediaBrowser.Model.System;
 using MediaBrowser.Model.Threading;
 using Rssdp;
 using Rssdp.Infrastructure;
+using System.Threading;
 
 namespace Emby.Dlna.Main
 {
@@ -47,7 +48,6 @@ namespace Emby.Dlna.Main
 
         private readonly IDeviceDiscovery _deviceDiscovery;
 
-        private bool _ssdpHandlerStarted;
         private bool _dlnaServerStarted;
         private SsdpDevicePublisher _Publisher;
 
@@ -98,18 +98,7 @@ namespace Emby.Dlna.Main
 
             ReloadComponents();
 
-            _config.ConfigurationUpdated += _config_ConfigurationUpdated;
             _config.NamedConfigurationUpdated += _config_NamedConfigurationUpdated;
-        }
-
-        private bool _lastEnableUpnP;
-        void _config_ConfigurationUpdated(object sender, EventArgs e)
-        {
-            if (_lastEnableUpnP != _config.Configuration.EnableUPnP)
-            {
-                ReloadComponents();
-            }
-            _lastEnableUpnP = _config.Configuration.EnableUPnP;
         }
 
         void _config_NamedConfigurationUpdated(object sender, ConfigurationUpdateEventArgs e)
@@ -124,10 +113,7 @@ namespace Emby.Dlna.Main
         {
             var options = _config.GetDlnaConfiguration();
 
-            if (!_ssdpHandlerStarted)
-            {
-                StartSsdpHandler();
-            }
+            StartSsdpHandler();
 
             var isServerStarted = _dlnaServerStarted;
 
@@ -164,12 +150,11 @@ namespace Emby.Dlna.Main
                     {
                         IsShared = true
                     };
+
+                    StartPublishing(_communicationsServer);
+
+                    StartDeviceDiscovery(_communicationsServer);
                 }
-
-                StartPublishing(_communicationsServer);
-                _ssdpHandlerStarted = true;
-
-                StartDeviceDiscovery(_communicationsServer);
             }
             catch (Exception ex)
             {
@@ -184,8 +169,8 @@ namespace Emby.Dlna.Main
 
         private void StartPublishing(ISsdpCommunicationsServer communicationsServer)
         {
-            SsdpDevicePublisherBase.LogFunction = LogMessage;
             _Publisher = new SsdpDevicePublisher(communicationsServer, _timerFactory, _environmentInfo.OperatingSystemName, _environmentInfo.OperatingSystemVersion);
+            _Publisher.LogFunction = LogMessage;
         }
 
         private void StartDeviceDiscovery(ISsdpCommunicationsServer communicationsServer)
@@ -219,8 +204,6 @@ namespace Emby.Dlna.Main
             try
             {
                 ((DeviceDiscovery)_deviceDiscovery).Dispose();
-
-                _ssdpHandlerStarted = false;
             }
             catch (Exception ex)
             {
@@ -252,7 +235,7 @@ namespace Emby.Dlna.Main
             var cacheLength = _config.GetDlnaConfiguration().BlastAliveMessageIntervalSeconds;
             _Publisher.SupportPnpRootDevice = false;
 
-            var addresses = (await _appHost.GetLocalIpAddresses().ConfigureAwait(false)).ToList();
+            var addresses = (await _appHost.GetLocalIpAddresses(CancellationToken.None).ConfigureAwait(false)).ToList();
 
             var udn = CreateUuid(_appHost.SystemId);
 
@@ -401,21 +384,6 @@ namespace Emby.Dlna.Main
         {
             if (_Publisher != null)
             {
-                var devices = _Publisher.Devices.ToList();
-                var tasks = devices.Select(i => _Publisher.RemoveDevice(i)).ToArray();
-
-                Task.WaitAll(tasks);
-                //foreach (var device in devices)
-                //{
-                //    try
-                //    {
-                //        _Publisher.RemoveDevice(device);
-                //    }
-                //    catch (Exception ex)
-                //    {
-                //        _logger.ErrorException("Error sending bye bye", ex);
-                //    }
-                //}
                 _Publisher.Dispose();
             }
 

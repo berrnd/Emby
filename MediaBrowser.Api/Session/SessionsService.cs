@@ -10,6 +10,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MediaBrowser.Model.Services;
+using MediaBrowser.Controller;
 
 namespace MediaBrowser.Api.Session
 {
@@ -65,7 +66,7 @@ namespace MediaBrowser.Api.Session
 
     [Route("/Sessions/{Id}/Playing", "POST", Summary = "Instructs a session to play an item")]
     [Authenticated]
-    public class Play : IReturnVoid
+    public class Play : PlayRequest
     {
         /// <summary>
         /// Gets or sets the id.
@@ -73,27 +74,6 @@ namespace MediaBrowser.Api.Session
         /// <value>The id.</value>
         [ApiMember(Name = "Id", Description = "Session Id", IsRequired = true, DataType = "string", ParameterType = "path", Verb = "POST")]
         public string Id { get; set; }
-
-        /// <summary>
-        /// Artist, Genre, Studio, Person, or any kind of BaseItem
-        /// </summary>
-        /// <value>The type of the item.</value>
-        [ApiMember(Name = "ItemIds", Description = "The ids of the items to play, comma delimited", IsRequired = true, DataType = "string", ParameterType = "query", Verb = "POST", AllowMultiple = true)]
-        public string ItemIds { get; set; }
-
-        /// <summary>
-        /// Gets or sets the start position ticks that the first item should be played at
-        /// </summary>
-        /// <value>The start position ticks.</value>
-        [ApiMember(Name = "StartPositionTicks", Description = "The starting position of the first item.", IsRequired = false, DataType = "string", ParameterType = "query", Verb = "POST")]
-        public long? StartPositionTicks { get; set; }
-
-        /// <summary>
-        /// Gets or sets the play command.
-        /// </summary>
-        /// <value>The play command.</value>
-        [ApiMember(Name = "PlayCommand", Description = "The type of play command to issue (PlayNow, PlayNext, PlayLast). Clients who have not yet implemented play next and play last may play now.", IsRequired = true, DataType = "string", ParameterType = "query", Verb = "POST")]
-        public PlayCommand PlayCommand { get; set; }
     }
 
     [Route("/Sessions/{Id}/Playing/{Command}", "POST", Summary = "Issues a playstate command to a client")]
@@ -293,15 +273,9 @@ namespace MediaBrowser.Api.Session
         private readonly IAuthenticationRepository _authRepo;
         private readonly IDeviceManager _deviceManager;
         private readonly ISessionContext _sessionContext;
+        private IServerApplicationHost _appHost;
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="SessionsService" /> class.
-        /// </summary>
-        /// <param name="sessionManager">The session manager.</param>
-        /// <param name="userManager">The user manager.</param>
-        /// <param name="authContext">The authentication context.</param>
-        /// <param name="authRepo">The authentication repo.</param>
-        public SessionsService(ISessionManager sessionManager, IUserManager userManager, IAuthorizationContext authContext, IAuthenticationRepository authRepo, IDeviceManager deviceManager, ISessionContext sessionContext)
+        public SessionsService(ISessionManager sessionManager, IServerApplicationHost appHost, IUserManager userManager, IAuthorizationContext authContext, IAuthenticationRepository authRepo, IDeviceManager deviceManager, ISessionContext sessionContext)
         {
             _sessionManager = sessionManager;
             _userManager = userManager;
@@ -309,6 +283,7 @@ namespace MediaBrowser.Api.Session
             _authRepo = authRepo;
             _deviceManager = deviceManager;
             _sessionContext = sessionContext;
+            _appHost = appHost;
         }
 
         public void Delete(RevokeKey request)
@@ -324,7 +299,10 @@ namespace MediaBrowser.Api.Session
                 AppName = request.App,
                 IsActive = true,
                 AccessToken = Guid.NewGuid().ToString("N"),
-                DateCreated = DateTime.UtcNow
+                DateCreated = DateTime.UtcNow,
+                DeviceId = _appHost.SystemId,
+                DeviceName = _appHost.FriendlyName,
+                AppVersion = _appHost.ApplicationVersion.ToString()
 
             }, CancellationToken.None);
         }
@@ -472,15 +450,7 @@ namespace MediaBrowser.Api.Session
         /// <param name="request">The request.</param>
         public void Post(Play request)
         {
-            var command = new PlayRequest
-            {
-                ItemIds = request.ItemIds.Split(','),
-
-                PlayCommand = request.PlayCommand,
-                StartPositionTicks = request.StartPositionTicks
-            };
-
-            var task = _sessionManager.SendPlayCommand(GetSession(_sessionContext).Result.Id, request.Id, command, CancellationToken.None);
+            var task = _sessionManager.SendPlayCommand(GetSession(_sessionContext).Result.Id, request.Id, request, CancellationToken.None);
 
             Task.WaitAll(task);
         }

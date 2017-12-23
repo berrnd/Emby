@@ -11,6 +11,7 @@ using MediaBrowser.Controller.Net;
 using MediaBrowser.Model.Globalization;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Extensions;
+using MediaBrowser.Controller;
 
 namespace MediaBrowser.WebDashboard.Api
 {
@@ -21,14 +22,16 @@ namespace MediaBrowser.WebDashboard.Api
         private readonly IServerConfigurationManager _config;
         private readonly IMemoryStreamFactory _memoryStreamFactory;
         private readonly string _basePath;
+        private IResourceFileManager _resourceFileManager;
 
-        public PackageCreator(string basePath, IFileSystem fileSystem, ILogger logger, IServerConfigurationManager config, IMemoryStreamFactory memoryStreamFactory)
+        public PackageCreator(string basePath, IFileSystem fileSystem, ILogger logger, IServerConfigurationManager config, IMemoryStreamFactory memoryStreamFactory, IResourceFileManager resourceFileManager)
         {
             _fileSystem = fileSystem;
             _logger = logger;
             _config = config;
             _memoryStreamFactory = memoryStreamFactory;
             _basePath = basePath;
+            _resourceFileManager = resourceFileManager;
         }
 
         public async Task<Stream> GetResource(string virtualPath,
@@ -63,32 +66,6 @@ namespace MediaBrowser.WebDashboard.Api
             return Path.GetExtension(path).EndsWith(format, StringComparison.OrdinalIgnoreCase);
         }
 
-        /// <summary>
-        /// Gets the dashboard resource path.
-        /// </summary>
-        /// <returns>System.String.</returns>
-        public string GetResourcePath(string virtualPath)
-        {
-            var fullPath = Path.Combine(_basePath, virtualPath.Replace('/', _fileSystem.DirectorySeparatorChar));
-
-            try
-            {
-                fullPath = _fileSystem.GetFullPath(fullPath);
-            }
-            catch (Exception ex)
-            {
-                _logger.ErrorException("Error in Path.GetFullPath", ex);
-            }
-
-            // Don't allow file system access outside of the source folder
-            if (!_fileSystem.ContainsSubPath(_basePath, fullPath))
-            {
-                throw new SecurityException("Access denied");
-            }
-
-            return fullPath;
-        }
-
         public bool IsCoreHtml(string path)
         {
             if (path.IndexOf(".template.html", StringComparison.OrdinalIgnoreCase) != -1)
@@ -96,11 +73,7 @@ namespace MediaBrowser.WebDashboard.Api
                 return false;
             }
 
-            path = GetResourcePath(path);
-            var parent = _fileSystem.GetDirectoryName(path);
-            
-            return string.Equals(_basePath, parent, StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(Path.Combine(_basePath, "offline"), parent, StringComparison.OrdinalIgnoreCase);
+            return IsFormat(path, "html");
         }
 
         /// <summary>
@@ -139,7 +112,7 @@ namespace MediaBrowser.WebDashboard.Api
                                 html = html.Substring(0, index);
                             }
                         }
-                        var mainFile = _fileSystem.ReadAllText(GetResourcePath("index.html"));
+                        var mainFile = _resourceFileManager.ReadAllText(_basePath, "index.html");
 
                         html = ReplaceFirst(mainFile, "<div class=\"mainAnimatedPages skinBody\"></div>", "<div class=\"mainAnimatedPages skinBody hide\">" + html + "</div>");
                     }
@@ -152,7 +125,7 @@ namespace MediaBrowser.WebDashboard.Api
                     }
                 }
 
-                html = html.Replace("<head>", "<head>" + GetMetaTags(mode) + GetCommonCss(mode, appVersion));
+                html = html.Replace("<head>", "<head>" + GetMetaTags(mode));
 
 				//myproduction-change-start
 				//Allow script tags in html templates
@@ -186,7 +159,7 @@ namespace MediaBrowser.WebDashboard.Api
         /// Gets the meta tags.
         /// </summary>
         /// <returns>System.String.</returns>
-        private static string GetMetaTags(string mode)
+        private string GetMetaTags(string mode)
         {
             var sb = new StringBuilder();
 
@@ -203,7 +176,16 @@ namespace MediaBrowser.WebDashboard.Api
             sb.Append("<link rel=\"manifest\" href=\"manifest.json\">");
             sb.Append("<meta name=\"format-detection\" content=\"telephone=no\">");
             sb.Append("<meta name=\"msapplication-tap-highlight\" content=\"no\">");
-            sb.Append("<meta name=\"viewport\" content=\"user-scalable=no, initial-scale=1, maximum-scale=1, minimum-scale=1, width=device-width\">");
+
+            if (string.Equals(mode, "cordova", StringComparison.OrdinalIgnoreCase))
+            {
+                sb.Append("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no\">");
+            }
+            else
+            {
+                sb.Append("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, minimum-scale=1\">");
+            }
+
             sb.Append("<meta name=\"apple-mobile-web-app-capable\" content=\"yes\">");
             sb.Append("<meta name=\"mobile-web-app-capable\" content=\"yes\">");
             sb.Append("<meta name=\"application-name\" content=\"Emby\">");
@@ -230,26 +212,6 @@ namespace MediaBrowser.WebDashboard.Api
             sb.Append("<meta name=\"theme-color\" content=\"#43A047\">");
 
             return sb.ToString();
-        }
-
-        /// <summary>
-        /// Gets the common CSS.
-        /// </summary>
-        /// <param name="mode">The mode.</param>
-        /// <param name="version">The version.</param>
-        /// <returns>System.String.</returns>
-        private string GetCommonCss(string mode, string version)
-        {
-            var versionString = string.IsNullOrWhiteSpace(mode) ? "?v=" + version : string.Empty;
-
-            var files = new[]
-                            {
-                                      "css/site.css" + versionString
-                            };
-
-            var tags = files.Select(s => string.Format("<link rel=\"stylesheet\" href=\"{0}\" async />", s)).ToArray();
-
-            return string.Join(string.Empty, tags);
         }
 
         /// <summary>
@@ -298,7 +260,7 @@ namespace MediaBrowser.WebDashboard.Api
         /// </summary>
         private Stream GetRawResourceStream(string virtualPath)
         {
-            return _fileSystem.GetFileStream(GetResourcePath(virtualPath), FileOpenMode.Open, FileAccessMode.Read, FileShareMode.ReadWrite, true);
+            return _resourceFileManager.GetResourceFileStream(_basePath, virtualPath);
         }
 
     }

@@ -46,7 +46,6 @@ namespace MediaBrowser.Model.Configuration
         /// </summary>
         /// <value><c>true</c> if [use HTTPS]; otherwise, <c>false</c>.</value>
         public bool EnableHttps { get; set; }
-        public bool EnableLocalizedGuids { get; set; }
         public bool EnableNormalizedItemByNameIds { get; set; }
 
         /// <summary>
@@ -61,6 +60,8 @@ namespace MediaBrowser.Model.Configuration
         /// </summary>
         /// <value><c>true</c> if this instance is port authorized; otherwise, <c>false</c>.</value>
         public bool IsPortAuthorized { get; set; }
+
+        public bool AutoRunWebApp { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether [enable case sensitive item ids].
@@ -183,6 +184,7 @@ namespace MediaBrowser.Model.Configuration
         public bool EnableExternalContentInSuggestions { get; set; }
         public bool RequireHttps { get; set; }
         public bool IsBehindProxy { get; set; }
+        public bool EnableNewOmdbSupport { get; set; }
 
         public int ImageExtractionTimeoutMs { get; set; }
 
@@ -197,7 +199,6 @@ namespace MediaBrowser.Model.Configuration
             LocalNetworkAddresses = new string[] { };
             CodecsUsed = new string[] { };
             ImageExtractionTimeoutMs = 0;
-            EnableLocalizedGuids = true;
             PathSubstitutions = new PathSubstitution[] { };
             EnableSimpleArtistDetection = true;
 
@@ -343,8 +344,8 @@ namespace MediaBrowser.Model.Configuration
                             Type = ImageType.Logo
                         }
                     },
-
-                    DisabledImageFetchers = new [] {"FanArt"}
+                    DisabledMetadataFetchers = new []{ "The Open Movie Database" },
+                    DisabledImageFetchers = new []{ "The Open Movie Database", "FanArt" }
                 },
 
                 new MetadataOptions(1, 1280)
@@ -389,7 +390,9 @@ namespace MediaBrowser.Model.Configuration
                             Limit = 1,
                             Type = ImageType.Logo
                         }
-                    }
+                    },
+                    DisabledMetadataFetchers = new []{ "TheMovieDb" },
+                    DisabledImageFetchers = new []{ "TheMovieDb" }
                 },
 
                 new MetadataOptions(1, 1280)

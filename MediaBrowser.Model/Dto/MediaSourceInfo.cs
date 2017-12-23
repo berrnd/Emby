@@ -14,6 +14,9 @@ namespace MediaBrowser.Model.Dto
 
         public string Path { get; set; }
 
+        public string EncoderPath { get; set; }
+        public MediaProtocol? EncoderProtocol { get; set; }
+
         public MediaSourceType Type { get; set; }
 
         public string Container { get; set; }
@@ -40,7 +43,6 @@ namespace MediaBrowser.Model.Dto
         public string OpenToken { get; set; }
         public bool RequiresClosing { get; set; }
         public bool SupportsProbing { get; set; }
-        public bool EnableMpDecimate { get; set; }
         public string LiveStreamId { get; set; }
         public int? BufferMs { get; set; }
 

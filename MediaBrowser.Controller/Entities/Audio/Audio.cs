@@ -61,6 +61,12 @@ namespace MediaBrowser.Controller.Entities.Audio
         }
 
         [IgnoreDataMember]
+        public override bool SupportsPeople
+        {
+            get { return false; }
+        }
+
+        [IgnoreDataMember]
         public override bool SupportsAddingToPlaylist
         {
             get { return true; }
@@ -252,7 +258,7 @@ namespace MediaBrowser.Controller.Entities.Audio
             return result;
         }
 
-        private static MediaSourceInfo GetVersionInfo(Audio i, bool enablePathSubstituion)
+        private MediaSourceInfo GetVersionInfo(Audio i, bool enablePathSubstituion)
         {
             var locationType = i.LocationType;
 

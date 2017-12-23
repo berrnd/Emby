@@ -1,7 +1,7 @@
 ﻿<div id="itemDetailPage" data-role="page" class="page libraryPage itemDetailPage noSecondaryNavPage selfBackdropPage" data-backbutton="true">
 
     <style>
-        @media all and (min-width: 1000px) {
+        @media all and (min-width: 62.5em) {
 
             .itemBackdrop {
                 display: none;
@@ -26,18 +26,42 @@
 
                 <div class="detailSection" style="margin-bottom: 0;">
 
-                    <h1 class="parentName" style="margin: .25em 0;"></h1>
-                    <h1 class="itemName" style="margin: .5em 0;"></h1>
-
-                    <div class="itemMiscInfo itemMiscInfo-primary" style="margin: 1em 0;">
+                    <div class="nameContainer">
 
                     </div>
 
-                    <div class="itemMiscInfo itemMiscInfo-secondary" style="margin: 1em 0;">
+                    <div class="itemMiscInfo itemMiscInfo-primary" style="margin: .7em 0;font-size:92%;">
 
                     </div>
 
-                    <div class="mainDetailButtons mainDetailButtons-mobile">
+                    <div class="itemMiscInfo itemMiscInfo-secondary" style="margin: .7em 0;font-size:92%;">
+
+                    </div>
+
+                    <div class="genres hide" style="margin: .7em 0;font-size:92%;">
+
+                    </div>
+
+                    <div class="directors hide" style="margin: .7em 0;font-size:92%;">
+
+                    </div>
+
+                    <form class="trackSelections flex align-items-center flex-wrap-wrap hide focuscontainer-x" style="margin: .5em 0;font-size:92%; padding: 0;">
+                        <div class="selectContainer selectContainer-inline selectSourceContainer hide trackSelectionFieldContainer flex-shrink-zero" style="margin-right:1.5em;">
+                            <select is="emby-select" class="selectSource detailTrackSelect" label=""></select>
+                        </div>
+                        <div class="selectContainer selectContainer-inline selectVideoContainer hide trackSelectionFieldContainer flex-shrink-zero" style="margin-right:1.5em;">
+                            <select is="emby-select" class="selectVideo detailTrackSelect" label=""></select>
+                        </div>
+                        <div class="selectContainer selectContainer-inline selectAudioContainer hide trackSelectionFieldContainer flex-shrink-zero" style="margin-right:1.5em;">
+                            <select is="emby-select" class="selectAudio detailTrackSelect" label=""></select>
+                        </div>
+                        <div class="selectContainer selectContainer-inline selectSubtitlesContainer hide trackSelectionFieldContainer">
+                            <select is="emby-select" class="selectSubtitles detailTrackSelect" label=""></select>
+                        </div>
+                    </form>
+
+                    <div class="mainDetailButtons">
 
                         <button is="emby-button" type="button" class="button-flat btnResume btnPlaySimple hide detailButton-mobile" data-mode="resume">
                             <div class="detailButton-mobile-content">
@@ -59,6 +83,22 @@
                                 <div class="detailButton-mobile-text">${ButtonTrailer}</div>
                             </div>
                         </button>
+						
+						<!--myproduction-change-start-->
+						<!--Added download and stream in external player button-->
+						<button is="emby-button" type="button" class="button-flat btnDownload hide detailButton-mobile" onclick="window.LibraryBrowser.ExecuteItemDetailsPageDownload();">
+                            <div class="detailButton-mobile-content">
+                                <i class="md-icon detailButton-mobile-icon">file_download</i>
+                                <div class="detailButton-mobile-text">Download</div>
+                            </div>
+                        </button>
+						<button is="emby-button" type="button" class="button-flat btnStreamExternal hide detailButton-mobile" onclick="window.LibraryBrowser.ExecuteItemDetailsPageExternalStream();">
+                            <div class="detailButton-mobile-content">
+                                <i class="md-icon detailButton-mobile-icon">play_arrow</i>
+                                <div class="detailButton-mobile-text">In externem Player abspielen</div>
+                            </div>
+                        </button>
+						<!--myproduction-change-end-->
 
                         <button is="emby-button" type="button" class="button-flat btnInstantMix hide detailButton-mobile">
                             <div class="detailButton-mobile-content">
@@ -78,13 +118,6 @@
                             <div class="detailButton-mobile-content">
                                 <i class="md-icon detailButton-mobile-icon">&#xE2C4;</i>
                                 <div class="detailButton-mobile-text emby-downloadbutton-downloadtext">${ButtonDownload}</div>
-                            </div>
-                        </button>
-
-                        <button is="emby-button" type="button" class="button-flat btnMoreCommands hide detailButton-mobile">
-                            <div class="detailButton-mobile-content">
-                                <i class="md-icon detailButton-mobile-icon">&#xE5D4;</i>
-                                <div class="detailButton-mobile-text">${ButtonMore}</div>
                             </div>
                         </button>
 
@@ -111,60 +144,25 @@
 
                         <button is="emby-playstatebutton" type="button" class="button-flat btnPlaystate hide detailButton-mobile">
                             <div class="detailButton-mobile-content">
-                                <i class="md-icon detailButton-mobile-icon">&#xE5CA;</i>
-                                <div class="detailButton-mobile-text"></div>
+                                <i class="md-icon detailButton-mobile-icon always notext">&#xE5CA;</i>
+                                <div class="detailButton-mobile-text texthide button-text"></div>
                             </div>
                         </button>
 
                         <button is="emby-ratingbutton" type="button" class="button-flat btnUserRating hide detailButton-mobile">
                             <div class="detailButton-mobile-content">
-                                <i class="md-icon detailButton-mobile-icon">&#xE87D;</i>
-                                <div class="detailButton-mobile-text">${Rate}</div>
+                                <i class="md-icon detailButton-mobile-icon always notext">&#xE87D;</i>
+                                <div class="detailButton-mobile-text texthide button-text">${Rate}</div>
+                            </div>
+                        </button>
+
+                        <button is="emby-button" type="button" class="button-flat btnMoreCommands hide detailButton-mobile">
+                            <div class="detailButton-mobile-content">
+                                <i class="md-icon detailButton-mobile-icon always notext"></i>
+                                <div class="detailButton-mobile-text texthide">${ButtonMore}</div>
                             </div>
                         </button>
                     </div>
-
-                    <div class="mainDetailButtons mainDetailButtons-nonmobile">
-
-                        <button is="emby-button" type="button" class="raised subdued btnPlaySimple btnResume hide" data-mode="resume">
-                            <span>${ButtonResume}</span>
-                        </button>
-                        <button is="emby-button" type="button" class="raised subdued btnPlay btnPlaySimple hide" data-mode="play">
-                            <span>${ButtonPlay}</span>
-                        </button>
-                        <button is="emby-button" type="button" class="raised subdued btnInstantMix hide">
-                            <span>${HeaderInstantMix}</span>
-                        </button>
-                        <button is="emby-button" type="button" class="raised subdued btnShuffle hide">
-                            <span>${ButtonShuffle}</span>
-                        </button>
-                        <button is="emby-button" type="button" class="raised subdued btnPlayTrailer hide">
-                            <span>${ButtonTrailer}</span>
-                        </button>
-						<!--myproduction-change-start-->
-						<!--Added download and stream in external player button-->
-						<button is="emby-button" type="button" class="raised subdued btnDownload hide" role="button" data-id="download" onclick="window.LibraryBrowser.ExecuteItemDetailsPageDownload();"><i class="md-icon">file_download</i><span>${ButtonDownload}</span></button>
-						<button is="emby-button" type="button" class="raised subdued btnStreamExternal hide" role="button" data-id="stream" onclick="window.LibraryBrowser.ExecuteItemDetailsPageExternalStream();"><i class="md-icon">play_arrow</i><span>In externem Player abspielen</span></button>
-						<!--myproduction-change-end-->
-                        <button is="emby-button" type="button" class="raised subdued btnCancelSeriesTimer hide">
-                            <span>${ButtonCancelSeries}</span>
-                        </button>
-                        <button is="emby-button" type="button" class="raised subdued btnCancelTimer hide">
-                            <span>${ButtonStopRecording}</span>
-                        </button>
-
-                        <div style="margin-left: .5em; display: flex; align-items: center;">
-                            <button is="emby-button" type="button" class="btnMoreCommands fab mini hide" title="${ButtonMore}"><i class="md-icon">&#xE5D4;</i></button>
-                            <button is="emby-button" type="button" class="btnDeleteItem fab mini hide" title="${DeleteMedia}"><i class="md-icon">&#xE872;</i></button>
-                            <button is="emby-playstatebutton" type="button" class="btnPlaystate fab mini hide"><i class="md-icon">&#xE5CA;</i></button>
-                            <button is="emby-ratingbutton" type="button" class="btnUserRating fab mini hide"><i class="md-icon">&#xE87D;</i></button>
-                        </div>
-                    </div>
-
-                    <button is="emby-downloadbutton" type="button" class="button-flat btnSyncDownload hide mainDetailButtons-nonmobile" style="margin: 1em 0 0;">
-                        <i class="md-icon">&#xE2C4;</i>
-                        <span class="emby-downloadbutton-downloadtext">${ButtonDownload}</span>
-                    </button>
 
                     <div class="recordingFields hide" style="margin: .5em 0 1.5em;">
 
@@ -173,18 +171,18 @@
                     <div class="detailSectionContent">
 
                         <p class="itemGenres"></p>
-                        <h1 class="tagline" style="margin-bottom: .7em;"></h1>
-                        <p class="artist"></p>
+                        <h3 class="tagline"></h3>
                         <p class="overview"></p>
-                        <div class="mediaInfoIcons hide">
-                        </div>
                         <p id="itemBirthday"></p>
                         <p id="itemBirthLocation"></p>
                         <p id="itemDeathDate"></p>
                         <p id="seriesAirTime"></p>
-                        <p class="itemExternalLinks"></p>
-                        <p class="itemStudios"></p>
-                        <p class="itemTags"></p>
+                        <div class="itemTags hide" style="margin: .7em 0;font-size:92%;">
+
+                        </div>
+                        <div class="itemExternalLinks hide" style="margin: .7em 0;font-size:92%;">
+
+                        </div>
 
                         <div class="seriesRecordingEditor">
 
@@ -207,6 +205,9 @@
             </h2>
             <div is="emby-itemscontainer" class="nextUpItems vertical-wrap padded-left padded-right"></div>
         </div>
+        <div class="programGuideSection hide verticalSection detailVerticalSection">
+            <div class="programGuide"></div>
+        </div>
         <div id="childrenCollapsible" class="hide verticalSection detailVerticalSection">
             <h2 class="childrenSectionHeader sectionTitle sectionTitle-cards padded-left">
                 <span id="childrenTitle"></span>
@@ -220,6 +221,20 @@
                 ${HeaderAdditionalParts}
             </h2>
             <div id="additionalPartsContent" is="emby-itemscontainer" class="itemsContainer vertical-wrap padded-left padded-right"></div>
+        </div>
+        <div class="verticalSection itemVerticalSection moreFromSeasonSection hide">
+            <h2 class="sectionTitle sectionTitle-cards padded-left padded-right"></h2>
+
+            <div is="emby-scroller" class="emby-scroller" data-mousewheel="false" data-centerfocus="true" data-horizontal="true">
+
+                <div class="scrollerframe padded-top-focusscale padded-bottom-focusscale">
+                    <div is="emby-itemscontainer" class="scrollSlider focuscontainer-x itemsContainer padded-left padded-right"></div>
+                </div>
+            </div>
+        </div>
+        <div class="verticalSection itemVerticalSection moreFromArtistSection padded-left padded-right hide">
+            <h2 class="sectionTitle sectionTitle-cards"></h2>
+            <div is="emby-itemscontainer" class="itemsContainer vertical-wrap focuscontainer-x"></div>
         </div>
         <div id="castCollapsible" class="verticalSection detailVerticalSection hide">
             <h2 id="peopleHeader" class="sectionTitle sectionTitle-cards padded-left">
@@ -256,11 +271,7 @@
             </h2>
             <div id="musicVideosContent" is="emby-itemscontainer" class="itemsContainer vertical-wrap padded-left padded-right"></div>
         </div>
-        <div id="moreFromSection" class="verticalSection detailVerticalSection hide">
-            <h2 class="moreFromHeader sectionTitle sectionTitle-cards padded-left"></h2>
-            <div id="moreFromItems"></div>
-        </div>
-        <div id="similarCollapsible" class="verticalSection detailVerticalSection hide">
+        <div id="similarCollapsible" class="verticalSection verticalSection-extrabottompadding detailVerticalSection hide">
             <h2 class="sectionTitle sectionTitle-cards padded-left">
                 ${HeaderMoreLikeThis}
             </h2>
@@ -275,7 +286,7 @@
             </div>
         </div>
 
-        <div id="scenesCollapsible" class="verticalSection detailVerticalSection hide">
+        <div id="scenesCollapsible" class="verticalSection verticalSection-extrabottompadding hide">
             <h2 class="sectionTitle sectionTitle-cards padded-left">
                 ${HeaderScenes}
             </h2>
@@ -296,7 +307,7 @@
         </div>
 
         <div class="verticalSection detailVerticalSection audioVideoMediaInfo hide">
-            <h2 class="sectionTitle padded-left">${HeaderMediaInfo}</h2>
+            <h2 class="sectionTitle padded-left" style="margin-bottom:0;">${HeaderMediaInfo}</h2>
             <div class="padded-left padded-right">
                 <div class="splitVersionContainer" style="border-bottom: 1px solid #444; padding: 1em 0;">
                     <button is="emby-button" type="button" class="raised btnSplitVersions subdued">${ButtonSplitVersionsApart}</button>

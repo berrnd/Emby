@@ -8,7 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MediaBrowser.Model.Net;
 using MediaBrowser.Model.Threading;
-using RSSDP;
+using Rssdp;
 
 namespace Rssdp.Infrastructure
 {
@@ -35,7 +35,6 @@ namespace Rssdp.Infrastructure
         private DateTime _LastNotificationTime;
 
         private IDictionary<string, SearchRequest> _RecentSearchRequests;
-        private IUpnpDeviceValidator _DeviceValidator;
 
         private Random _Random;
         //private TimeSpan _MinCacheTime;
@@ -67,7 +66,6 @@ namespace Rssdp.Infrastructure
             _ReadOnlyDevices = new ReadOnlyCollection<SsdpRootDevice>(_Devices);
             _RecentSearchRequests = new Dictionary<string, SearchRequest>(StringComparer.OrdinalIgnoreCase);
             _Random = new Random();
-            _DeviceValidator = new Upnp10DeviceValidator(); //Should probably inject this later, but for now we only support 1.0.
 
             _CommsServer = communicationsServer;
             _CommsServer.RequestReceived += CommsServer_RequestReceived;
@@ -98,8 +96,6 @@ namespace Rssdp.Infrastructure
             if (device == null) throw new ArgumentNullException("device");
 
             ThrowIfDisposed();
-
-            _DeviceValidator.ThrowIfDeviceInvalid(device);
 
             TimeSpan minCacheTime = TimeSpan.Zero;
             bool wasAdded = false;
@@ -139,8 +135,6 @@ namespace Rssdp.Infrastructure
         public async Task RemoveDevice(SsdpRootDevice device)
         {
             if (device == null) throw new ArgumentNullException("device");
-
-            ThrowIfDisposed();
 
             bool wasRemoved = false;
             TimeSpan minCacheTime = TimeSpan.Zero;
@@ -211,21 +205,22 @@ namespace Rssdp.Infrastructure
         {
             if (disposing)
             {
-                var commsServer = _CommsServer;
-                _CommsServer = null;
+                DisposeRebroadcastTimer();
 
+                var commsServer = _CommsServer;
                 if (commsServer != null)
                 {
                     commsServer.RequestReceived -= this.CommsServer_RequestReceived;
-                    if (!commsServer.IsShared)
-                        commsServer.Dispose();
                 }
 
-                DisposeRebroadcastTimer();
+                var tasks = Devices.ToList().Select(RemoveDevice).ToArray();
+                Task.WaitAll(tasks);
 
-                foreach (var device in this.Devices)
+                _CommsServer = null;
+                if (commsServer != null)
                 {
-                    DisconnectFromDeviceEvents(device);
+                    if (!commsServer.IsShared)
+                        commsServer.Dispose();
                 }
 
                 _RecentSearchRequests = null;
@@ -326,7 +321,7 @@ namespace Rssdp.Infrastructure
             SendSearchResponse(device.FullDeviceType, device, GetUsn(device.Udn, device.FullDeviceType), endPoint, receivedOnlocalIpAddress, cancellationToken);
         }
 
-        private static string GetUsn(string udn, string fullDeviceType)
+        private string GetUsn(string udn, string fullDeviceType)
         {
             return String.Format("{0}::{1}", udn, fullDeviceType);
         }
@@ -349,7 +344,7 @@ namespace Rssdp.Infrastructure
             values["USN"] = uniqueServiceName;
             values["LOCATION"] = rootDevice.Location.ToString();
 
-            var message = SsdpHelper.BuildMessage(header, values);
+            var message = BuildMessage(header, values);
 
             try
             {
@@ -482,7 +477,7 @@ namespace Rssdp.Infrastructure
             values["NT"] = notificationType;
             values["USN"] = uniqueServiceName;
 
-            var message = SsdpHelper.BuildMessage(header, values);
+            var message = BuildMessage(header, values);
 
             _CommsServer.SendMulticastMessage(message, cancellationToken);
 
@@ -493,22 +488,25 @@ namespace Rssdp.Infrastructure
 
         #region ByeBye
 
-        private async Task SendByeByeNotifications(SsdpDevice device, bool isRoot, CancellationToken cancellationToken)
+        private Task SendByeByeNotifications(SsdpDevice device, bool isRoot, CancellationToken cancellationToken)
         {
+            var tasks = new List<Task>();
             if (isRoot)
             {
-                await SendByeByeNotification(device, SsdpConstants.UpnpDeviceTypeRootDevice, GetUsn(device.Udn, SsdpConstants.UpnpDeviceTypeRootDevice), cancellationToken).ConfigureAwait(false);
+                tasks.Add(SendByeByeNotification(device, SsdpConstants.UpnpDeviceTypeRootDevice, GetUsn(device.Udn, SsdpConstants.UpnpDeviceTypeRootDevice), cancellationToken));
                 if (this.SupportPnpRootDevice)
-                    await SendByeByeNotification(device, "pnp:rootdevice", GetUsn(device.Udn, "pnp:rootdevice"), cancellationToken).ConfigureAwait(false); ;
+                    tasks.Add(SendByeByeNotification(device, "pnp:rootdevice", GetUsn(device.Udn, "pnp:rootdevice"), cancellationToken));
             }
 
-            await SendByeByeNotification(device, device.Udn, device.Udn, cancellationToken).ConfigureAwait(false); ;
-            await SendByeByeNotification(device, String.Format("urn:{0}", device.FullDeviceType), GetUsn(device.Udn, device.FullDeviceType), cancellationToken).ConfigureAwait(false); ;
+            tasks.Add(SendByeByeNotification(device, device.Udn, device.Udn, cancellationToken));
+            tasks.Add(SendByeByeNotification(device, String.Format("urn:{0}", device.FullDeviceType), GetUsn(device.Udn, device.FullDeviceType), cancellationToken));
 
             foreach (var childDevice in device.Devices)
             {
-                await SendByeByeNotifications(childDevice, false, cancellationToken).ConfigureAwait(false); ;
+                tasks.Add(SendByeByeNotifications(childDevice, false, cancellationToken));
             }
+
+            return Task.WhenAll(tasks);
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA2204:Literals should be spelled correctly", MessageId = "byebye", Justification = "Correct value for this type of notification in SSDP.")]
@@ -526,9 +524,10 @@ namespace Rssdp.Infrastructure
             values["NT"] = notificationType;
             values["USN"] = uniqueServiceName;
 
-            var message = SsdpHelper.BuildMessage(header, values);
+            var message = BuildMessage(header, values);
 
-            return _CommsServer.SendMulticastMessage(message, cancellationToken);
+            var sendCount = IsDisposed ? 1 : 3;
+            return _CommsServer.SendMulticastMessage(message, sendCount, cancellationToken);
 
             //WriteTrace(String.Format("Sent byebye notification"), device);
         }
@@ -550,6 +549,11 @@ namespace Rssdp.Infrastructure
             //if (minCacheTime == _RebroadcastAliveNotificationsTimeSpan) return;
 
             DisposeRebroadcastTimer();
+
+            if (IsDisposed)
+            {
+                return;
+            }
 
             if (minCacheTime == TimeSpan.Zero) return;
 
@@ -596,7 +600,7 @@ namespace Rssdp.Infrastructure
 
         #endregion
 
-        private static string GetFirstHeaderValue(System.Net.Http.Headers.HttpRequestHeaders httpRequestHeaders, string headerName)
+        private string GetFirstHeaderValue(System.Net.Http.Headers.HttpRequestHeaders httpRequestHeaders, string headerName)
         {
             string retVal = null;
             IEnumerable<String> values = null;
@@ -606,9 +610,9 @@ namespace Rssdp.Infrastructure
             return retVal;
         }
 
-        public static Action<string> LogFunction { get; set; }
+        public Action<string> LogFunction { get; set; }
 
-        private static void WriteTrace(string text)
+        private void WriteTrace(string text)
         {
             if (LogFunction != null)
             {
@@ -617,7 +621,7 @@ namespace Rssdp.Infrastructure
             //System.Diagnostics.Debug.WriteLine(text, "SSDP Publisher");
         }
 
-        private static void WriteTrace(string text, SsdpDevice device)
+        private void WriteTrace(string text, SsdpDevice device)
         {
             var rootDevice = device as SsdpRootDevice;
             if (rootDevice != null)
@@ -654,6 +658,11 @@ namespace Rssdp.Infrastructure
 
         private void device_DeviceAdded(object sender, DeviceEventArgs e)
         {
+            if (IsDisposed)
+            {
+                return;
+            }
+
             SendAliveNotifications(e.Device, false, CancellationToken.None);
             ConnectToDeviceEvents(e.Device);
         }

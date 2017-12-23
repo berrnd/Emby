@@ -29,7 +29,7 @@ namespace MediaBrowser.Controller.Sync
         /// Gets the jobs.
         /// </summary>
         /// <returns>QueryResult&lt;SyncJob&gt;.</returns>
-        Task<QueryResult<SyncJob>> GetJobs(SyncJobQuery query);
+        QueryResult<SyncJob> GetJobs(SyncJobQuery query);
 
         /// <summary>
         /// Gets the job items.
@@ -90,8 +90,6 @@ namespace MediaBrowser.Controller.Sync
         /// Gets the synchronize targets.
         /// </summary>
         List<SyncTarget> GetSyncTargets(string userId);
-
-        List<SyncTarget> GetSyncTargets(string userId, bool? supportsRemoteSync);
 
         /// <summary>
         /// Supportses the synchronize.

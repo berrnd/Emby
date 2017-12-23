@@ -33,13 +33,11 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="CustomHttpHeaders.cs" />
     <Compile Include="DeviceAvailableEventArgs.cs" />
     <Compile Include="DeviceEventArgs.cs" />
     <Compile Include="DeviceUnavailableEventArgs.cs" />
     <Compile Include="DiscoveredSsdpDevice.cs" />
     <Compile Include="DisposableManagedObjectBase.cs" />
-    <Compile Include="GlobalSuppressions.cs" />
     <Compile Include="HttpParserBase.cs" />
     <Compile Include="HttpRequestParser.cs" />
     <Compile Include="HttpResponseParser.cs" />
@@ -47,25 +45,18 @@
     <Compile Include="ISsdpCommunicationsServer.cs" />
     <Compile Include="ISsdpDeviceLocator.cs" />
     <Compile Include="ISsdpDevicePublisher.cs" />
-    <Compile Include="IUPnPDeviceValidator.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RequestReceivedEventArgs.cs" />
     <Compile Include="ResponseReceivedEventArgs.cs" />
     <Compile Include="SsdpCommunicationsServer.cs" />
     <Compile Include="SsdpConstants.cs" />
     <Compile Include="SsdpDevice.cs" />
-    <Compile Include="SsdpDeviceExtensions.cs" />
-    <Compile Include="SsdpDeviceIcon.cs" />
     <Compile Include="SsdpDeviceLocator.cs" />
     <Compile Include="SsdpDeviceLocatorBase.cs" />
-    <Compile Include="SsdpDeviceProperties.cs" />
-    <Compile Include="SsdpDeviceProperty.cs" />
     <Compile Include="SsdpDevicePublisher.cs" />
     <Compile Include="SsdpDevicePublisherBase.cs" />
     <Compile Include="SsdpEmbeddedDevice.cs" />
-    <Compile Include="SsdpHelper.cs" />
     <Compile Include="SsdpRootDevice.cs" />
-    <Compile Include="UPnP10DeviceValidator.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\MediaBrowser.Common\MediaBrowser.Common.csproj">

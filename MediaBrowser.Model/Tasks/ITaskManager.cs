@@ -18,7 +18,7 @@ namespace MediaBrowser.Model.Tasks
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="options">Task options.</param>
-        void CancelIfRunningAndQueue<T>(TaskExecutionOptions options)
+        void CancelIfRunningAndQueue<T>(TaskOptions options)
             where T : IScheduledTask;
 
         /// <summary>
@@ -40,7 +40,7 @@ namespace MediaBrowser.Model.Tasks
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="options">Task options.</param>
-        void QueueScheduledTask<T>(TaskExecutionOptions options)
+        void QueueScheduledTask<T>(TaskOptions options)
             where T : IScheduledTask;
 
         /// <summary>
@@ -56,9 +56,7 @@ namespace MediaBrowser.Model.Tasks
         /// <summary>
         /// Queues the scheduled task.
         /// </summary>
-        /// <param name="task">The task.</param>
-        /// <param name="options">The task run options.</param>
-        void QueueScheduledTask(IScheduledTask task, TaskExecutionOptions options = null);
+        void QueueScheduledTask(IScheduledTask task, TaskOptions options);
 
         /// <summary>
         /// Adds the tasks.
@@ -67,12 +65,14 @@ namespace MediaBrowser.Model.Tasks
         void AddTasks(IEnumerable<IScheduledTask> tasks);
 
         void Cancel(IScheduledTaskWorker task);
-        Task Execute(IScheduledTaskWorker task, TaskExecutionOptions options = null);
+        Task Execute(IScheduledTaskWorker task, TaskOptions options);
 
         void Execute<T>()
             where T : IScheduledTask;
         
         event EventHandler<GenericEventArgs<IScheduledTaskWorker>> TaskExecuting;
         event EventHandler<TaskCompletionEventArgs> TaskCompleted;
+
+        void RunTaskOnNextStartup(string key);
     }
 }

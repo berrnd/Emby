@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Configuration;
 using MediaBrowser.Model.Providers;
+using MediaBrowser.Providers.MediaInfo;
 
 namespace MediaBrowser.Providers.Manager
 {
@@ -26,6 +27,7 @@ namespace MediaBrowser.Providers.Manager
         protected readonly IFileSystem FileSystem;
         protected readonly IUserDataManager UserDataManager;
         protected readonly ILibraryManager LibraryManager;
+        private readonly SubtitleResolver _subtitleResolver;
 
         protected MetadataService(IServerConfigurationManager serverConfigurationManager, ILogger logger, IProviderManager providerManager, IFileSystem fileSystem, IUserDataManager userDataManager, ILibraryManager libraryManager)
         {
@@ -35,6 +37,8 @@ namespace MediaBrowser.Providers.Manager
             FileSystem = fileSystem;
             UserDataManager = userDataManager;
             LibraryManager = libraryManager;
+
+            _subtitleResolver = new SubtitleResolver(BaseItem.LocalizationManager, fileSystem);
         }
 
         public async Task<ItemUpdateType> RefreshMetadata(IHasMetadata item, MetadataRefreshOptions refreshOptions, CancellationToken cancellationToken)
@@ -47,17 +51,44 @@ namespace MediaBrowser.Providers.Manager
 
             var libraryOptions = LibraryManager.GetLibraryOptions((BaseItem)item);
 
-            if (refreshOptions.MetadataRefreshMode != MetadataRefreshMode.None)
+            if (!requiresRefresh && libraryOptions.AutomaticRefreshIntervalDays > 0 && (DateTime.UtcNow - item.DateLastRefreshed).TotalDays >= libraryOptions.AutomaticRefreshIntervalDays)
+            {
+                requiresRefresh = true;
+            }
+
+            DateTime? newDateModified = null;
+            if (item.LocationType == LocationType.FileSystem)
+            {
+                var file = refreshOptions.DirectoryService.GetFile(item.Path);
+                if (file != null)
+                {
+                    newDateModified = file.LastWriteTimeUtc;
+                    if (item.EnableRefreshOnDateModifiedChange)
+                    {
+                        if (newDateModified != item.DateModified)
+                        {
+                            Logger.Debug("Date modified for {0}. Old date {1} new date {2} Id {3}", item.Path, item.DateModified, newDateModified, item.Id);
+                            requiresRefresh = true;
+                        }
+                    }
+
+                    if (!requiresRefresh && item.SupportsLocalMetadata)
+                    {
+                        var video = item as Video;
+
+                        if (video != null && !video.IsPlaceHolder)
+                        {
+                            requiresRefresh = !video.SubtitleFiles
+                                .SequenceEqual(_subtitleResolver.GetExternalSubtitleFiles(video, refreshOptions.DirectoryService, false), StringComparer.Ordinal);
+                        }
+                    }
+                }
+            }
+
+            if (!requiresRefresh && refreshOptions.MetadataRefreshMode != MetadataRefreshMode.None)
             {
                 // TODO: If this returns true, should we instead just change metadata refresh mode to Full?
                 requiresRefresh = item.RequiresRefresh();
-            }
-
-            if (!requiresRefresh &&
-                libraryOptions.AutomaticRefreshIntervalDays > 0 &&
-                (DateTime.UtcNow - item.DateLastRefreshed).TotalDays >= libraryOptions.AutomaticRefreshIntervalDays)
-            {
-                requiresRefresh = true;
             }
 
             var itemImageProvider = new ItemImageProvider(Logger, ProviderManager, ServerConfigurationManager, FileSystem);
@@ -95,7 +126,7 @@ namespace MediaBrowser.Providers.Manager
                 var providers = GetProviders(item, refreshOptions, isFirstRefresh, requiresRefresh)
                     .ToList();
 
-                if (providers.Count > 0 || isFirstRefresh)
+                if (providers.Count > 0 || isFirstRefresh || requiresRefresh)
                 {
                     if (item.BeforeMetadataRefresh())
                     {
@@ -145,20 +176,9 @@ namespace MediaBrowser.Providers.Manager
             var beforeSaveResult = BeforeSave(itemOfType, isFirstRefresh || refreshOptions.ReplaceAllMetadata || refreshOptions.MetadataRefreshMode == MetadataRefreshMode.FullRefresh || requiresRefresh, updateType);
             updateType = updateType | beforeSaveResult;
 
-            if (item.LocationType == LocationType.FileSystem)
+            if (newDateModified.HasValue)
             {
-                var file = refreshOptions.DirectoryService.GetFile(item.Path);
-                if (file != null)
-                {
-                    var fileLastWriteTime = file.LastWriteTimeUtc;
-                    if (item.EnableRefreshOnDateModifiedChange && fileLastWriteTime != item.DateModified)
-                    {
-                        Logger.Debug("Date modified for {0}. Old date {1} new date {2} Id {3}", item.Path, item.DateModified, fileLastWriteTime, item.Id);
-                        requiresRefresh = true;
-                    }
-
-                    item.DateModified = fileLastWriteTime;
-                }
+                item.DateModified = newDateModified.Value;
             }
 
             // Save if changes were made, or it's never been saved before
@@ -246,18 +266,18 @@ namespace MediaBrowser.Providers.Manager
 
         private async Task AddPersonImage(Person personEntity, LibraryOptions libraryOptions, string imageUrl, CancellationToken cancellationToken)
         {
-            if (libraryOptions.DownloadImagesInAdvance)
-            {
-                try
-                {
-                    await ProviderManager.SaveImage(personEntity, imageUrl, ImageType.Primary, null, cancellationToken).ConfigureAwait(false);
-                    return;
-                }
-                catch (Exception ex)
-                {
-                    Logger.ErrorException("Error in AddPersonImage", ex);
-                }
-            }
+            //if (libraryOptions.DownloadImagesInAdvance)
+            //{
+            //    try
+            //    {
+            //        await ProviderManager.SaveImage(personEntity, imageUrl, ImageType.Primary, null, cancellationToken).ConfigureAwait(false);
+            //        return;
+            //    }
+            //    catch (Exception ex)
+            //    {
+            //        Logger.ErrorException("Error in AddPersonImage", ex);
+            //    }
+            //}
 
             personEntity.SetImage(new ItemImageInfo
             {
@@ -451,6 +471,11 @@ namespace MediaBrowser.Providers.Manager
         public bool CanRefresh(IHasMetadata item)
         {
             return item is TItemType;
+        }
+
+        public bool CanRefreshPrimary(Type type)
+        {
+            return type == typeof(TItemType);
         }
 
         protected virtual async Task<RefreshResult> RefreshWithProviders(MetadataResult<TItemType> metadata,
@@ -655,6 +680,8 @@ namespace MediaBrowser.Providers.Manager
 
                     if (result.HasMetadata)
                     {
+                        result.Provider = provider.Name;
+
                         results.Add(result);
 
                         refreshResult.UpdateType = refreshResult.UpdateType | ItemUpdateType.MetadataDownload;

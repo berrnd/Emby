@@ -10,14 +10,7 @@ button.emby-tab-button:nth-child(3)
 </style>
 <!--myproduction-change-end-->
 
-    <div class="pageTabContent" id="homeTab" data-index="0">
-        <div class="readOnlyContent welcomeMessage hide infoBanner" style="margin: 2em auto;">
-            <h1 style="margin-top: 0;" class="tourHeader"></h1>
-            <p>
-                <button is="emby-button" type="button" class="raised submit block btnTakeTour"><span class="tourButtonText"></span></button>
-            </p>
-        </div>
-
+    <div class="tabContent pageTabContent" id="homeTab" data-index="0">
 		<!--myproduction-change-start-->
         <!--Added statistics overview-->
         <div class="homePageSection verticalSection" style="padding-left: 16px">
@@ -143,12 +136,10 @@ button.emby-tab-button:nth-child(3)
           }
         </script>
         <!--myproduction-change-end-->
-
+		
         <div class="sections"></div>
     </div>
-    <div class="pageTabContent" id="favoritesTab" data-index="1">
-        <div class="favoriteSections"></div>
-    </div>
-    <div class="pageTabContent" style="padding-top:1em;" data-index="2">
+    <div class="tabContent pageTabContent" id="favoritesTab" data-index="1">
+        <div class="sections"></div>
     </div>
 </div>

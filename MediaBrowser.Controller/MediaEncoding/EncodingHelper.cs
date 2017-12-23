@@ -393,6 +393,10 @@ namespace MediaBrowser.Controller.MediaEncoding
             {
                 return "wmav2";
             }
+            if (string.Equals(codec, "opus", StringComparison.OrdinalIgnoreCase))
+            {
+                return "libopus";
+            }
 
             return codec.ToLower();
         }
@@ -476,8 +480,8 @@ namespace MediaBrowser.Controller.MediaEncoding
                 if (string.Equals(videoCodec, "libvpx", StringComparison.OrdinalIgnoreCase))
                 {
                     // With vpx when crf is used, b:v becomes a max rate
-                    // https://trac.ffmpeg.org/wiki/vpxEncodingGuide. But higher bitrate source files -b:v causes judder so limite the bitrate but dont allow it to "saturate" the bitrate. So dont contrain it down just up.
-                    return string.Format(" -maxrate:v {0} -bufsize:v ({0}*2) -b:v {0}", bitrate.Value.ToString(_usCulture));
+                    // https://trac.ffmpeg.org/wiki/vpxEncodingGuide.
+                    return string.Format(" -maxrate:v {0} -bufsize:v {1} -b:v {0}", bitrate.Value.ToString(_usCulture), (bitrate.Value * 2).ToString(_usCulture));
                 }
 
                 if (string.Equals(videoCodec, "msmpeg4", StringComparison.OrdinalIgnoreCase))
@@ -697,7 +701,11 @@ namespace MediaBrowser.Controller.MediaEncoding
 
             var request = state.BaseRequest;
             var profile = state.GetRequestedProfiles(targetVideoCodec).FirstOrDefault();
-            if (!string.IsNullOrEmpty(profile))
+            if (string.Equals(videoEncoder, "h264_vaapi", StringComparison.OrdinalIgnoreCase))
+            {
+                param += " -profile:v 578";
+            }
+            else if (!string.IsNullOrEmpty(profile))
             {
                 if (!string.Equals(videoEncoder, "h264_omx", StringComparison.OrdinalIgnoreCase) &&
                     !string.Equals(videoEncoder, "h264_vaapi", StringComparison.OrdinalIgnoreCase) &&
@@ -790,11 +798,6 @@ namespace MediaBrowser.Controller.MediaEncoding
             var request = state.BaseRequest;
 
             if (!request.AllowVideoStreamCopy)
-            {
-                return false;
-            }
-
-            if (state.EnableMpDecimate)
             {
                 return false;
             }
@@ -1330,6 +1333,8 @@ namespace MediaBrowser.Controller.MediaEncoding
             if (state.VideoStream != null && state.VideoStream.Width.HasValue && state.VideoStream.Height.HasValue)
             {
                 videoSizeParam = string.Format("scale={0}:{1}", state.VideoStream.Width.Value.ToString(_usCulture), state.VideoStream.Height.Value.ToString(_usCulture));
+
+                videoSizeParam += ":force_original_aspect_ratio=decrease";
             }
 
             var mapPrefix = state.SubtitleStream.IsExternal ?
@@ -1340,12 +1345,144 @@ namespace MediaBrowser.Controller.MediaEncoding
                 ? 0
                 : state.SubtitleStream.Index;
 
-            return string.Format(" -filter_complex \"[{0}:{1}]{4}[sub] ; [0:{2}] [sub] overlay{3}\"",
+            return string.Format(" -filter_complex \"[{0}:{1}]{4}[sub];[0:{2}][sub]overlay{3}\"",
                 mapPrefix.ToString(_usCulture),
                 subtitleStreamIndex.ToString(_usCulture),
                 state.VideoStream.Index.ToString(_usCulture),
                 outputSizeParam,
                 videoSizeParam);
+        }
+
+        public List<string> GetScalingFilters(MediaStream videoStream,
+            string videoEncoder,
+            int? requestedWidth,
+            int? requestedHeight,
+            int? requestedMaxWidth,
+            int? requestedMaxHeight)
+        {
+            var filters = new List<string>();
+
+            if (string.Equals(videoEncoder, "h264_vaapi", StringComparison.OrdinalIgnoreCase))
+            {
+                // Work around vaapi's reduced scaling features
+                var scaler = "scale_vaapi";
+
+                // Given the input dimensions (inputWidth, inputHeight), determine the output dimensions
+                // (outputWidth, outputHeight). The user may request precise output dimensions or maximum
+                // output dimensions. Output dimensions are guaranteed to be even.
+                decimal inputWidth = Convert.ToDecimal(videoStream.Width);
+                decimal inputHeight = Convert.ToDecimal(videoStream.Height);
+                decimal outputWidth = requestedWidth.HasValue ? Convert.ToDecimal(requestedWidth.Value) : inputWidth;
+                decimal outputHeight = requestedHeight.HasValue ? Convert.ToDecimal(requestedHeight.Value) : inputHeight;
+                decimal maximumWidth = requestedMaxWidth.HasValue ? Convert.ToDecimal(requestedMaxWidth.Value) : outputWidth;
+                decimal maximumHeight = requestedMaxHeight.HasValue ? Convert.ToDecimal(requestedMaxHeight.Value) : outputHeight;
+
+                if (outputWidth > maximumWidth || outputHeight > maximumHeight)
+                {
+                    var scale = Math.Min(maximumWidth / outputWidth, maximumHeight / outputHeight);
+                    outputWidth = Math.Min(maximumWidth, Math.Truncate(outputWidth * scale));
+                    outputHeight = Math.Min(maximumHeight, Math.Truncate(outputHeight * scale));
+                }
+
+                outputWidth = 2 * Math.Truncate(outputWidth / 2);
+                outputHeight = 2 * Math.Truncate(outputHeight / 2);
+
+                if (outputWidth != inputWidth || outputHeight != inputHeight)
+                {
+                    filters.Add(string.Format("{0}=w={1}:h={2}", scaler, outputWidth.ToString(_usCulture), outputHeight.ToString(_usCulture)));
+                }
+            }
+            else
+            {
+                var isExynosV4L2 = string.Equals(videoEncoder, "h264_v4l2m2m", StringComparison.OrdinalIgnoreCase);
+
+                // If fixed dimensions were supplied
+                if (requestedWidth.HasValue && requestedHeight.HasValue)
+                {
+                    var widthParam = requestedWidth.Value.ToString(_usCulture);
+                    var heightParam = requestedHeight.Value.ToString(_usCulture);
+
+                    if (isExynosV4L2)
+                    {
+                        filters.Add(string.Format("scale=trunc({0}/64)*64:trunc({1}/2)*2", widthParam, heightParam));
+                    }
+                    else
+                    {
+                        filters.Add(string.Format("scale=trunc({0}/2)*2:trunc({1}/2)*2", widthParam, heightParam));
+                    }
+                }
+
+                // If Max dimensions were supplied, for width selects lowest even number between input width and width req size and selects lowest even number from in width*display aspect and requested size
+                else if (requestedMaxWidth.HasValue && requestedMaxHeight.HasValue)
+                {
+                    var maxWidthParam = requestedMaxWidth.Value.ToString(_usCulture);
+                    var maxHeightParam = requestedMaxHeight.Value.ToString(_usCulture);
+
+                    if (isExynosV4L2)
+                    {
+                        filters.Add(string.Format("scale=trunc(min(max(iw\\,ih*dar)\\,min({0}\\,{1}*dar))/64)*64:trunc(min(max(iw/dar\\,ih)\\,min({0}/dar\\,{1}))/2)*2", maxWidthParam, maxHeightParam));
+                    }
+                    else
+                    {
+                        filters.Add(string.Format("scale=trunc(min(max(iw\\,ih*dar)\\,min({0}\\,{1}*dar))/2)*2:trunc(min(max(iw/dar\\,ih)\\,min({0}/dar\\,{1}))/2)*2", maxWidthParam, maxHeightParam));
+                    }
+                }
+
+                // If a fixed width was requested
+                else if (requestedWidth.HasValue)
+                {
+                    var widthParam = requestedWidth.Value.ToString(_usCulture);
+
+                    filters.Add(string.Format("scale={0}:trunc(ow/a/2)*2", widthParam));
+                }
+
+                // If a fixed height was requested
+                else if (requestedHeight.HasValue)
+                {
+                    var heightParam = requestedHeight.Value.ToString(_usCulture);
+
+                    if (isExynosV4L2)
+                    {
+                        filters.Add(string.Format("scale=trunc(oh*a/64)*64:{0}", heightParam));
+                    }
+                    else
+                    {
+                        filters.Add(string.Format("scale=trunc(oh*a/2)*2:{0}", heightParam));
+                    }
+                }
+
+                // If a max width was requested
+                else if (requestedMaxWidth.HasValue)
+                {
+                    var maxWidthParam = requestedMaxWidth.Value.ToString(_usCulture);
+
+                    if (isExynosV4L2)
+                    {
+                        filters.Add(string.Format("scale=trunc(min(max(iw\\,ih*dar)\\,{0})/64)*64:trunc(ow/dar/2)*2", maxWidthParam));
+                    }
+                    else
+                    {
+                        filters.Add(string.Format("scale=trunc(min(max(iw\\,ih*dar)\\,{0})/2)*2:trunc(ow/dar/2)*2", maxWidthParam));
+                    }
+                }
+
+                // If a max height was requested
+                else if (requestedMaxHeight.HasValue)
+                {
+                    var maxHeightParam = requestedMaxHeight.Value.ToString(_usCulture);
+
+                    if (isExynosV4L2)
+                    {
+                        filters.Add(string.Format("scale=trunc(oh*a/64)*64:min(max(iw/dar\\,ih)\\,{0})", maxHeightParam));
+                    }
+                    else
+                    {
+                        filters.Add(string.Format("scale=trunc(oh*a/2)*2:min(max(iw/dar\\,ih)\\,{0})", maxHeightParam));
+                    }
+                }
+            }
+
+            return filters;
         }
 
         /// <summary>
@@ -1368,6 +1505,11 @@ namespace MediaBrowser.Controller.MediaEncoding
                 filters.Add("hwupload");
             }
 
+            if (state.DeInterlace("h264", true) && string.Equals(outputVideoCodec, "h264_vaapi", StringComparison.OrdinalIgnoreCase))
+            {
+                filters.Add(string.Format("deinterlace_vaapi"));
+            }
+
             if (state.DeInterlace("h264", true) && !string.Equals(outputVideoCodec, "h264_vaapi", StringComparison.OrdinalIgnoreCase))
             {
                 // If it is already 60fps then it will create an output framerate that is much too high for roku and others to handle
@@ -1381,125 +1523,7 @@ namespace MediaBrowser.Controller.MediaEncoding
                 }
             }
 
-            if (string.Equals(outputVideoCodec, "h264_vaapi", StringComparison.OrdinalIgnoreCase))
-            {
-                // Work around vaapi's reduced scaling features
-                var scaler = "scale_vaapi";
-
-                // Given the input dimensions (inputWidth, inputHeight), determine the output dimensions
-                // (outputWidth, outputHeight). The user may request precise output dimensions or maximum
-                // output dimensions. Output dimensions are guaranteed to be even.
-                decimal inputWidth = Convert.ToDecimal(state.VideoStream.Width);
-                decimal inputHeight = Convert.ToDecimal(state.VideoStream.Height);
-                decimal outputWidth = request.Width.HasValue ? Convert.ToDecimal(request.Width.Value) : inputWidth;
-                decimal outputHeight = request.Height.HasValue ? Convert.ToDecimal(request.Height.Value) : inputHeight;
-                decimal maximumWidth = request.MaxWidth.HasValue ? Convert.ToDecimal(request.MaxWidth.Value) : outputWidth;
-                decimal maximumHeight = request.MaxHeight.HasValue ? Convert.ToDecimal(request.MaxHeight.Value) : outputHeight;
-
-                if (outputWidth > maximumWidth || outputHeight > maximumHeight)
-                {
-                    var scale = Math.Min(maximumWidth / outputWidth, maximumHeight / outputHeight);
-                    outputWidth = Math.Min(maximumWidth, Math.Truncate(outputWidth * scale));
-                    outputHeight = Math.Min(maximumHeight, Math.Truncate(outputHeight * scale));
-                }
-
-                outputWidth = 2 * Math.Truncate(outputWidth / 2);
-                outputHeight = 2 * Math.Truncate(outputHeight / 2);
-
-                if (outputWidth != inputWidth || outputHeight != inputHeight)
-                {
-                    filters.Add(string.Format("{0}=w={1}:h={2}", scaler, outputWidth.ToString(_usCulture), outputHeight.ToString(_usCulture)));
-                }
-            }
-            else
-            {
-                var isExynosV4L2 = string.Equals(outputVideoCodec, "h264_v4l2m2m", StringComparison.OrdinalIgnoreCase);
-
-                // If fixed dimensions were supplied
-                if (request.Width.HasValue && request.Height.HasValue)
-                {
-                    var widthParam = request.Width.Value.ToString(_usCulture);
-                    var heightParam = request.Height.Value.ToString(_usCulture);
-
-                    if (isExynosV4L2)
-                    {
-                        filters.Add(string.Format("scale=trunc({0}/64)*64:trunc({1}/2)*2", widthParam, heightParam));
-                    }
-                    else
-                    {
-                        filters.Add(string.Format("scale=trunc({0}/2)*2:trunc({1}/2)*2", widthParam, heightParam));
-                    }
-                }
-
-                // If Max dimensions were supplied, for width selects lowest even number between input width and width req size and selects lowest even number from in width*display aspect and requested size
-                else if (request.MaxWidth.HasValue && request.MaxHeight.HasValue)
-                {
-                    var maxWidthParam = request.MaxWidth.Value.ToString(_usCulture);
-                    var maxHeightParam = request.MaxHeight.Value.ToString(_usCulture);
-
-                    if (isExynosV4L2)
-                    {
-                        filters.Add(string.Format("scale=trunc(min(max(iw\\,ih*dar)\\,min({0}\\,{1}*dar))/64)*64:trunc(min(max(iw/dar\\,ih)\\,min({0}/dar\\,{1}))/2)*2", maxWidthParam, maxHeightParam));
-                    }
-                    else
-                    {
-                        filters.Add(string.Format("scale=trunc(min(max(iw\\,ih*dar)\\,min({0}\\,{1}*dar))/2)*2:trunc(min(max(iw/dar\\,ih)\\,min({0}/dar\\,{1}))/2)*2", maxWidthParam, maxHeightParam));
-                    }
-                }
-
-                // If a fixed width was requested
-                else if (request.Width.HasValue)
-                {
-                    var widthParam = request.Width.Value.ToString(_usCulture);
-
-                    filters.Add(string.Format("scale={0}:trunc(ow/a/2)*2", widthParam));
-                }
-
-                // If a fixed height was requested
-                else if (request.Height.HasValue)
-                {
-                    var heightParam = request.Height.Value.ToString(_usCulture);
-
-                    if (isExynosV4L2)
-                    {
-                        filters.Add(string.Format("scale=trunc(oh*a/64)*64:{0}", heightParam));
-                    }
-                    else
-                    {
-                        filters.Add(string.Format("scale=trunc(oh*a/2)*2:{0}", heightParam));
-                    }
-                }
-
-                // If a max width was requested
-                else if (request.MaxWidth.HasValue)
-                {
-                    var maxWidthParam = request.MaxWidth.Value.ToString(_usCulture);
-
-                    if (isExynosV4L2)
-                    {
-                        filters.Add(string.Format("scale=trunc(min(max(iw\\,ih*dar)\\,{0})/64)*64:trunc(ow/dar/2)*2", maxWidthParam));
-                    }
-                    else
-                    {
-                        filters.Add(string.Format("scale=trunc(min(max(iw\\,ih*dar)\\,{0})/2)*2:trunc(ow/dar/2)*2", maxWidthParam));
-                    }
-                }
-
-                // If a max height was requested
-                else if (request.MaxHeight.HasValue)
-                {
-                    var maxHeightParam = request.MaxHeight.Value.ToString(_usCulture);
-
-                    if (isExynosV4L2)
-                    {
-                        filters.Add(string.Format("scale=trunc(oh*a/64)*64:min(max(iw/dar\\,ih)\\,{0})", maxHeightParam));
-                    }
-                    else
-                    {
-                        filters.Add(string.Format("scale=trunc(oh*a/2)*2:min(max(iw/dar\\,ih)\\,{0})", maxHeightParam));
-                    }
-                }
-            }
+            filters.AddRange(GetScalingFilters(state.VideoStream, outputVideoCodec, request.Width, request.Height, request.MaxWidth, request.MaxHeight));
 
             var output = string.Empty;
 
@@ -1515,11 +1539,6 @@ namespace MediaBrowser.Controller.MediaEncoding
                 }
             }
 
-            if (state.EnableMpDecimate)
-            {
-                filters.Add("mpdecimate,setpts=N/FRAME_RATE/TB");
-            }
-
             if (filters.Count > 0)
             {
                 output += string.Format(" -vf \"{0}\"", string.Join(",", filters.ToArray()));
@@ -1532,13 +1551,13 @@ namespace MediaBrowser.Controller.MediaEncoding
         /// <summary>
         /// Gets the number of threads.
         /// </summary>
-        /// <returns>System.Int32.</returns>
-        public int GetNumberOfThreads(EncodingJobInfo state, EncodingOptions encodingOptions, bool isWebm)
+        public int GetNumberOfThreads(EncodingJobInfo state, EncodingOptions encodingOptions, string outputVideoCodec)
         {
-            if (isWebm)
+            if (string.Equals(outputVideoCodec, "libvpx", StringComparison.OrdinalIgnoreCase))
             {
-                // Recommended per docs
-                return Math.Max(Environment.ProcessorCount - 1, 2);
+                // per docs:
+                // -threads	number of threads to use for encoding, can't be 0 [auto] with VP8	(recommended value : number of real cores - 1)
+                return Math.Max(Environment.ProcessorCount - 1, 1);
             }
 
             var threads = state.BaseRequest.CpuCoreLimit ?? encodingOptions.EncodingThreadCount;
@@ -1638,7 +1657,7 @@ namespace MediaBrowser.Controller.MediaEncoding
 
             if (state.InputProtocol == MediaProtocol.Rtsp)
             {
-                inputModifier += " -rtsp_transport tcp";
+                inputModifier += " -rtsp_transport tcp -rtsp_transport udp -rtsp_flags prefer_tcp";
             }
 
             if (!string.IsNullOrEmpty(state.InputAudioSync))
@@ -1733,8 +1752,17 @@ namespace MediaBrowser.Controller.MediaEncoding
                 throw new ArgumentNullException("mediaSource");
             }
 
-            state.MediaPath = mediaSource.Path;
-            state.InputProtocol = mediaSource.Protocol;
+            var path = mediaSource.Path;
+            var protocol = mediaSource.Protocol;
+
+            if (!string.IsNullOrWhiteSpace(mediaSource.EncoderPath) && mediaSource.EncoderProtocol.HasValue)
+            {
+                path = mediaSource.EncoderPath;
+                protocol = mediaSource.EncoderProtocol.Value;
+            }
+
+            state.MediaPath = path;
+            state.InputProtocol = protocol;
             state.InputContainer = mediaSource.Container;
             state.RunTimeTicks = mediaSource.RunTimeTicks;
             state.RemoteHttpHeaders = mediaSource.RequiredHttpHeaders;
@@ -1772,8 +1800,6 @@ namespace MediaBrowser.Controller.MediaEncoding
                 state.InputTimestamp = mediaSource.Timestamp.Value;
             }
 
-            state.InputProtocol = mediaSource.Protocol;
-            state.MediaPath = mediaSource.Path;
             state.RunTimeTicks = mediaSource.RunTimeTicks;
             state.RemoteHttpHeaders = mediaSource.RequiredHttpHeaders;
             state.ReadInputAtNativeFramerate = mediaSource.ReadAtNativeFramerate;
@@ -1960,6 +1986,12 @@ namespace MediaBrowser.Controller.MediaEncoding
                                 return "-c:v h264_mmal";
                             }
                             break;
+                        case "mpeg2video":
+                            if (_mediaEncoder.SupportsDecoder("mpeg2_mmal") && encodingOptions.HardwareDecodingCodecs.Contains("mpeg2video", StringComparer.OrdinalIgnoreCase))
+                            {
+                                return "-c:v mpeg2_mmal";
+                            }
+                            break;
                     }
                 }
             }
@@ -2009,7 +2041,7 @@ namespace MediaBrowser.Controller.MediaEncoding
                 format = " -f mp4 -movflags frag_keyframe+empty_moov";
             }
 
-            var threads = GetNumberOfThreads(state, encodingOptions, string.Equals(videoCodec, "libvpx", StringComparison.OrdinalIgnoreCase));
+            var threads = GetNumberOfThreads(state, encodingOptions, videoCodec);
 
             var inputModifier = GetInputModifier(state, encodingOptions);
 
@@ -2098,17 +2130,17 @@ namespace MediaBrowser.Controller.MediaEncoding
                     args += " -avoid_negative_ts disabled -start_at_zero";
                 }
 
+                // This is for internal graphical subs
+                if (hasGraphicalSubs)
+                {
+                    args += GetGraphicalSubtitleParam(state, encodingOptions, videoCodec);
+                }
+
                 var qualityParam = GetVideoQualityParam(state, videoCodec, encodingOptions, defaultH264Preset);
 
                 if (!string.IsNullOrEmpty(qualityParam))
                 {
                     args += " " + qualityParam.Trim();
-                }
-
-                // This is for internal graphical subs
-                if (hasGraphicalSubs)
-                {
-                    args += GetGraphicalSubtitleParam(state, encodingOptions, videoCodec);
                 }
 
                 if (!state.RunTimeTicks.HasValue)
@@ -2214,7 +2246,7 @@ namespace MediaBrowser.Controller.MediaEncoding
                 vn = " -vn";
             }
 
-            var threads = GetNumberOfThreads(state, encodingOptions, false);
+            var threads = GetNumberOfThreads(state, encodingOptions, null);
 
             var inputModifier = GetInputModifier(state, encodingOptions);
 

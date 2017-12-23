@@ -477,14 +477,36 @@ namespace MediaBrowser.Controller.Entities
                    locationType != LocationType.Virtual;
         }
 
-        public virtual bool IsAuthorizedToDelete(User user)
+        public virtual bool IsAuthorizedToDelete(User user, List<Folder> allCollectionFolders)
         {
-            return user.Policy.EnableContentDeletion;
+            if (user.Policy.EnableContentDeletion)
+            {
+                return true;
+            }
+
+            var allowed = user.Policy.EnableContentDeletionFromFolders;
+            var collectionFolders = LibraryManager.GetCollectionFolders(this, allCollectionFolders);
+
+            foreach (var folder in collectionFolders)
+            {
+                if (allowed.Contains(folder.Id.ToString("N"), StringComparer.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public bool CanDelete(User user, List<Folder> allCollectionFolders)
+        {
+            return CanDelete() && IsAuthorizedToDelete(user, allCollectionFolders);
         }
 
         public bool CanDelete(User user)
         {
-            return CanDelete() && IsAuthorizedToDelete(user);
+            var allCollectionFolders = LibraryManager.GetUserRootFolder().Children.OfType<Folder>().ToList();
+            return CanDelete(user, allCollectionFolders);
         }
 
         public virtual bool CanDownload()
@@ -1142,7 +1164,7 @@ namespace MediaBrowser.Controller.Entities
         [IgnoreDataMember]
         public virtual bool SupportsPeople
         {
-            get { return true; }
+            get { return false; }
         }
 
         [IgnoreDataMember]
@@ -1352,11 +1374,6 @@ namespace MediaBrowser.Controller.Entities
 
             list.Add(Id.ToString());
             return list;
-        }
-
-        internal virtual bool IsValidFromResolver(BaseItem newItem)
-        {
-            return true;
         }
 
         internal virtual ItemUpdateType UpdateFromResolvedItem(BaseItem newItem)
@@ -1930,6 +1947,8 @@ namespace MediaBrowser.Controller.Entities
             {
                 existingImage.Path = image.Path;
                 existingImage.DateModified = image.DateModified;
+                existingImage.Width = image.Width;
+                existingImage.Height = image.Height;
             }
 
             else
@@ -1963,6 +1982,10 @@ namespace MediaBrowser.Controller.Entities
 
                 image.Path = file.FullName;
                 image.DateModified = imageInfo.DateModified;
+
+                // reset these values
+                image.Width = 0;
+                image.Height = 0;
             }
         }
 
@@ -2017,7 +2040,7 @@ namespace MediaBrowser.Controller.Entities
                 .Where(i => i.IsLocalFile)
                 .Select(i => FileSystem.GetDirectoryName(i.Path))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
-                .SelectMany(i => FileSystem.GetFilePaths(i))
+                .SelectMany(i => directoryService.GetFilePaths(i))
                 .ToList();
 
             var deletedImages = ImageInfos
@@ -2113,6 +2136,7 @@ namespace MediaBrowser.Controller.Entities
 
             var newImageList = new List<FileSystemMetadata>();
             var imageAdded = false;
+            var imageUpdated = false;
 
             foreach (var newImage in images)
             {
@@ -2133,7 +2157,17 @@ namespace MediaBrowser.Controller.Entities
                 {
                     if (existing.IsLocalFile)
                     {
-                        existing.DateModified = FileSystem.GetLastWriteTimeUtc(newImage);
+                        var newDateModified = FileSystem.GetLastWriteTimeUtc(newImage);
+
+                        // If date changed then we need to reset saved image dimensions
+                        if (existing.DateModified != newDateModified && (existing.Width > 0 || existing.Height > 0))
+                        {
+                            existing.Width = 0;
+                            existing.Height = 0;
+                            imageUpdated = true;
+                        }
+
+                        existing.DateModified = newDateModified;
                     }
                 }
             }
@@ -2166,7 +2200,7 @@ namespace MediaBrowser.Controller.Entities
                 ImageInfos = newList;
             }
 
-            return newImageList.Count > 0;
+            return imageUpdated || newImageList.Count > 0;
         }
 
         private ItemImageInfo GetImageInfo(FileSystemMetadata file, ImageType type)
@@ -2202,7 +2236,7 @@ namespace MediaBrowser.Controller.Entities
             }
 
             var filename = System.IO.Path.GetFileNameWithoutExtension(Path);
-            var extensions = new List<string> { ".nfo", ".xml", ".srt" };
+            var extensions = new List<string> { ".nfo", ".xml", ".srt", ".vtt", ".sub", ".idx", ".txt", ".edl" };
             extensions.AddRange(SupportedImageExtensions);
 
             return FileSystem.GetFiles(FileSystem.GetDirectoryName(Path), extensions.ToArray(extensions.Count), false, false)
@@ -2245,6 +2279,11 @@ namespace MediaBrowser.Controller.Entities
             // Refresh these values
             info1.DateModified = FileSystem.GetLastWriteTimeUtc(info1.Path);
             info2.DateModified = FileSystem.GetLastWriteTimeUtc(info2.Path);
+
+            info1.Width = 0;
+            info1.Height = 0;
+            info2.Width = 0;
+            info2.Height = 0;
 
             UpdateToRepository(ItemUpdateType.ImageUpdate, CancellationToken.None);
         }

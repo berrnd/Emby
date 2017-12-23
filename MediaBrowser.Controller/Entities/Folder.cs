@@ -416,7 +416,7 @@ namespace MediaBrowser.Controller.Entities
                 {
                     BaseItem currentChild;
 
-                    if (currentChildren.TryGetValue(child.Id, out currentChild) && currentChild.IsValidFromResolver(child))
+                    if (currentChildren.TryGetValue(child.Id, out currentChild))
                     {
                         validChildren.Add(currentChild);
 
@@ -466,11 +466,11 @@ namespace MediaBrowser.Controller.Entities
 
                             item.SetParent(null);
                             await LibraryManager.DeleteItem(item, new DeleteOptions { DeleteFileLocation = false }).ConfigureAwait(false);
-                            LibraryManager.ReportItemRemoved(item);
+                            LibraryManager.ReportItemRemoved(item, this);
                         }
                     }
 
-                    LibraryManager.CreateItems(newItems, cancellationToken);
+                    LibraryManager.CreateItems(newItems, this, cancellationToken);
                 }
             }
             else
@@ -535,7 +535,7 @@ namespace MediaBrowser.Controller.Entities
 
                     if (container != null)
                     {
-                        await container.RefreshAllMetadata(refreshOptions, innerProgress, cancellationToken).ConfigureAwait(false);
+                        await RefreshAllMetadataForContainer(container, refreshOptions, innerProgress, cancellationToken).ConfigureAwait(false);
                     }
                     else
                     {
@@ -586,13 +586,25 @@ namespace MediaBrowser.Controller.Entities
             }
         }
 
+        private async Task RefreshAllMetadataForContainer(IMetadataContainer container, MetadataRefreshOptions refreshOptions, IProgress<double> progress, CancellationToken cancellationToken)
+        {
+            // TODO: Move this into Series.RefreshAllMetadata
+            var series = container as Series;
+            if (series != null)
+            {
+                await series.RefreshMetadata(refreshOptions, cancellationToken).ConfigureAwait(false);
+
+            }
+            await container.RefreshAllMetadata(refreshOptions, progress, cancellationToken).ConfigureAwait(false);
+        }
+
         private async Task RefreshChildMetadata(BaseItem child, MetadataRefreshOptions refreshOptions, bool recursive, IProgress<double> progress, CancellationToken cancellationToken)
         {
             var container = child as IMetadataContainer;
 
             if (container != null)
             {
-                await container.RefreshAllMetadata(refreshOptions, progress, cancellationToken).ConfigureAwait(false);
+                await RefreshAllMetadataForContainer(container, refreshOptions, progress, cancellationToken).ConfigureAwait(false);
             }
             else
             {
@@ -657,7 +669,7 @@ namespace MediaBrowser.Controller.Entities
             }
         }
 
-        public static bool IsPathOffline(string path, List<string> allLibraryPaths)
+        public bool IsPathOffline(string path, List<string> allLibraryPaths)
         {
             //if (FileSystem.FileExists(path))
             //{
@@ -685,7 +697,7 @@ namespace MediaBrowser.Controller.Entities
             return allLibraryPaths.Any(i => ContainsPath(i, originalPath));
         }
 
-        private static bool ContainsPath(string parent, string path)
+        private bool ContainsPath(string parent, string path)
         {
             return FileSystem.AreEqual(parent, path) || FileSystem.ContainsSubPath(parent, path);
         }
@@ -1266,7 +1278,7 @@ namespace MediaBrowser.Controller.Entities
 
                 var childOwner = child.IsOwnedItem ? (child.GetOwner() ?? child) : child;
 
-                if (childOwner != null)
+                if (childOwner != null && !(child is IItemByName))
                 {
                     var childLocationType = childOwner.LocationType;
                     if (childLocationType == LocationType.Remote || childLocationType == LocationType.Virtual)
@@ -1421,6 +1433,16 @@ namespace MediaBrowser.Controller.Entities
             // Sweep through recursively and update status
             foreach (var item in itemsResult)
             {
+                if (item.IsVirtualItem)
+                {
+                    // The querying doesn't support virtual unaired
+                    var episode = item as Episode;
+                    if (episode != null && episode.IsUnaired)
+                    {
+                        continue;
+                    }
+                }
+
                 item.MarkPlayed(user, datePlayed, resetPosition);
             }
         }

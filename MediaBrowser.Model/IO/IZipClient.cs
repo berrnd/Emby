@@ -24,6 +24,7 @@ namespace MediaBrowser.Model.IO
         void ExtractAll(Stream source, string targetPath, bool overwriteExistingFiles);
 
         void ExtractAllFromGz(Stream source, string targetPath, bool overwriteExistingFiles);
+        void ExtractFirstFileFromGz(Stream source, string targetPath, string defaultFileName);
 
         /// <summary>
         /// Extracts all from zip.
@@ -64,21 +65,5 @@ namespace MediaBrowser.Model.IO
         /// <param name="targetPath">The target path.</param>
         /// <param name="overwriteExistingFiles">if set to <c>true</c> [overwrite existing files].</param>
         void ExtractAllFromTar(Stream source, string targetPath, bool overwriteExistingFiles);
-
-        /// <summary>
-        /// Extracts all from rar.
-        /// </summary>
-        /// <param name="sourceFile">The source file.</param>
-        /// <param name="targetPath">The target path.</param>
-        /// <param name="overwriteExistingFiles">if set to <c>true</c> [overwrite existing files].</param>
-        void ExtractAllFromRar(string sourceFile, string targetPath, bool overwriteExistingFiles);
-
-        /// <summary>
-        /// Extracts all from rar.
-        /// </summary>
-        /// <param name="source">The source.</param>
-        /// <param name="targetPath">The target path.</param>
-        /// <param name="overwriteExistingFiles">if set to <c>true</c> [overwrite existing files].</param>
-        void ExtractAllFromRar(Stream source, string targetPath, bool overwriteExistingFiles);
     }
 }

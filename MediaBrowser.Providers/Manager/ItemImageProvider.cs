@@ -302,20 +302,14 @@ namespace MediaBrowser.Providers.Manager
                     }
                 }
 
-                if (!item.LockedFields.Contains(MetadataFields.Backdrops))
-                {
-                    minWidth = savedOptions.GetMinWidth(ImageType.Backdrop);
-                    await DownloadBackdrops(item, libraryOptions, ImageType.Backdrop, backdropLimit, provider, result, list, minWidth, cancellationToken).ConfigureAwait(false);
-                }
+                minWidth = savedOptions.GetMinWidth(ImageType.Backdrop);
+                await DownloadBackdrops(item, libraryOptions, ImageType.Backdrop, backdropLimit, provider, result, list, minWidth, cancellationToken).ConfigureAwait(false);
 
-                if (!item.LockedFields.Contains(MetadataFields.Screenshots))
+                var hasScreenshots = item as IHasScreenshots;
+                if (hasScreenshots != null)
                 {
-                    var hasScreenshots = item as IHasScreenshots;
-                    if (hasScreenshots != null)
-                    {
-                        minWidth = savedOptions.GetMinWidth(ImageType.Screenshot);
-                        await DownloadBackdrops(item, libraryOptions, ImageType.Screenshot, screenshotLimit, provider, result, list, minWidth, cancellationToken).ConfigureAwait(false);
-                    }
+                    minWidth = savedOptions.GetMinWidth(ImageType.Screenshot);
+                    await DownloadBackdrops(item, libraryOptions, ImageType.Screenshot, screenshotLimit, provider, result, list, minWidth, cancellationToken).ConfigureAwait(false);
                 }
             }
             catch (OperationCanceledException)
@@ -331,28 +325,6 @@ namespace MediaBrowser.Providers.Manager
 
         private bool IsEnabled(MetadataOptions options, ImageType type, IHasMetadata item)
         {
-            if (type == ImageType.Backdrop)
-            {
-                if (item.LockedFields.Contains(MetadataFields.Backdrops))
-                {
-                    return false;
-                }
-            }
-            else if (type == ImageType.Screenshot)
-            {
-                if (item.LockedFields.Contains(MetadataFields.Screenshots))
-                {
-                    return false;
-                }
-            }
-            else
-            {
-                if (item.LockedFields.Contains(MetadataFields.Images))
-                {
-                    return false;
-                }
-            }
-
             return options.IsEnabled(type);
         }
 
@@ -412,7 +384,18 @@ namespace MediaBrowser.Providers.Manager
                     }
                     else
                     {
-                        currentImage.DateModified = _fileSystem.GetLastWriteTimeUtc(image.FileInfo);
+
+                        var newDateModified = _fileSystem.GetLastWriteTimeUtc(image.FileInfo);
+
+                        // If date changed then we need to reset saved image dimensions
+                        if (currentImage.DateModified != newDateModified && (currentImage.Width > 0 || currentImage.Height > 0))
+                        {
+                            currentImage.Width = 0;
+                            currentImage.Height = 0;
+                            changed = true;
+                        }
+
+                        currentImage.DateModified = newDateModified;
                     }
                 }
                 else
@@ -517,17 +500,7 @@ namespace MediaBrowser.Providers.Manager
                 return true;
             }
 
-            if (libraryOptions.DownloadImagesInAdvance)
-            {
-                return false;
-            }
-
             if (item.LocationType == LocationType.Remote || item.LocationType == LocationType.Virtual)
-            {
-                return true;
-            }
-
-            if (!item.IsSaveLocalMetadataEnabled())
             {
                 return true;
             }
@@ -541,13 +514,17 @@ namespace MediaBrowser.Providers.Manager
                 }
             }
 
-            switch (type)
+            if (libraryOptions.DownloadImagesInAdvance)
             {
-                case ImageType.Primary:
-                    return true;
-                default:
-                    return true;
+                return false;
             }
+
+            //if (!item.IsSaveLocalMetadataEnabled())
+            //{
+            //    return true;
+            //}
+
+            return true;
         }
 
         private void SaveImageStub(IHasMetadata item, ImageType imageType, IEnumerable<string> urls)

@@ -146,11 +146,11 @@ namespace Emby.Server.Implementations.Data
 
                     "create table if not exists TypedBaseItems (guid GUID primary key NOT NULL, type TEXT NOT NULL, data BLOB NULL, ParentId GUID NULL, Path TEXT NULL)",
 
-                    "create table if not exists AncestorIds (ItemId GUID, AncestorId GUID, AncestorIdText TEXT, PRIMARY KEY (ItemId, AncestorId))",
+                    "create table if not exists AncestorIds (ItemId GUID NOT NULL, AncestorId GUID NOT NULL, AncestorIdText TEXT NOT NULL, PRIMARY KEY (ItemId, AncestorId))",
                     "create index if not exists idx_AncestorIds1 on AncestorIds(AncestorId)",
                     "create index if not exists idx_AncestorIds5 on AncestorIds(AncestorIdText,ItemId)",
 
-                    "create table if not exists ItemValues (ItemId GUID, Type INT, Value TEXT, CleanValue TEXT)",
+                    "create table if not exists ItemValues (ItemId GUID NOT NULL, Type INT NOT NULL, Value TEXT NOT NULL, CleanValue TEXT NOT NULL)",
 
                     "create table if not exists People (ItemId GUID, Name TEXT NOT NULL, Role TEXT, PersonType TEXT, SortOrder int, ListOrder int)",
 
@@ -158,11 +158,9 @@ namespace Emby.Server.Implementations.Data
                     "create index if not exists idxPeopleItemId1 on People(ItemId,ListOrder)",
                     "create index if not exists idxPeopleName on People(Name)",
 
-                    "create table if not exists "+ChaptersTableName+" (ItemId GUID, ChapterIndex INT, StartPositionTicks BIGINT, Name TEXT, ImagePath TEXT, PRIMARY KEY (ItemId, ChapterIndex))",
+                    "create table if not exists "+ChaptersTableName+" (ItemId GUID, ChapterIndex INT NOT NULL, StartPositionTicks BIGINT NOT NULL, Name TEXT, ImagePath TEXT, PRIMARY KEY (ItemId, ChapterIndex))",
 
                     createMediaStreamsTableCommand,
-
-                    "create index if not exists idx_mediastreams1 on mediastreams(ItemId)",
 
                     "pragma shrink_memory"
 
@@ -282,6 +280,7 @@ namespace Emby.Server.Implementations.Data
                     // obsolete
                     "drop index if exists idx_TypedBaseItems",
                     "drop index if exists idx_mediastreams",
+                    "drop index if exists idx_mediastreams1",
                     "drop index if exists idx_"+ChaptersTableName,
                     "drop index if exists idx_UserDataKeys1",
                     "drop index if exists idx_UserDataKeys2",
@@ -316,7 +315,6 @@ namespace Emby.Server.Implementations.Data
 
                     "create index if not exists idx_PresentationUniqueKey on TypedBaseItems(PresentationUniqueKey)",
                     "create index if not exists idx_GuidTypeIsFolderIsVirtualItem on TypedBaseItems(Guid,Type,IsFolder,IsVirtualItem)",
-                    //"create index if not exists idx_GuidMediaTypeIsFolderIsVirtualItem on TypedBaseItems(Guid,MediaType,IsFolder,IsVirtualItem)",
                     "create index if not exists idx_CleanNameType on TypedBaseItems(CleanName,Type)",
 
                     // covering index
@@ -614,6 +612,33 @@ namespace Emby.Server.Implementations.Data
             }
 
             SaveItems(new List<BaseItem> { item }, cancellationToken);
+        }
+
+        public void SaveImages(BaseItem item)
+        {
+            if (item == null)
+            {
+                throw new ArgumentNullException("item");
+            }
+
+            CheckDisposed();
+
+            using (WriteLock.Write())
+            {
+                using (var connection = CreateConnection())
+                {
+                    connection.RunInTransaction(db =>
+                    {
+                        using (var saveImagesStatement = PrepareStatement(db, "Update TypedBaseItems set Images=@Images where guid=@Id"))
+                        {
+                            saveImagesStatement.TryBind("@Id", item.Id.ToGuidBlob());
+                            saveImagesStatement.TryBind("@Images", SerializeImages(item));
+
+                            saveImagesStatement.MoveNext();
+                        }
+                    }, TransactionMode);
+                }
+            }
         }
 
         /// <summary>
@@ -1170,7 +1195,11 @@ namespace Emby.Server.Implementations.Data
                    delimeter +
                    image.DateModified.Ticks.ToString(CultureInfo.InvariantCulture) +
                    delimeter +
-                   image.Type;
+                   image.Type +
+                   delimeter +
+                   image.Width.ToString(CultureInfo.InvariantCulture) +
+                   delimeter +
+                   image.Height.ToString(CultureInfo.InvariantCulture);
         }
 
         public ItemImageInfo ItemImageInfoFromValueString(string value)
@@ -1196,6 +1225,20 @@ namespace Emby.Server.Implementations.Data
             if (Enum.TryParse(parts[2], true, out type))
             {
                 image.Type = type;
+            }
+
+            if (parts.Length >= 5)
+            {
+                int width;
+                int height;
+                if (int.TryParse(parts[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out width))
+                {
+                    if (int.TryParse(parts[4], NumberStyles.Integer, CultureInfo.InvariantCulture, out height))
+                    {
+                        image.Width = width;
+                        image.Height = height;
+                    }
+                }
             }
 
             return image;
@@ -3038,8 +3081,8 @@ namespace Emby.Server.Implementations.Data
             {
                 if (orderBy.Count == 0)
                 {
-                    orderBy.Add(new Tuple<string, SortOrder>(ItemSortBy.Random, SortOrder.Ascending));
                     orderBy.Add(new Tuple<string, SortOrder>("SimilarityScore", SortOrder.Descending));
+                    orderBy.Add(new Tuple<string, SortOrder>(ItemSortBy.Random, SortOrder.Ascending));
                     //orderBy.Add(new Tuple<string, SortOrder>(ItemSortBy.Random, SortOrder.Ascending));
                 }
             }
@@ -4241,7 +4284,7 @@ namespace Emby.Server.Implementations.Data
 
             if (query.MinParentalRating.HasValue)
             {
-                whereClauses.Add("InheritedParentalRatingValue<=@MinParentalRating");
+                whereClauses.Add("InheritedParentalRatingValue>=@MinParentalRating");
                 if (statement != null)
                 {
                     statement.TryBind("@MinParentalRating", query.MinParentalRating.Value);
@@ -4332,6 +4375,21 @@ namespace Emby.Server.Implementations.Data
             if (query.HasDeadParentId.HasValue && query.HasDeadParentId.Value)
             {
                 whereClauses.Add("ParentId NOT NULL AND ParentId NOT IN (select guid from TypedBaseItems)");
+            }
+            
+            if (query.IsDeadArtist.HasValue && query.IsDeadArtist.Value)
+            {
+                whereClauses.Add("CleanName not in (Select CleanValue From ItemValues where Type in (0,1))");
+            }
+
+            if (query.IsDeadStudio.HasValue && query.IsDeadStudio.Value)
+            {
+                whereClauses.Add("CleanName not in (Select CleanValue From ItemValues where Type = 3)");
+            }
+
+            if (query.IsDeadPerson.HasValue && query.IsDeadPerson.Value)
+            {
+                whereClauses.Add("Name not in (Select Name From People)");
             }
 
             if (query.Years.Length == 1)
@@ -5219,7 +5277,13 @@ where AncestorIdText not null and ItemValues.Value not null and ItemValues.Type 
                 ItemIds = query.ItemIds,
                 TopParentIds = query.TopParentIds,
                 ParentId = query.ParentId,
-                IsPlayed = query.IsPlayed
+                IsPlayed = query.IsPlayed,
+                IsAiring = query.IsAiring,
+                IsMovie = query.IsMovie,
+                IsSports = query.IsSports,
+                IsKids = query.IsKids,
+                IsNews = query.IsNews,
+                IsSeries = query.IsSeries
             };
 
             var innerWhereClauses = GetWhereClauses(innerQuery, null);
@@ -5253,7 +5317,8 @@ where AncestorIdText not null and ItemValues.Value not null and ItemValues.Type 
                 OfficialRatings = query.OfficialRatings,
                 GenreIds = query.GenreIds,
                 Genres = query.Genres,
-                Years = query.Years
+                Years = query.Years,
+                NameContains = query.NameContains
             };
 
             var outerWhereClauses = GetWhereClauses(outerQuery, null);

@@ -118,7 +118,29 @@ namespace MediaBrowser.Providers.Manager
 
         public Task<ItemUpdateType> RefreshSingleItem(IHasMetadata item, MetadataRefreshOptions options, CancellationToken cancellationToken)
         {
-            var service = _metadataServices.FirstOrDefault(i => i.CanRefresh(item));
+            IMetadataService service = null;
+            var type = item.GetType();
+
+            foreach (var current in _metadataServices)
+            {
+                if (current.CanRefreshPrimary(type))
+                {
+                    service = current;
+                    break;
+                }
+            }
+
+            if (service == null)
+            {
+                foreach (var current in _metadataServices)
+                {
+                    if (current.CanRefresh(item))
+                    {
+                        service = current;
+                        break;
+                    }
+                }
+            }
 
             if (service != null)
             {
@@ -131,16 +153,16 @@ namespace MediaBrowser.Providers.Manager
 
         public async Task SaveImage(IHasMetadata item, string url, ImageType type, int? imageIndex, CancellationToken cancellationToken)
         {
-            var response = await _httpClient.GetResponse(new HttpRequestOptions
+            using (var response = await _httpClient.GetResponse(new HttpRequestOptions
             {
                 CancellationToken = cancellationToken,
                 Url = url,
                 BufferContent = false
 
-            }).ConfigureAwait(false);
-
-            await SaveImage(item, response.Content, response.ContentType, type, imageIndex, cancellationToken)
-                    .ConfigureAwait(false);
+            }).ConfigureAwait(false))
+            {
+                await SaveImage(item, response.Content, response.ContentType, type, imageIndex, cancellationToken).ConfigureAwait(false);
+            }
         }
 
         public Task SaveImage(IHasMetadata item, Stream source, string mimeType, ImageType type, int? imageIndex, CancellationToken cancellationToken)
@@ -452,6 +474,8 @@ namespace MediaBrowser.Providers.Manager
                 GetPluginSummary<MusicAlbum>(),
                 GetPluginSummary<MusicArtist>(),
                 GetPluginSummary<Audio>(),
+                GetPluginSummary<AudioBook>(),
+                GetPluginSummary<AudioPodcast>(),
                 GetPluginSummary<Genre>(),
                 GetPluginSummary<Studio>(),
                 GetPluginSummary<GameGenre>(),
@@ -924,7 +948,8 @@ namespace MediaBrowser.Providers.Manager
                 }
                 else
                 {
-                    throw new Exception(string.Format("Refresh for item {0} {1} is not in progress", item.GetType().Name, item.Id.ToString("N")));
+                    // TODO: Need to hunt down the conditions for this happening
+                    //throw new Exception(string.Format("Refresh for item {0} {1} is not in progress", item.GetType().Name, item.Id.ToString("N")));
                 }
             }
         }

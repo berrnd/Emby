@@ -17,6 +17,7 @@ using System.Threading.Tasks;
 using MediaBrowser.Controller.IO;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Controller.Library;
+using MediaBrowser.Controller.Providers;
 
 namespace Emby.Server.Implementations.MediaEncoder
 {
@@ -75,6 +76,21 @@ namespace Emby.Server.Implementations.MediaEncoder
                 return false;
             }
 
+            if (video.VideoType == VideoType.Iso)
+            {
+                return false;
+            }
+
+            if (video.VideoType == VideoType.BluRay || video.VideoType == VideoType.Dvd)
+            {
+                return false;
+            }
+
+            if (video.IsShortcut)
+            {
+                return false;
+            }
+
             if (!video.IsCompleteMedia)
             {
                 return false;
@@ -89,7 +105,7 @@ namespace Emby.Server.Implementations.MediaEncoder
         /// </summary>
         private static readonly long FirstChapterTicks = TimeSpan.FromSeconds(15).Ticks;
 
-        public async Task<bool> RefreshChapterImages(Video video, List<ChapterInfo> chapters, bool extractImages, bool saveChapters, CancellationToken cancellationToken)
+        public async Task<bool> RefreshChapterImages(Video video, IDirectoryService directoryService, List<ChapterInfo> chapters, bool extractImages, bool saveChapters, CancellationToken cancellationToken)
         {
             if (!IsEligibleForChapterImageExtraction(video))
             {
@@ -101,7 +117,7 @@ namespace Emby.Server.Implementations.MediaEncoder
 
             var runtimeTicks = video.RunTimeTicks ?? 0;
 
-            var currentImages = GetSavedChapterImages(video);
+            var currentImages = GetSavedChapterImages(video, directoryService);
 
             foreach (var chapter in chapters)
             {
@@ -117,16 +133,6 @@ namespace Emby.Server.Implementations.MediaEncoder
                 {
                     if (extractImages)
                     {
-                        if (video.VideoType == VideoType.Iso)
-                        {
-                            continue;
-                        }
-
-                        if (video.VideoType == VideoType.BluRay || video.VideoType == VideoType.Dvd)
-                        {
-                            continue;
-                        }
-
                         try
                         {
                             // Add some time for the first chapter to make sure we don't end up with a black image
@@ -194,13 +200,13 @@ namespace Emby.Server.Implementations.MediaEncoder
             return Path.Combine(GetChapterImagesPath(video), filename);
         }
 
-        private List<string> GetSavedChapterImages(Video video)
+        private List<string> GetSavedChapterImages(Video video, IDirectoryService directoryService)
         {
             var path = GetChapterImagesPath(video);
 
             try
             {
-                return _fileSystem.GetFilePaths(path)
+                return directoryService.GetFilePaths(path)
                     .ToList();
             }
             catch (IOException)

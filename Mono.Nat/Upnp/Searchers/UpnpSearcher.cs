@@ -39,6 +39,7 @@ using System.Net.NetworkInformation;
 using MediaBrowser.Common.Net;
 using MediaBrowser.Model.Logging;
 using MediaBrowser.Model.Dlna;
+using System.Threading.Tasks;
 
 namespace Mono.Nat
 {
@@ -61,7 +62,7 @@ namespace Mono.Nat
 		{
 		}
 
-        public void Handle(IPAddress localAddress, UpnpDeviceInfo deviceInfo, IPEndPoint endpoint)
+        public async Task Handle(IPAddress localAddress, UpnpDeviceInfo deviceInfo, IPEndPoint endpoint)
         {
             // No matter what, this method should never throw an exception. If something goes wrong
             // we should still be in a position to handle the next reply correctly.
@@ -81,7 +82,9 @@ namespace Mono.Nat
                 // We have an internet gateway device now
                 UpnpNatDevice d = new UpnpNatDevice(localAddress, deviceInfo, endpoint, string.Empty, _logger, _httpClient);
 
-                NatUtility.Log("Fetching service list: {0}", d.HostEndPoint);
+                _logger.Debug("Fetching service list: {0}", d.HostEndPoint);
+                await d.GetServicesList().ConfigureAwait(false);
+
                 OnDeviceFound(new DeviceEventArgs(d));
             }
             catch (Exception ex)

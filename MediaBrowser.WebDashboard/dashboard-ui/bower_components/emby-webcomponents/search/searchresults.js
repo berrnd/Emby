@@ -6,12 +6,13 @@ define(["layoutManager", "globalize", "require", "events", "connectionManager", 
         }
         ;
         apiClient.getItems(apiClient.getCurrentUserId(), options).then(function(result) {
+            "suggestions"!==instance.mode&&(result.Items=[]);
             var html=result.Items.map(function(i) {
-                var href=appRouter.getRouteUrl(i), itemHtml='<div><a is="emby-linkbutton" class="button-link" style="display:inline-block;padding:.55em 1em;" href="'+href+'">';
+                var href=appRouter.getRouteUrl(i), itemHtml='<div><a is="emby-linkbutton" class="button-link" style="display:inline-block;padding:.5em 1em;" href="'+href+'">';
                 return itemHtml+=i.Name, itemHtml+="</a></div>"
             }
             ).join(""), searchSuggestions=context.querySelector(".searchSuggestions");
-            searchSuggestions.querySelector(".searchSuggestionsList").innerHTML=html, searchSuggestions.classList.remove("hide")
+            searchSuggestions.querySelector(".searchSuggestionsList").innerHTML=html, result.Items.length&&searchSuggestions.classList.remove("hide")
         }
         )
     }
@@ -27,7 +28,7 @@ define(["layoutManager", "globalize", "require", "events", "connectionManager", 
         )
     }
     function search(instance, apiClient, context, value) {
-        value||layoutManager.tv?context.querySelector(".searchSuggestions").classList.add("hide"):loadSuggestions(instance, context, apiClient), "livetv"===instance.options.collectionType?searchType(instance, apiClient, {
+        value||layoutManager.tv?(instance.mode="search", context.querySelector(".searchSuggestions").classList.add("hide")):(instance.mode="suggestions", loadSuggestions(instance, context, apiClient)), "livetv"===instance.options.collectionType?searchType(instance, apiClient, {
             searchTerm: value, IncludePeople: !1, IncludeMedia: !0, IncludeGenres: !1, IncludeStudios: !1, IncludeArtists: !1, IncludeItemTypes: "LiveTvProgram", IsMovie: !0, IsKids: !1, IsNews: !1
         }
         , context, ".movieResults", {

@@ -9,6 +9,7 @@ using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Logging;
 using Emby.Drawing.Skia;
 using MediaBrowser.Model.System;
+using MediaBrowser.Model.Globalization;
 
 namespace MediaBrowser.Server.Startup.Common
 {
@@ -20,17 +21,18 @@ namespace MediaBrowser.Server.Startup.Common
             StartupOptions startupOptions, 
             Func<IHttpClient> httpClient,
             IApplicationPaths appPaths,
-            IEnvironmentInfo environment)
+            IEnvironmentInfo environment,
+            ILocalizationManager localizationManager)
         {
             if (!startupOptions.ContainsOption("-enablegdi"))
             {
                 try
                 {
-                    return new SkiaEncoder(logManager.GetLogger("Skia"), appPaths, httpClient, fileSystem);
+                    return new SkiaEncoder(logManager.GetLogger("Skia"), appPaths, httpClient, fileSystem, localizationManager);
                 }
                 catch (Exception ex)
                 {
-                    logger.Error("Skia not available. Will try next image processor. {0}", ex.Message);
+                    logger.Info("Skia not available. Will try next image processor. {0}", ex.Message);
                 }
 
                 try
@@ -39,7 +41,7 @@ namespace MediaBrowser.Server.Startup.Common
                 }
                 catch
                 {
-                    logger.Error("ImageMagick not available. Will try next image processor.");
+                    logger.Info("ImageMagick not available. Will try next image processor.");
                 }
             }
 

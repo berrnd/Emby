@@ -470,7 +470,7 @@ namespace Emby.Server.Implementations.Library
             BaseItem removed;
             _libraryItemsCache.TryRemove(item.Id, out removed);
 
-            ReportItemRemoved(item);
+            ReportItemRemoved(item, parent);
         }
 
         private IEnumerable<string> GetMetadataPaths(BaseItem item, IEnumerable<BaseItem> children)
@@ -533,7 +533,7 @@ namespace Emby.Server.Implementations.Library
                 throw new ArgumentNullException("type");
             }
 
-            if (ConfigurationManager.Configuration.EnableLocalizedGuids && key.StartsWith(ConfigurationManager.ApplicationPaths.ProgramDataPath))
+            if (key.StartsWith(ConfigurationManager.ApplicationPaths.ProgramDataPath))
             {
                 // Try to normalize paths located underneath program-data in an attempt to make them more portable
                 key = key.Substring(ConfigurationManager.ApplicationPaths.ProgramDataPath.Length)
@@ -736,6 +736,13 @@ namespace Emby.Server.Implementations.Library
 
             var rootFolder = GetItemById(GetNewItemId(rootFolderPath, typeof(AggregateFolder))) as AggregateFolder ?? (AggregateFolder)ResolvePath(_fileSystem.GetDirectoryInfo(rootFolderPath));
 
+            // In case program data folder was moved
+            if (!string.Equals(rootFolder.Path, rootFolderPath, StringComparison.Ordinal))
+            {
+                _logger.Info("Resetting root folder path to {0}", rootFolderPath);
+                rootFolder.Path = rootFolderPath;
+            }
+
             // Add in the plug-in folders
             foreach (var child in PluginFolderCreators)
             {
@@ -796,6 +803,13 @@ namespace Emby.Server.Implementations.Library
                         if (tmpItem == null)
                         {
                             tmpItem = (UserRootFolder)ResolvePath(_fileSystem.GetDirectoryInfo(userRootPath));
+                        }
+
+                        // In case program data folder was moved
+                        if (!string.Equals(tmpItem.Path, userRootPath, StringComparison.Ordinal))
+                        {
+                            _logger.Info("Resetting user root folder path to {0}", userRootPath);
+                            tmpItem.Path = userRootPath;
                         }
 
                         _userRootFolder = tmpItem;
@@ -1817,7 +1831,7 @@ namespace Emby.Server.Implementations.Library
         /// <returns>Task.</returns>
         public void CreateItem(BaseItem item, CancellationToken cancellationToken)
         {
-            CreateItems(new[] { item }, cancellationToken);
+            CreateItems(new[] { item }, item.GetParent(), cancellationToken);
         }
 
         /// <summary>
@@ -1826,7 +1840,7 @@ namespace Emby.Server.Implementations.Library
         /// <param name="items">The items.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>Task.</returns>
-        public void CreateItems(IEnumerable<BaseItem> items, CancellationToken cancellationToken)
+        public void CreateItems(IEnumerable<BaseItem> items, BaseItem parent, CancellationToken cancellationToken)
         {
             var list = items.ToList();
 
@@ -1843,7 +1857,11 @@ namespace Emby.Server.Implementations.Library
                 {
                     try
                     {
-                        ItemAdded(this, new ItemChangeEventArgs { Item = item });
+                        ItemAdded(this, new ItemChangeEventArgs
+                        {
+                            Item = item,
+                            Parent = parent ?? item.GetParent()
+                        });
                     }
                     catch (Exception ex)
                     {
@@ -1851,6 +1869,13 @@ namespace Emby.Server.Implementations.Library
                     }
                 }
             }
+        }
+
+        public void UpdateImages(BaseItem item)
+        {
+            ItemRepository.SaveImages(item);
+
+            RegisterItem(item);
         }
 
         /// <summary>
@@ -1884,6 +1909,7 @@ namespace Emby.Server.Implementations.Library
                     ItemUpdated(this, new ItemChangeEventArgs
                     {
                         Item = item,
+                        Parent = item.GetParent(),
                         UpdateReason = updateReason
                     });
                 }
@@ -1898,13 +1924,17 @@ namespace Emby.Server.Implementations.Library
         /// Reports the item removed.
         /// </summary>
         /// <param name="item">The item.</param>
-        public void ReportItemRemoved(BaseItem item)
+        public void ReportItemRemoved(BaseItem item, BaseItem parent)
         {
             if (ItemRemoved != null)
             {
                 try
                 {
-                    ItemRemoved(this, new ItemChangeEventArgs { Item = item });
+                    ItemRemoved(this, new ItemChangeEventArgs
+                    {
+                        Item = item,
+                        Parent = parent
+                    });
                 }
                 catch (Exception ex)
                 {

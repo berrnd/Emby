@@ -11,6 +11,7 @@ using MediaBrowser.Model.Logging;
 using MediaBrowser.Model.Serialization;
 using MediaBrowser.Model.System;
 using MediaBrowser.Model.Tasks;
+using System.IO;
 
 namespace Emby.Server.Implementations.ScheduledTasks
 {
@@ -31,8 +32,8 @@ namespace Emby.Server.Implementations.ScheduledTasks
         /// <summary>
         /// The _task queue
         /// </summary>
-        private readonly ConcurrentQueue<Tuple<Type, TaskExecutionOptions>> _taskQueue =
-            new ConcurrentQueue<Tuple<Type, TaskExecutionOptions>>();
+        private readonly ConcurrentQueue<Tuple<Type, TaskOptions>> _taskQueue =
+            new ConcurrentQueue<Tuple<Type, TaskOptions>>();
 
         /// <summary>
         /// Gets or sets the json serializer.
@@ -86,12 +87,63 @@ namespace Emby.Server.Implementations.ScheduledTasks
             }
         }
 
+        public void RunTaskOnNextStartup(string key)
+        {
+            var path = Path.Combine(ApplicationPaths.CachePath, "startuptasks.txt");
+
+            List<string> lines;
+
+            try
+            {
+                lines = _fileSystem.ReadAllLines(path).ToList() ;
+            }
+            catch
+            {
+                lines = new List<string>();
+            }
+
+            if (!lines.Contains(key, StringComparer.OrdinalIgnoreCase))
+            {
+                lines.Add(key);
+                _fileSystem.CreateDirectory(_fileSystem.GetDirectoryName(path));
+                _fileSystem.WriteAllLines(path, lines);
+            }
+        }
+
+        private void RunStartupTasks()
+        {
+            var path = Path.Combine(ApplicationPaths.CachePath, "startuptasks.txt");
+
+            List<string> lines;
+
+            try
+            {
+                lines = _fileSystem.ReadAllLines(path).Where(i => !string.IsNullOrWhiteSpace(i)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+
+                foreach (var key in lines)
+                {
+                    var task = ScheduledTasks.FirstOrDefault(i => string.Equals(i.ScheduledTask.Key, key, StringComparison.OrdinalIgnoreCase));
+
+                    if (task != null)
+                    {
+                        QueueScheduledTask(task, new TaskOptions());
+                    }
+                }
+
+                _fileSystem.DeleteFile(path);
+            }
+            catch
+            {
+                return;
+            }
+        }
+
         /// <summary>
         /// Cancels if running and queue.
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="options">Task options.</param>
-        public void CancelIfRunningAndQueue<T>(TaskExecutionOptions options)
+        public void CancelIfRunningAndQueue<T>(TaskOptions options)
                  where T : IScheduledTask
         {
             var task = ScheduledTasks.First(t => t.ScheduledTask.GetType() == typeof(T));
@@ -103,7 +155,7 @@ namespace Emby.Server.Implementations.ScheduledTasks
         public void CancelIfRunningAndQueue<T>()
                where T : IScheduledTask
         {
-            CancelIfRunningAndQueue<T>(new TaskExecutionOptions());
+            CancelIfRunningAndQueue<T>(new TaskOptions());
         }
 
         /// <summary>
@@ -122,7 +174,7 @@ namespace Emby.Server.Implementations.ScheduledTasks
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="options">Task options</param>
-        public void QueueScheduledTask<T>(TaskExecutionOptions options)
+        public void QueueScheduledTask<T>(TaskOptions options)
             where T : IScheduledTask
         {
             var scheduledTask = ScheduledTasks.FirstOrDefault(t => t.ScheduledTask.GetType() == typeof(T));
@@ -140,7 +192,7 @@ namespace Emby.Server.Implementations.ScheduledTasks
         public void QueueScheduledTask<T>()
             where T : IScheduledTask
         {
-            QueueScheduledTask<T>(new TaskExecutionOptions());
+            QueueScheduledTask<T>(new TaskOptions());
         }
 
         public void QueueIfNotRunning<T>()
@@ -150,7 +202,7 @@ namespace Emby.Server.Implementations.ScheduledTasks
 
             if (task.State != TaskState.Running)
             {
-                QueueScheduledTask<T>(new TaskExecutionOptions());
+                QueueScheduledTask<T>(new TaskOptions());
             }
         }
 
@@ -173,7 +225,7 @@ namespace Emby.Server.Implementations.ScheduledTasks
                 {
                     if (scheduledTask.State == TaskState.Idle)
                     {
-                        Execute(scheduledTask, new TaskExecutionOptions());
+                        Execute(scheduledTask, new TaskOptions());
                     }
                 }
             }
@@ -184,7 +236,7 @@ namespace Emby.Server.Implementations.ScheduledTasks
         /// </summary>
         /// <param name="task">The task.</param>
         /// <param name="options">The task options.</param>
-        public void QueueScheduledTask(IScheduledTask task, TaskExecutionOptions options)
+        public void QueueScheduledTask(IScheduledTask task, TaskOptions options)
         {
             var scheduledTask = ScheduledTasks.FirstOrDefault(t => t.ScheduledTask.GetType() == task.GetType());
 
@@ -203,7 +255,7 @@ namespace Emby.Server.Implementations.ScheduledTasks
         /// </summary>
         /// <param name="task">The task.</param>
         /// <param name="options">The task options.</param>
-        private void QueueScheduledTask(IScheduledTaskWorker task, TaskExecutionOptions options)
+        private void QueueScheduledTask(IScheduledTaskWorker task, TaskOptions options)
         {
             var type = task.ScheduledTask.GetType();
 
@@ -217,7 +269,7 @@ namespace Emby.Server.Implementations.ScheduledTasks
                     return;
                 }
 
-                _taskQueue.Enqueue(new Tuple<Type, TaskExecutionOptions>(type, options));
+                _taskQueue.Enqueue(new Tuple<Type, TaskOptions>(type, options));
             }
         }
 
@@ -235,6 +287,8 @@ namespace Emby.Server.Implementations.ScheduledTasks
             ScheduledTasks = myTasks.ToArray();
 
             BindToSystemEvent();
+
+            RunStartupTasks();
         }
 
         /// <summary>
@@ -263,7 +317,7 @@ namespace Emby.Server.Implementations.ScheduledTasks
             ((ScheduledTaskWorker)task).Cancel();
         }
 
-        public Task Execute(IScheduledTaskWorker task, TaskExecutionOptions options)
+        public Task Execute(IScheduledTaskWorker task, TaskOptions options)
         {
             return ((ScheduledTaskWorker)task).Execute(options);
         }
@@ -308,9 +362,9 @@ namespace Emby.Server.Implementations.ScheduledTasks
             // Execute queued tasks
             lock (_taskQueue)
             {
-                var list = new List<Tuple<Type, TaskExecutionOptions>>();
+                var list = new List<Tuple<Type, TaskOptions>>();
 
-                Tuple<Type, TaskExecutionOptions> item;
+                Tuple<Type, TaskOptions> item;
                 while (_taskQueue.TryDequeue(out item))
                 {
                     if (list.All(i => i.Item1 != item.Item1))

@@ -69,22 +69,17 @@ namespace MediaBrowser.Providers.MediaInfo
             CancellationToken cancellationToken)
             where T : Video
         {
-            var isoMount = await MountIsoIfNeeded(item, cancellationToken).ConfigureAwait(false);
-
             BlurayDiscInfo blurayDiscInfo = null;
 
-            try
+            Model.MediaInfo.MediaInfo mediaInfoResult = null;
+
+            if (!item.IsShortcut)
             {
                 string[] streamFileNames = null;
 
-                if (item.VideoType == VideoType.Iso)
+                if (item.VideoType == VideoType.Dvd)
                 {
-                    item.IsoType = DetermineIsoType(isoMount);
-                }
-
-                if (item.VideoType == VideoType.Dvd || (item.IsoType.HasValue && item.IsoType == IsoType.Dvd))
-                {
-                    streamFileNames = FetchFromDvdLib(item, isoMount);
+                    streamFileNames = FetchFromDvdLib(item);
 
                     if (streamFileNames.Length == 0)
                     {
@@ -93,9 +88,9 @@ namespace MediaBrowser.Providers.MediaInfo
                     }
                 }
 
-                else if (item.VideoType == VideoType.BluRay || (item.IsoType.HasValue && item.IsoType == IsoType.BluRay))
+                else if (item.VideoType == VideoType.BluRay)
                 {
-                    var inputPath = isoMount != null ? isoMount.MountedPath : item.Path;
+                    var inputPath = item.Path;
 
                     blurayDiscInfo = GetBDInfo(inputPath);
 
@@ -113,26 +108,17 @@ namespace MediaBrowser.Providers.MediaInfo
                     streamFileNames = new string[] { };
                 }
 
-                var result = await GetMediaInfo(item, isoMount, streamFileNames, cancellationToken).ConfigureAwait(false);
+                mediaInfoResult = await GetMediaInfo(item, streamFileNames, cancellationToken).ConfigureAwait(false);
 
                 cancellationToken.ThrowIfCancellationRequested();
-
-                await Fetch(item, cancellationToken, result, isoMount, blurayDiscInfo, options).ConfigureAwait(false);
-
             }
-            finally
-            {
-                if (isoMount != null)
-                {
-                    isoMount.Dispose();
-                }
-            }
+
+            await Fetch(item, cancellationToken, mediaInfoResult, blurayDiscInfo, options).ConfigureAwait(false);
 
             return ItemUpdateType.MetadataImport;
         }
 
         private Task<Model.MediaInfo.MediaInfo> GetMediaInfo(Video item,
-            IIsoMount isoMount,
             string[] streamFileNames,
             CancellationToken cancellationToken)
         {
@@ -145,7 +131,6 @@ namespace MediaBrowser.Providers.MediaInfo
             return _mediaEncoder.GetMediaInfo(new MediaInfoRequest
             {
                 PlayableStreamFileNames = streamFileNames,
-                MountedIso = isoMount,
                 ExtractChapters = true,
                 VideoType = item.VideoType,
                 MediaType = DlnaProfileType.Video,
@@ -158,47 +143,63 @@ namespace MediaBrowser.Providers.MediaInfo
         protected async Task Fetch(Video video,
             CancellationToken cancellationToken,
             Model.MediaInfo.MediaInfo mediaInfo,
-            IIsoMount isoMount,
             BlurayDiscInfo blurayInfo,
             MetadataRefreshOptions options)
         {
-            var mediaStreams = mediaInfo.MediaStreams;
+            List<MediaStream> mediaStreams;
+            List<ChapterInfo> chapters;
 
-            video.TotalBitrate = mediaInfo.Bitrate;
-            //video.FormatName = (mediaInfo.Container ?? string.Empty)
-            //    .Replace("matroska", "mkv", StringComparison.OrdinalIgnoreCase);
-
-            // For dvd's this may not always be accurate, so don't set the runtime if the item already has one
-            var needToSetRuntime = video.VideoType != VideoType.Dvd || video.RunTimeTicks == null || video.RunTimeTicks.Value == 0;
-
-            if (needToSetRuntime)
+            if (mediaInfo != null)
             {
-                video.RunTimeTicks = mediaInfo.RunTimeTicks;
-            }
+                mediaStreams = mediaInfo.MediaStreams;
 
-            if (video.VideoType == VideoType.VideoFile)
-            {
-                var extension = (Path.GetExtension(video.Path) ?? string.Empty).TrimStart('.');
+                video.TotalBitrate = mediaInfo.Bitrate;
+                //video.FormatName = (mediaInfo.Container ?? string.Empty)
+                //    .Replace("matroska", "mkv", StringComparison.OrdinalIgnoreCase);
 
-                video.Container = extension;
+                // For dvd's this may not always be accurate, so don't set the runtime if the item already has one
+                var needToSetRuntime = video.VideoType != VideoType.Dvd || video.RunTimeTicks == null || video.RunTimeTicks.Value == 0;
+
+                if (needToSetRuntime)
+                {
+                    video.RunTimeTicks = mediaInfo.RunTimeTicks;
+                }
+
+                if (video.VideoType == VideoType.VideoFile)
+                {
+                    var extension = (Path.GetExtension(video.Path) ?? string.Empty).TrimStart('.');
+
+                    video.Container = extension;
+                }
+                else
+                {
+                    video.Container = null;
+                }
+                video.Container = mediaInfo.Container;
+
+                chapters = mediaInfo.Chapters == null ? new List<ChapterInfo>() : mediaInfo.Chapters.ToList();
+                if (blurayInfo != null)
+                {
+                    FetchBdInfo(video, chapters, mediaStreams, blurayInfo);
+                }
             }
             else
             {
-                video.Container = null;
-            }
-            video.Container = mediaInfo.Container;
-
-            var chapters = mediaInfo.Chapters == null ? new List<ChapterInfo>() : mediaInfo.Chapters.ToList();
-            if (blurayInfo != null)
-            {
-                FetchBdInfo(video, chapters, mediaStreams, blurayInfo);
+                mediaStreams = new List<MediaStream>();
+                chapters = new List<ChapterInfo>();
             }
 
             await AddExternalSubtitles(video, mediaStreams, options, cancellationToken).ConfigureAwait(false);
+
             var libraryOptions = _libraryManager.GetLibraryOptions(video);
 
-            FetchEmbeddedInfo(video, mediaInfo, options, libraryOptions);
-            FetchPeople(video, mediaInfo, options);
+            if (mediaInfo != null)
+            {
+                FetchEmbeddedInfo(video, mediaInfo, options, libraryOptions);
+                FetchPeople(video, mediaInfo, options);
+                video.Timestamp = mediaInfo.Timestamp;
+                video.Video3DFormat = video.Video3DFormat ?? mediaInfo.Video3DFormat;
+            }
 
             video.IsHD = mediaStreams.Any(i => i.Type == MediaStreamType.Video && i.Width.HasValue && i.Width.Value >= 1260);
 
@@ -207,9 +208,6 @@ namespace MediaBrowser.Providers.MediaInfo
             video.DefaultVideoStreamIndex = videoStream == null ? (int?)null : videoStream.Index;
 
             video.HasSubtitles = mediaStreams.Any(i => i.Type == MediaStreamType.Subtitle);
-            video.Timestamp = mediaInfo.Timestamp;
-
-            video.Video3DFormat = video.Video3DFormat ?? mediaInfo.Video3DFormat;
 
             _itemRepo.SaveMediaStreams(video.Id, mediaStreams, cancellationToken);
 
@@ -229,7 +227,7 @@ namespace MediaBrowser.Providers.MediaInfo
                     extractDuringScan = libraryOptions.ExtractChapterImagesDuringLibraryScan;
                 }
 
-                await _encodingManager.RefreshChapterImages(video, chapters, extractDuringScan, false, cancellationToken).ConfigureAwait(false);
+                await _encodingManager.RefreshChapterImages(video, options.DirectoryService, chapters, extractDuringScan, false, cancellationToken).ConfigureAwait(false);
 
                 _chapterManager.SaveChapters(video.Id.ToString(), chapters);
             }
@@ -248,7 +246,7 @@ namespace MediaBrowser.Providers.MediaInfo
                 if (string.IsNullOrWhiteSpace(chapter.Name) ||
                     TimeSpan.TryParse(chapter.Name, out time))
                 {
-                    chapter.Name = string.Format(_localization.GetLocalizedString("LabelChapterName"), index.ToString(CultureInfo.InvariantCulture));
+                    chapter.Name = string.Format(_localization.GetLocalizedString("ChapterNameValue"), index.ToString(CultureInfo.InvariantCulture));
                 }
                 index++;
             }
@@ -472,7 +470,7 @@ namespace MediaBrowser.Providers.MediaInfo
             var subtitleResolver = new SubtitleResolver(_localization, _fileSystem);
 
             var startIndex = currentStreams.Count == 0 ? 0 : (currentStreams.Select(i => i.Index).Max() + 1);
-            var externalSubtitleStreams = subtitleResolver.GetExternalSubtitleStreams(video, startIndex, options.DirectoryService, false).ToList();
+            var externalSubtitleStreams = subtitleResolver.GetExternalSubtitleStreams(video, startIndex, options.DirectoryService, false);
 
             var enableSubtitleDownloading = options.MetadataRefreshMode == MetadataRefreshMode.Default ||
                                             options.MetadataRefreshMode == MetadataRefreshMode.FullRefresh;
@@ -497,7 +495,7 @@ namespace MediaBrowser.Providers.MediaInfo
                 // Rescan
                 if (downloadedLanguages.Count > 0)
                 {
-                    externalSubtitleStreams = subtitleResolver.GetExternalSubtitleStreams(video, startIndex, options.DirectoryService, true).ToList();
+                    externalSubtitleStreams = subtitleResolver.GetExternalSubtitleStreams(video, startIndex, options.DirectoryService, true);
                 }
             }
 
@@ -546,9 +544,9 @@ namespace MediaBrowser.Providers.MediaInfo
             }
         }
 
-        private string[] FetchFromDvdLib(Video item, IIsoMount mount)
+        private string[] FetchFromDvdLib(Video item)
         {
-            var path = mount == null ? item.Path : mount.MountedPath;
+            var path = item.Path;
             var dvd = new Dvd(path, _fileSystem);
 
             var primaryTitle = dvd.Titles.OrderByDescending(GetRuntime).FirstOrDefault();
@@ -561,7 +559,7 @@ namespace MediaBrowser.Providers.MediaInfo
                 item.RunTimeTicks = GetRuntime(primaryTitle);
             }
 
-            return _mediaEncoder.GetPrimaryPlaylistVobFiles(item.Path, mount, titleNumber)
+            return _mediaEncoder.GetPrimaryPlaylistVobFiles(item.Path, null, titleNumber)
                 .Select(Path.GetFileName)
                 .ToArray();
         }
@@ -572,44 +570,6 @@ namespace MediaBrowser.Providers.MediaInfo
                     .Select(i => (TimeSpan)i.PlaybackTime)
                     .Select(i => i.Ticks)
                     .Sum();
-        }
-
-        /// <summary>
-        /// Mounts the iso if needed.
-        /// </summary>
-        /// <param name="item">The item.</param>
-        /// <param name="cancellationToken">The cancellation token.</param>
-        /// <returns>IsoMount.</returns>
-        protected Task<IIsoMount> MountIsoIfNeeded(Video item, CancellationToken cancellationToken)
-        {
-            if (item.VideoType == VideoType.Iso)
-            {
-                return _isoManager.Mount(item.Path, cancellationToken);
-            }
-
-            return Task.FromResult<IIsoMount>(null);
-        }
-
-        /// <summary>
-        /// Determines the type of the iso.
-        /// </summary>
-        /// <param name="isoMount">The iso mount.</param>
-        /// <returns>System.Nullable{IsoType}.</returns>
-        private IsoType? DetermineIsoType(IIsoMount isoMount)
-        {
-            var fileSystemEntries = _fileSystem.GetFileSystemEntryPaths(isoMount.MountedPath).Select(Path.GetFileName).ToList();
-
-            if (fileSystemEntries.Contains("video_ts", StringComparer.OrdinalIgnoreCase) ||
-                fileSystemEntries.Contains("VIDEO_TS.IFO", StringComparer.OrdinalIgnoreCase))
-            {
-                return IsoType.Dvd;
-            }
-            if (fileSystemEntries.Contains("bdmv", StringComparer.OrdinalIgnoreCase))
-            {
-                return IsoType.BluRay;
-            }
-
-            return null;
         }
     }
 }

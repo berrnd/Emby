@@ -186,6 +186,11 @@ namespace MediaBrowser.Model.Dlna
                 return MediaSource.Path;
             }
 
+            if (string.IsNullOrWhiteSpace(PlaySessionId))
+            {
+                PlaySessionId = Guid.NewGuid().ToString("N");
+            }
+
             string dlnaCommand = BuildDlnaParam(this, accessToken);
             return GetUrl(baseUrl, dlnaCommand);
         }
@@ -249,14 +254,14 @@ namespace MediaBrowser.Model.Dlna
             list.Add(new NameValuePair("Static", item.IsDirectStream.ToString().ToLower()));
             list.Add(new NameValuePair("VideoCodec", videoCodecs));
             list.Add(new NameValuePair("AudioCodec", audioCodecs));
-            list.Add(new NameValuePair("AudioStreamIndex", item.AudioStreamIndex.HasValue ? StringHelper.ToStringCultureInvariant(item.AudioStreamIndex.Value) : string.Empty));
-            list.Add(new NameValuePair("SubtitleStreamIndex", item.SubtitleStreamIndex.HasValue && item.SubtitleDeliveryMethod != SubtitleDeliveryMethod.External ? StringHelper.ToStringCultureInvariant(item.SubtitleStreamIndex.Value) : string.Empty));
-            list.Add(new NameValuePair("VideoBitrate", item.VideoBitrate.HasValue ? StringHelper.ToStringCultureInvariant(item.VideoBitrate.Value) : string.Empty));
-            list.Add(new NameValuePair("AudioBitrate", item.AudioBitrate.HasValue ? StringHelper.ToStringCultureInvariant(item.AudioBitrate.Value) : string.Empty));
-            list.Add(new NameValuePair("MaxAudioChannels", item.MaxAudioChannels.HasValue ? StringHelper.ToStringCultureInvariant(item.MaxAudioChannels.Value) : string.Empty));
-            list.Add(new NameValuePair("MaxFramerate", item.MaxFramerate.HasValue ? StringHelper.ToStringCultureInvariant(item.MaxFramerate.Value) : string.Empty));
-            list.Add(new NameValuePair("MaxWidth", item.MaxWidth.HasValue ? StringHelper.ToStringCultureInvariant(item.MaxWidth.Value) : string.Empty));
-            list.Add(new NameValuePair("MaxHeight", item.MaxHeight.HasValue ? StringHelper.ToStringCultureInvariant(item.MaxHeight.Value) : string.Empty));
+            list.Add(new NameValuePair("AudioStreamIndex", item.AudioStreamIndex.HasValue ? item.AudioStreamIndex.Value.ToString(CultureInfo.InvariantCulture) : string.Empty));
+            list.Add(new NameValuePair("SubtitleStreamIndex", item.SubtitleStreamIndex.HasValue && item.SubtitleDeliveryMethod != SubtitleDeliveryMethod.External ? item.SubtitleStreamIndex.Value.ToString(CultureInfo.InvariantCulture) : string.Empty));
+            list.Add(new NameValuePair("VideoBitrate", item.VideoBitrate.HasValue ? item.VideoBitrate.Value.ToString(CultureInfo.InvariantCulture) : string.Empty));
+            list.Add(new NameValuePair("AudioBitrate", item.AudioBitrate.HasValue ? item.AudioBitrate.Value.ToString(CultureInfo.InvariantCulture) : string.Empty));
+            list.Add(new NameValuePair("MaxAudioChannels", item.MaxAudioChannels.HasValue ? item.MaxAudioChannels.Value.ToString(CultureInfo.InvariantCulture) : string.Empty));
+            list.Add(new NameValuePair("MaxFramerate", item.MaxFramerate.HasValue ? item.MaxFramerate.Value.ToString(CultureInfo.InvariantCulture) : string.Empty));
+            list.Add(new NameValuePair("MaxWidth", item.MaxWidth.HasValue ? item.MaxWidth.Value.ToString(CultureInfo.InvariantCulture) : string.Empty));
+            list.Add(new NameValuePair("MaxHeight", item.MaxHeight.HasValue ? item.MaxHeight.Value.ToString(CultureInfo.InvariantCulture) : string.Empty));
 
             long startPositionTicks = item.StartPositionTicks;
 
@@ -268,7 +273,7 @@ namespace MediaBrowser.Model.Dlna
             }
             else
             {
-                list.Add(new NameValuePair("StartTimeTicks", StringHelper.ToStringCultureInvariant(startPositionTicks)));
+                list.Add(new NameValuePair("StartTimeTicks", startPositionTicks.ToString(CultureInfo.InvariantCulture)));
             }
 
             if (isDlna)
@@ -277,7 +282,7 @@ namespace MediaBrowser.Model.Dlna
                 // dlna needs to be update to support the qualified params
                 var level = item.GetTargetVideoLevel("h264");
 
-                list.Add(new NameValuePair("Level", level.HasValue ? StringHelper.ToStringCultureInvariant(level.Value) : string.Empty));
+                list.Add(new NameValuePair("Level", level.HasValue ? level.Value.ToString(CultureInfo.InvariantCulture) : string.Empty));
             }
 
             if (isDlna)
@@ -286,10 +291,10 @@ namespace MediaBrowser.Model.Dlna
                 // dlna needs to be update to support the qualified params
                 var refframes = item.GetTargetRefFrames("h264");
 
-                list.Add(new NameValuePair("MaxRefFrames", refframes.HasValue ? StringHelper.ToStringCultureInvariant(refframes.Value) : string.Empty));
+                list.Add(new NameValuePair("MaxRefFrames", refframes.HasValue ? refframes.Value.ToString(CultureInfo.InvariantCulture) : string.Empty));
             }
 
-            list.Add(new NameValuePair("MaxVideoBitDepth", item.MaxVideoBitDepth.HasValue ? StringHelper.ToStringCultureInvariant(item.MaxVideoBitDepth.Value) : string.Empty));
+            list.Add(new NameValuePair("MaxVideoBitDepth", item.MaxVideoBitDepth.HasValue ? item.MaxVideoBitDepth.Value.ToString(CultureInfo.InvariantCulture) : string.Empty));
 
             if (isDlna)
             {
@@ -320,7 +325,7 @@ namespace MediaBrowser.Model.Dlna
             list.Add(new NameValuePair("CopyTimestamps", item.CopyTimestamps.ToString().ToLower()));
             list.Add(new NameValuePair("SubtitleMethod", item.SubtitleStreamIndex.HasValue && item.SubtitleDeliveryMethod != SubtitleDeliveryMethod.External ? item.SubtitleDeliveryMethod.ToString() : string.Empty));
 
-            list.Add(new NameValuePair("TranscodingMaxAudioChannels", item.TranscodingMaxAudioChannels.HasValue ? StringHelper.ToStringCultureInvariant(item.TranscodingMaxAudioChannels.Value) : string.Empty));
+            list.Add(new NameValuePair("TranscodingMaxAudioChannels", item.TranscodingMaxAudioChannels.HasValue ? item.TranscodingMaxAudioChannels.Value.ToString(CultureInfo.InvariantCulture) : string.Empty));
             list.Add(new NameValuePair("EnableSubtitlesInManifest", item.EnableSubtitlesInManifest.ToString().ToLower()));
 
             list.Add(new NameValuePair("Tag", item.MediaSource.ETag ?? string.Empty));
@@ -466,7 +471,7 @@ namespace MediaBrowser.Model.Dlna
 
         private SubtitleStreamInfo GetSubtitleStreamInfo(MediaStream stream, string baseUrl, string accessToken, long startPositionTicks, SubtitleProfile[] subtitleProfiles, ITranscoderSupport transcoderSupport)
         {
-            SubtitleProfile subtitleProfile = StreamBuilder.GetSubtitleProfile(stream, subtitleProfiles, PlayMethod, transcoderSupport, SubProtocol, Container);
+            SubtitleProfile subtitleProfile = StreamBuilder.GetSubtitleProfile(MediaSource, stream, subtitleProfiles, PlayMethod, transcoderSupport, SubProtocol, Container);
             SubtitleStreamInfo info = new SubtitleStreamInfo
             {
                 IsForced = stream.IsForced,
@@ -480,14 +485,14 @@ namespace MediaBrowser.Model.Dlna
 
             if (info.DeliveryMethod == SubtitleDeliveryMethod.External)
             {
-                if (MediaSource.Protocol == MediaProtocol.File || !StringHelper.EqualsIgnoreCase(stream.Codec, subtitleProfile.Format))
+                if (MediaSource.Protocol == MediaProtocol.File || !StringHelper.EqualsIgnoreCase(stream.Codec, subtitleProfile.Format) || !stream.IsExternal)
                 {
                     info.Url = string.Format("{0}/Videos/{1}/{2}/Subtitles/{3}/{4}/Stream.{5}",
                         baseUrl,
                         ItemId,
                         MediaSourceId,
-                        StringHelper.ToStringCultureInvariant(stream.Index),
-                        StringHelper.ToStringCultureInvariant(startPositionTicks),
+                        stream.Index.ToString(CultureInfo.InvariantCulture),
+                        startPositionTicks.ToString(CultureInfo.InvariantCulture),
                         subtitleProfile.Format);
 
                     if (!string.IsNullOrEmpty(accessToken))

@@ -18,7 +18,7 @@ namespace MediaBrowser.Providers.Movies
     public class MovieDbSearch
     {
         private static readonly CultureInfo EnUs = new CultureInfo("en-US");
-        private const string Search3 = @"https://api.themoviedb.org/3/search/{3}?api_key={1}&query={0}&language={2}";
+        private const string Search3 = MovieDbProvider.BaseMovieDbUrl + @"3/search/{3}?api_key={1}&query={0}&language={2}";
 
         internal static string ApiKey = "f6bd687ffa63cd282b6ff2c6877f2669";
         internal static string AcceptHeader = "application/json,image/*";
@@ -61,7 +61,7 @@ namespace MediaBrowser.Providers.Movies
 
             var tmdbSettings = await MovieDbProvider.Current.GetTmdbSettings(cancellationToken).ConfigureAwait(false);
 
-            var tmdbImageUrl = tmdbSettings.images.secure_base_url + "original";
+            var tmdbImageUrl = tmdbSettings.images.GetImageUrl("original");
 
             if (!string.IsNullOrWhiteSpace(name))
             {
@@ -99,6 +99,12 @@ namespace MediaBrowser.Providers.Movies
                 name = name.Replace("-", " ");
                 name = name.Replace("!", " ");
                 name = name.Replace("?", " ");
+
+                var parenthIndex = name.IndexOf('(');
+                if (parenthIndex != -1)
+                {
+                    name = name.Substring(0, parenthIndex);
+                }
 
                 name = name.Trim();
 
@@ -148,7 +154,7 @@ namespace MediaBrowser.Providers.Movies
 
             var url3 = string.Format(Search3, WebUtility.UrlEncode(name), ApiKey, language, type);
 
-            using (var json = await MovieDbProvider.Current.GetMovieDbResponse(new HttpRequestOptions
+            using (var response = await MovieDbProvider.Current.GetMovieDbResponse(new HttpRequestOptions
             {
                 Url = url3,
                 CancellationToken = cancellationToken,
@@ -156,38 +162,41 @@ namespace MediaBrowser.Providers.Movies
 
             }).ConfigureAwait(false))
             {
-                var searchResults = _json.DeserializeFromStream<TmdbMovieSearchResults>(json);
+                using (var json = response.Content)
+                {
+                    var searchResults = _json.DeserializeFromStream<TmdbMovieSearchResults>(json);
 
-                var results = searchResults.results ?? new List<TmdbMovieSearchResult>();
+                    var results = searchResults.results ?? new List<TmdbMovieSearchResult>();
 
-                return results
-                    .Select(i =>
-                    {
-                        var remoteResult = new RemoteSearchResult
+                    return results
+                        .Select(i =>
                         {
-                            SearchProviderName = MovieDbProvider.Current.Name,
-                            Name = i.title ?? i.name ?? i.original_title,
-                            ImageUrl = string.IsNullOrWhiteSpace(i.poster_path) ? null : baseImageUrl + i.poster_path
-                        };
+                            var remoteResult = new RemoteSearchResult
+                            {
+                                SearchProviderName = MovieDbProvider.Current.Name,
+                                Name = i.title ?? i.name ?? i.original_title,
+                                ImageUrl = string.IsNullOrWhiteSpace(i.poster_path) ? null : baseImageUrl + i.poster_path
+                            };
 
-                        if (!string.IsNullOrWhiteSpace(i.release_date))
-                        {
-                            DateTime r;
+                            if (!string.IsNullOrWhiteSpace(i.release_date))
+                            {
+                                DateTime r;
 
                             // These dates are always in this exact format
                             if (DateTime.TryParseExact(i.release_date, "yyyy-MM-dd", EnUs, DateTimeStyles.None, out r))
-                            {
-                                remoteResult.PremiereDate = r.ToUniversalTime();
-                                remoteResult.ProductionYear = remoteResult.PremiereDate.Value.Year;
+                                {
+                                    remoteResult.PremiereDate = r.ToUniversalTime();
+                                    remoteResult.ProductionYear = remoteResult.PremiereDate.Value.Year;
+                                }
                             }
-                        }
 
-                        remoteResult.SetProviderId(MetadataProviders.Tmdb, i.id.ToString(EnUs));
+                            remoteResult.SetProviderId(MetadataProviders.Tmdb, i.id.ToString(EnUs));
 
-                        return remoteResult;
+                            return remoteResult;
 
-                    })
-                    .ToList();
+                        })
+                        .ToList();
+                }
             }
         }
 
@@ -200,7 +209,7 @@ namespace MediaBrowser.Providers.Movies
 
             var url3 = string.Format(Search3, WebUtility.UrlEncode(name), ApiKey, language, "tv");
 
-            using (var json = await MovieDbProvider.Current.GetMovieDbResponse(new HttpRequestOptions
+            using (var response = await MovieDbProvider.Current.GetMovieDbResponse(new HttpRequestOptions
             {
                 Url = url3,
                 CancellationToken = cancellationToken,
@@ -208,38 +217,41 @@ namespace MediaBrowser.Providers.Movies
 
             }).ConfigureAwait(false))
             {
-                var searchResults = _json.DeserializeFromStream<TmdbTvSearchResults>(json);
+                using (var json = response.Content)
+                {
+                    var searchResults = _json.DeserializeFromStream<TmdbTvSearchResults>(json);
 
-                var results = searchResults.results ?? new List<TvResult>();
+                    var results = searchResults.results ?? new List<TvResult>();
 
-                return results
-                    .Select(i =>
-                    {
-                        var remoteResult = new RemoteSearchResult
+                    return results
+                        .Select(i =>
                         {
-                            SearchProviderName = MovieDbProvider.Current.Name,
-                            Name = i.name ?? i.original_name,
-                            ImageUrl = string.IsNullOrWhiteSpace(i.poster_path) ? null : baseImageUrl + i.poster_path
-                        };
+                            var remoteResult = new RemoteSearchResult
+                            {
+                                SearchProviderName = MovieDbProvider.Current.Name,
+                                Name = i.name ?? i.original_name,
+                                ImageUrl = string.IsNullOrWhiteSpace(i.poster_path) ? null : baseImageUrl + i.poster_path
+                            };
 
-                        if (!string.IsNullOrWhiteSpace(i.first_air_date))
-                        {
-                            DateTime r;
+                            if (!string.IsNullOrWhiteSpace(i.first_air_date))
+                            {
+                                DateTime r;
 
                             // These dates are always in this exact format
                             if (DateTime.TryParseExact(i.first_air_date, "yyyy-MM-dd", EnUs, DateTimeStyles.None, out r))
-                            {
-                                remoteResult.PremiereDate = r.ToUniversalTime();
-                                remoteResult.ProductionYear = remoteResult.PremiereDate.Value.Year;
+                                {
+                                    remoteResult.PremiereDate = r.ToUniversalTime();
+                                    remoteResult.ProductionYear = remoteResult.PremiereDate.Value.Year;
+                                }
                             }
-                        }
 
-                        remoteResult.SetProviderId(MetadataProviders.Tmdb, i.id.ToString(EnUs));
+                            remoteResult.SetProviderId(MetadataProviders.Tmdb, i.id.ToString(EnUs));
 
-                        return remoteResult;
+                            return remoteResult;
 
-                    })
-                    .ToList();
+                        })
+                        .ToList();
+                }
             }
         }
 

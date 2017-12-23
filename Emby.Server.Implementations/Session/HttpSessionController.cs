@@ -66,19 +66,22 @@ namespace Emby.Server.Implementations.Session
             return SendMessage(name, new Dictionary<string, string>(), cancellationToken);
         }
 
-        private Task SendMessage(string name,
+        private async Task SendMessage(string name,
             Dictionary<string, string> args,
             CancellationToken cancellationToken)
         {
             var url = PostUrl + "/" + name + ToQueryString(args);
 
-            return _httpClient.Post(new HttpRequestOptions
+            using ((await _httpClient.Post(new HttpRequestOptions
             {
                 Url = url,
                 CancellationToken = cancellationToken,
                 BufferContent = false
 
-            });
+            }).ConfigureAwait(false)))
+            {
+
+            }
         }
 
         public Task SendSessionEndedNotification(SessionInfoDto sessionInfo, CancellationToken cancellationToken)
@@ -106,6 +109,22 @@ namespace Emby.Server.Implementations.Session
             {
                 dict["StartPositionTicks"] = command.StartPositionTicks.Value.ToString(CultureInfo.InvariantCulture);
             }
+            if (command.AudioStreamIndex.HasValue)
+            {
+                dict["AudioStreamIndex"] = command.AudioStreamIndex.Value.ToString(CultureInfo.InvariantCulture);
+            }
+            if (command.SubtitleStreamIndex.HasValue)
+            {
+                dict["SubtitleStreamIndex"] = command.SubtitleStreamIndex.Value.ToString(CultureInfo.InvariantCulture);
+            }
+            if (command.StartIndex.HasValue)
+            {
+                dict["StartIndex"] = command.StartIndex.Value.ToString(CultureInfo.InvariantCulture);
+            }
+            if (!string.IsNullOrWhiteSpace(command.MediaSourceId))
+            {
+                dict["MediaSourceId"] = command.MediaSourceId;
+            }
 
             return SendMessage(command.PlayCommand.ToString(), dict, cancellationToken);
         }
@@ -132,7 +151,7 @@ namespace Emby.Server.Implementations.Session
             return SendMessage("LibraryChanged", info, cancellationToken);
         }
 
-        public Task SendRestartRequiredNotification(SystemInfo info, CancellationToken cancellationToken)
+        public Task SendRestartRequiredNotification(CancellationToken cancellationToken)
         {
             return SendMessage("RestartRequired", cancellationToken);
         }

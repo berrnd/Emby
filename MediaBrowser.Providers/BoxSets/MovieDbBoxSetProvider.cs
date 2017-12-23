@@ -25,7 +25,7 @@ namespace MediaBrowser.Providers.BoxSets
 {
     public class MovieDbBoxSetProvider : IRemoteMetadataProvider<BoxSet, BoxSetInfo>
     {
-        private const string GetCollectionInfo3 = @"https://api.themoviedb.org/3/collection/{0}?api_key={1}&append_to_response=images";
+        private const string GetCollectionInfo3 = MovieDbProvider.BaseMovieDbUrl + @"3/collection/{0}?api_key={1}&append_to_response=images";
 
         internal static MovieDbBoxSetProvider Current;
 
@@ -66,7 +66,7 @@ namespace MediaBrowser.Providers.BoxSets
 
                 var tmdbSettings = await MovieDbProvider.Current.GetTmdbSettings(cancellationToken).ConfigureAwait(false);
 
-                var tmdbImageUrl = tmdbSettings.images.secure_base_url + "original";
+                var tmdbImageUrl = tmdbSettings.images.GetImageUrl("original");
 
                 var result = new RemoteSearchResult
                 {
@@ -179,7 +179,7 @@ namespace MediaBrowser.Providers.BoxSets
 
             RootObject mainResult = null;
 
-            using (var json = await MovieDbProvider.Current.GetMovieDbResponse(new HttpRequestOptions
+            using (var response = await MovieDbProvider.Current.GetMovieDbResponse(new HttpRequestOptions
             {
                 Url = url,
                 CancellationToken = cancellationToken,
@@ -187,7 +187,10 @@ namespace MediaBrowser.Providers.BoxSets
 
             }).ConfigureAwait(false))
             {
-                mainResult = _json.DeserializeFromStream<RootObject>(json);
+                using (var json = response.Content)
+                {
+                    mainResult = _json.DeserializeFromStream<RootObject>(json);
+                }
             }
 
             cancellationToken.ThrowIfCancellationRequested();
@@ -204,7 +207,7 @@ namespace MediaBrowser.Providers.BoxSets
                         url += "&include_image_language=" + MovieDbProvider.GetImageLanguagesParam(language);
                     }
 
-                    using (var json = await MovieDbProvider.Current.GetMovieDbResponse(new HttpRequestOptions
+                    using (var response = await MovieDbProvider.Current.GetMovieDbResponse(new HttpRequestOptions
                     {
                         Url = url,
                         CancellationToken = cancellationToken,
@@ -212,7 +215,10 @@ namespace MediaBrowser.Providers.BoxSets
 
                     }).ConfigureAwait(false))
                     {
-                        mainResult = _json.DeserializeFromStream<RootObject>(json);
+                        using (var json = response.Content)
+                        {
+                            mainResult = _json.DeserializeFromStream<RootObject>(json);
+                        }
                     }
                 }
             }
