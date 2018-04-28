@@ -71,7 +71,9 @@ namespace MediaBrowser.ServerApplication
             {
                 _logManager = logManager;
 
-                logManager.ReloadLogger(LogSeverity.Debug);
+                var task = logManager.ReloadLogger(LogSeverity.Debug, CancellationToken.None);
+                Task.WaitAll(task);
+
                 logManager.AddConsoleOutput();
 
                 var logger = _logger = logManager.GetLogger("Main");
@@ -328,7 +330,7 @@ namespace MediaBrowser.ServerApplication
         {
             var environmentInfo = new EnvironmentInfo();
 
-            var fileSystem = new ManagedFileSystem(logManager.GetLogger("FileSystem"), environmentInfo, appPaths.TempDirectory);
+            var fileSystem = new ManagedFileSystem(logManager.GetLogger("FileSystem"), environmentInfo, null, appPaths.TempDirectory);
 
             FileSystem = fileSystem;
 
@@ -343,19 +345,16 @@ namespace MediaBrowser.ServerApplication
                 new SystemEvents(logManager.GetLogger("SystemEvents")),
                 new Networking.NetworkManager(logManager.GetLogger("NetworkManager"), environmentInfo)))
             {
-                var initProgress = new Progress<double>();
-
                 if (!runService)
                 {
-                    ShowSplashScreen(appHost.ApplicationVersion, initProgress, logManager.GetLogger("Splash"));
+                    ShowSplashScreen(appHost.ApplicationVersion, new Progress<double>(), logManager.GetLogger("Splash"));
 
                     // Not crazy about this but it's the only way to suppress ffmpeg crash dialog boxes
                     SetErrorMode(ErrorModes.SEM_FAILCRITICALERRORS | ErrorModes.SEM_NOALIGNMENTFAULTEXCEPT |
                                  ErrorModes.SEM_NOGPFAULTERRORBOX | ErrorModes.SEM_NOOPENFILEERRORBOX);
                 }
 
-                var task = appHost.Init(initProgress);
-                Task.WaitAll(task);
+                Task task = null;
 
                 if (!runService)
                 {
@@ -718,7 +717,7 @@ namespace MediaBrowser.ServerApplication
                 logger.ErrorException("Error installing Visual Studio C++ runtime", ex);
             }
         }
-
+		
         private static string GetVcredist2015Url()
         {
             if (Environment.Is64BitProcess)

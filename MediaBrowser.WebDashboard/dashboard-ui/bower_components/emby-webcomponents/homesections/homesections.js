@@ -30,19 +30,18 @@ define(["connectionManager", "cardBuilder", "registrationServices", "appSettings
     function getAllSectionsToShow(userSettings, sectionCount) {
         for (var sections = [], i = 0, length = sectionCount; i < length; i++) {
             var section = userSettings.get("homesection" + i) || getDefaultSection(i);
-            "folders" === section && (section = getDefaultSection()[0]), sections.push(section)
+            "folders" === section && (section = getDefaultSection(0)), sections.push(section)
         }
         return sections
     }
 
     function loadSections(elem, apiClient, user, userSettings) {
         return getUserViews(apiClient, user.Id).then(function(userViews) {
-            var i, length, sectionCount = 7,
-                html = "";
-            for (i = 0, length = sectionCount; i < length; i++) html += '<div class="verticalSection section' + i + '"></div>';
+            var i, length, html = "";
+            for (i = 0, length = 7; i < length; i++) html += '<div class="verticalSection section' + i + '"></div>';
             elem.innerHTML = html, elem.classList.add("homeSectionsContainer");
             var promises = [],
-                sections = getAllSectionsToShow(userSettings, sectionCount);
+                sections = getAllSectionsToShow(userSettings, 7);
             for (i = 0, length = sections.length; i < length; i++) promises.push(loadSection(elem, apiClient, user, userSettings, userViews, sections, i));
             return Promise.all(promises).then(function() {
                 return resume(elem, {
@@ -72,7 +71,7 @@ define(["connectionManager", "cardBuilder", "registrationServices", "appSettings
         var section = allSections[index],
             userId = user.Id,
             elem = page.querySelector(".section" + index);
-		
+			
 		//myproduction-change-start
 		//Only use settings provided by getDefaultSection
 		section = getDefaultSection(index);
@@ -81,15 +80,13 @@ define(["connectionManager", "cardBuilder", "registrationServices", "appSettings
         if ("latestmedia" === section) loadRecentlyAdded(elem, apiClient, user, userViews);
         else {
             if ("librarytiles" === section || "smalllibrarytiles" === section || "smalllibrarytiles-automobile" === section || "librarytiles-automobile" === section) return loadLibraryTiles(elem, apiClient, user, userSettings, "smallBackdrop", userViews, allSections);
-            if ("librarybuttons" === section) return loadlibraryButtons(elem, apiClient, user, userSettings, userViews, allSections);
+            if ("librarybuttons" === section) return loadlibraryButtons(elem, apiClient, user, userSettings, userViews);
             if ("resume" === section) loadResumeVideo(elem, apiClient, userId);
             else if ("resumeaudio" === section) loadResumeAudio(elem, apiClient, userId);
             else if ("activerecordings" === section) loadLatestLiveTvRecordings(elem, !0, apiClient, userId);
-            else if ("nextup" === section) loadNextUp(elem, apiClient, userId);
             else {
-                if ("onnow" === section || "livetv" === section) return loadOnNow(elem, apiClient, user);
-                if ("latesttvrecordings" !== section) return "latestchannelmedia" === section ? loadLatestChannelMedia(elem, apiClient, userId) : (elem.innerHTML = "", Promise.resolve());
-                loadLatestLiveTvRecordings(elem, !1, apiClient, userId)
+                if ("nextup" !== section) return "onnow" === section || "livetv" === section ? loadOnNow(elem, apiClient, user) : (elem.innerHTML = "", Promise.resolve());
+                loadNextUp(elem, apiClient, userId)
             }
         }
         return Promise.resolve()
@@ -114,14 +111,14 @@ define(["connectionManager", "cardBuilder", "registrationServices", "appSettings
     }
 
     function getPortraitShape() {
-        return enableScrollX() ? "overflowPortrait" : "portrait"
+        return enableScrollX() ? "autooverflow" : "auto"
     }
 
     function getLibraryButtonsHtml(items) {
         var html = "";
 		//myproduction-change-start
 		//Changed "Meine Medien" to "Medien"
-        html += '<div class="verticalSection">', html += '<div class="sectionTitleContainer">', html += '<h2 class="sectionTitle sectionTitle-cards padded-left">' + globalize.translate("Medien") + "</h2>", layoutManager.tv || (html += '<button type="button" is="paper-icon-button-light" class="sectionTitleIconButton btnHomeScreenSettings"><i class="md-icon">&#xE8B8;</i></button>'), html += "</div>", html += '<div is="emby-itemscontainer" class="itemsContainer padded-left padded-right vertical-wrap focuscontainer-x" data-multiselect="false">';
+        html += '<div class="verticalSection verticalSection-extrabottompadding">', html += '<div class="sectionTitleContainer">', html += '<h2 class="sectionTitle sectionTitle-cards padded-left">' + globalize.translate("Medien") + "</h2>", layoutManager.tv || (html += '<button type="button" is="paper-icon-button-light" class="sectionTitleIconButton btnHomeScreenSettings"><i class="md-icon">&#xE8B8;</i></button>'), html += "</div>", html += '<div is="emby-itemscontainer" class="itemsContainer padded-left padded-right vertical-wrap focuscontainer-x" data-multiselect="false">';
 		//myproduction-change-end
         for (var i = 0, length = items.length; i < length; i++) {
             var icon, item = items[i];
@@ -136,8 +133,6 @@ define(["connectionManager", "cardBuilder", "registrationServices", "appSettings
                     icon = "photo";
                     break;
                 case "livetv":
-                    icon = "live_tv";
-                    break;
                 case "tvshows":
                     icon = "live_tv";
                     break;
@@ -148,20 +143,12 @@ define(["connectionManager", "cardBuilder", "registrationServices", "appSettings
                     icon = "local_movies";
                     break;
                 case "homevideos":
-                    icon = "video_library";
-                    break;
                 case "musicvideos":
                     icon = "video_library";
                     break;
                 case "books":
-                    icon = "folder";
-                    break;
                 case "channels":
-                    icon = "folder";
-                    break;
                 case "playlists":
-                    icon = "folder";
-                    break;
                 default:
                     icon = "folder"
             }
@@ -191,10 +178,9 @@ define(["connectionManager", "cardBuilder", "registrationServices", "appSettings
     }
 
     function getAppInfo(apiClient) {
-        var frequency = 1728e5,
-            cacheKey = "lastappinfopresent5",
+        var cacheKey = "lastappinfopresent5",
             lastDatePresented = parseInt(appSettings.get(cacheKey) || "0");
-        return lastDatePresented ? (new Date).getTime() - lastDatePresented < frequency ? Promise.resolve("") : registrationServices.validateFeature("dvr", {
+        return lastDatePresented ? (new Date).getTime() - lastDatePresented < 1728e5 ? Promise.resolve("") : registrationServices.validateFeature("dvr", {
             showDialog: !1,
             viewOnly: !0
         }).then(function() {
@@ -215,20 +201,19 @@ define(["connectionManager", "cardBuilder", "registrationServices", "appSettings
     function getTheaterInfo() {
         var html = "";
         html += '<div class="verticalSection appInfoSection">', html += '<div class="sectionTitleContainer">', html += '<h2 class="sectionTitle sectionTitle-cards padded-left">Discover Emby Theater</h2>', html += '<button is="paper-icon-button-light" class="sectionTitleButton" onclick="this.parentNode.parentNode.remove();" class="autoSize"><i class="md-icon">close</i></button>', html += "</div>";
-        var nameText = "Emby Theater";
-        return html += '<div class="padded-left padded-right">', html += '<p class="sectionTitle-cards">A beautiful app for your TV and large screen tablet. ' + nameText + " runs on Windows, Xbox One, Raspberry Pi, Samsung Smart TVs, Sony PS4, Web Browsers, and more.</p>", html += '<div class="itemsContainer vertical-wrap">', html += getCard("https://raw.githubusercontent.com/MediaBrowser/Emby.Resources/master/apps/theater1.png"), html += getCard("https://raw.githubusercontent.com/MediaBrowser/Emby.Resources/master/apps/theater2.png"), html += getCard("https://raw.githubusercontent.com/MediaBrowser/Emby.Resources/master/apps/theater3.png"), html += "</div>", html += "</div>", html += "</div>"
+        return html += '<div class="padded-left padded-right">', html += '<p class="sectionTitle-cards">A beautiful app for your TV and large screen tablet. Emby Theater runs on Windows, Xbox One, Raspberry Pi, Samsung Smart TVs, Sony PS4, Web Browsers, and more.</p>', html += '<div class="itemsContainer vertical-wrap" is="emby-itemscontainer">', html += getCard("https://raw.githubusercontent.com/MediaBrowser/Emby.Resources/master/apps/theater1.png"), html += getCard("https://raw.githubusercontent.com/MediaBrowser/Emby.Resources/master/apps/theater2.png"), html += getCard("https://raw.githubusercontent.com/MediaBrowser/Emby.Resources/master/apps/theater3.png"), html += "</div>", html += "</div>", html += "</div>"
     }
 
     function getPremiereInfo() {
         var html = "";
-        return html += '<div class="verticalSection appInfoSection">', html += '<div class="sectionTitleContainer">', html += '<h2 class="sectionTitle sectionTitle-cards padded-left">Discover Emby Premiere</h2>', html += '<button is="paper-icon-button-light" class="sectionTitleButton" onclick="this.parentNode.parentNode.remove();" class="autoSize"><i class="md-icon">close</i></button>', html += "</div>", html += '<div class="padded-left padded-right">', html += '<p class="sectionTitle-cards">Enjoy Emby DVR, get free access to Emby apps, and more.</p>', html += '<div class="itemsContainer vertical-wrap">', html += getCard("https://raw.githubusercontent.com/MediaBrowser/Emby.Resources/master/apps/theater1.png"), html += getCard("https://raw.githubusercontent.com/MediaBrowser/Emby.Resources/master/apps/theater2.png"), html += getCard("https://raw.githubusercontent.com/MediaBrowser/Emby.Resources/master/apps/theater3.png"), html += "</div>", html += "</div>", html += "</div>"
+        return html += '<div class="verticalSection appInfoSection">', html += '<div class="sectionTitleContainer">', html += '<h2 class="sectionTitle sectionTitle-cards padded-left">Discover Emby Premiere</h2>', html += '<button is="paper-icon-button-light" class="sectionTitleButton" onclick="this.parentNode.parentNode.remove();" class="autoSize"><i class="md-icon">close</i></button>', html += "</div>", html += '<div class="padded-left padded-right">', html += '<p class="sectionTitle-cards">Enjoy Emby DVR, get free access to Emby apps, and more.</p>', html += '<div class="itemsContainer vertical-wrap" is="emby-itemscontainer">', html += getCard("https://raw.githubusercontent.com/MediaBrowser/Emby.Resources/master/apps/theater1.png"), html += getCard("https://raw.githubusercontent.com/MediaBrowser/Emby.Resources/master/apps/theater2.png"), html += getCard("https://raw.githubusercontent.com/MediaBrowser/Emby.Resources/master/apps/theater3.png"), html += "</div>", html += "</div>", html += "</div>"
     }
 
     function getFetchLatestItemsFn(serverId, parentId, collectionType) {
         return function() {
             var apiClient = connectionManager.getApiClient(serverId),
                 limit = 16;
-			//myproduction-change-start
+            //myproduction-change-start
 			//Changed limit for tvshows to 50
             enableScrollX() ? "music" === collectionType && (limit = 30) : limit = "tvshows" === collectionType ? 50 : "music" === collectionType ? 9 : 8;
 			//myproduction-change-end
@@ -239,29 +224,28 @@ define(["connectionManager", "cardBuilder", "registrationServices", "appSettings
                 EnableImageTypes: "Primary,Backdrop,Thumb",
                 ParentId: parentId
             };
-            return apiClient.getJSON(apiClient.getUrl("Users/" + apiClient.getCurrentUserId() + "/Items/Latest", options))
+            return apiClient.getLatestItems(options)
         }
     }
 
-    function getLatestItemsHtmlFn(viewType) {
+    function getLatestItemsHtmlFn(itemType, viewType) {
         return function(items) {
-            var shape = "movies" === viewType ? getPortraitShape() : "music" === viewType ? getSquareShape() : getThumbShape(),
-                cardLayout = !1;
+            var shape = "Channel" === itemType || "movies" === viewType ? getPortraitShape() : "music" === viewType ? getSquareShape() : getThumbShape();
             return cardBuilder.getCardsHtml({
                 items: items,
                 shape: shape,
-                preferThumb: "movies" !== viewType && "music" !== viewType ? "auto" : null,
+                preferThumb: "movies" !== viewType && "Channel" !== itemType && "music" !== viewType ? "auto" : null,
                 showUnplayedIndicator: !1,
                 showChildCountIndicator: !0,
                 context: "home",
                 overlayText: !1,
-                centerText: !cardLayout,
+                centerText: !0,
                 overlayPlayButton: "photos" !== viewType,
-                allowBottomPadding: !enableScrollX() && !cardLayout,
-                cardLayout: cardLayout,
+                allowBottomPadding: !enableScrollX() && !0,
+                cardLayout: !1,
                 showTitle: "photos" !== viewType,
                 showYear: "movies" === viewType || "tvshows" === viewType || !viewType,
-                showParentTitle: "music" === viewType || "tvshows" === viewType || !viewType || cardLayout && "tvshows" === viewType,
+                showParentTitle: "music" === viewType || "tvshows" === viewType || !viewType || !1,
                 lines: 2
             })
         }
@@ -271,43 +255,20 @@ define(["connectionManager", "cardBuilder", "registrationServices", "appSettings
         var html = "";
         html += '<div class="sectionTitleContainer padded-left">', layoutManager.tv ? html += '<h2 class="sectionTitle sectionTitle-cards">' + globalize.translate("sharedcomponents#LatestFromLibrary", parent.Name) + "</h2>" : (html += '<a is="emby-linkbutton" href="' + appRouter.getRouteUrl(parent, {
             section: "latest"
-        }) + '" class="more button-flat button-flat-mini sectionTitleTextButton">', html += '<h2 class="sectionTitle sectionTitle-cards">', html += globalize.translate("sharedcomponents#LatestFromLibrary", parent.Name), html += "</h2>", html += '<i class="md-icon">&#xE5CC;</i>', html += "</a>"), html += "</div>", html += enableScrollX() ? '<div is="emby-scroller" data-mousewheel="false" data-centerfocus="true" class="padded-top-focusscale padded-bottom-focusscale"><div is="emby-itemscontainer" class="itemsContainer scrollSlider focuscontainer-x padded-left padded-right">' : '<div is="emby-itemscontainer" class="itemsContainer padded-left padded-right vertical-wrap focuscontainer-x">', enableScrollX() && (html += "</div>"), html += "</div>", elem.innerHTML = html;
+        }) + '" class="more button-flat button-flat-mini sectionTitleTextButton">', html += '<h2 class="sectionTitle sectionTitle-cards">', html += globalize.translate("sharedcomponents#LatestFromLibrary", parent.Name), html += "</h2>", html += '<i class="md-icon">&#xE5CC;</i>', html += "</a>"), html += "</div>", enableScrollX() ? html += '<div is="emby-scroller" data-mousewheel="false" data-centerfocus="true" class="padded-top-focusscale padded-bottom-focusscale"><div is="emby-itemscontainer" class="itemsContainer scrollSlider focuscontainer-x padded-left padded-right">' : html += '<div is="emby-itemscontainer" class="itemsContainer padded-left padded-right vertical-wrap focuscontainer-x">', enableScrollX() && (html += "</div>"), html += "</div>", elem.innerHTML = html;
         var itemsContainer = elem.querySelector(".itemsContainer");
-        itemsContainer.fetchData = getFetchLatestItemsFn(apiClient.serverId(), parent.Id, parent.CollectionType), itemsContainer.getItemsHtml = getLatestItemsHtmlFn(parent.CollectionType), itemsContainer.parentContainer = elem
+        itemsContainer.fetchData = getFetchLatestItemsFn(apiClient.serverId(), parent.Id, parent.CollectionType), itemsContainer.getItemsHtml = getLatestItemsHtmlFn(parent.Type, parent.CollectionType), itemsContainer.parentContainer = elem
     }
 
     function loadRecentlyAdded(elem, apiClient, user, userViews) {
         elem.classList.remove("verticalSection");
-        for (var excludeViewTypes = ["playlists", "livetv", "boxsets", "channels"], excludeItemTypes = ["Channel"], i = 0, length = userViews.length; i < length; i++) {
+        for (var excludeViewTypes = ["playlists", "livetv", "boxsets", "channels"], i = 0, length = userViews.length; i < length; i++) {
             var item = userViews[i];
-            if (user.Configuration.LatestItemsExcludes.indexOf(item.Id) === -1 && excludeViewTypes.indexOf(item.CollectionType || []) === -1 && excludeItemTypes.indexOf(item.Type) === -1) {
+            if (-1 === user.Configuration.LatestItemsExcludes.indexOf(item.Id) && -1 === excludeViewTypes.indexOf(item.CollectionType || [])) {
                 var frag = document.createElement("div");
                 frag.classList.add("verticalSection"), frag.classList.add("hide"), elem.appendChild(frag), renderLatestSection(frag, apiClient, user, item)
             }
         }
-    }
-
-    function loadLatestChannelMedia(elem, apiClient, userId) {
-        var screenWidth = dom.getWindowSize().innerWidth,
-            options = {
-                Limit: enableScrollX() ? 12 : screenWidth >= 2400 ? 10 : screenWidth >= 1600 ? 10 : screenWidth >= 1440 ? 8 : screenWidth >= 800 ? 7 : 6,
-                Fields: "PrimaryImageAspectRatio,BasicSyncInfo",
-                Filters: "IsUnplayed",
-                UserId: userId,
-                EnableTotalRecordCount: !1
-            };
-        return apiClient.getJSON(apiClient.getUrl("Channels/Items/Latest", options)).then(function(result) {
-            var html = "";
-            result.Items.length && (html += '<h2 class="sectionTitle sectionTitle-cards padded-left">' + globalize.translate("sharedcomponents#HeaderLatestChannelMedia") + "</h2>", html += enableScrollX() ? '<div is="emby-scroller" data-mousewheel="false" data-centerfocus="true" class="padded-top-focusscale padded-bottom-focusscale"><div is="emby-itemscontainer" class="scrollSlider focuscontainer-x padded-left padded-right">' : '<div is="emby-itemscontainer" class="itemsContainer padded-left padded-right vertical-wrap focuscontainer-x">', html += cardBuilder.getCardsHtml({
-                items: result.Items,
-                shape: "auto",
-                showTitle: !0,
-                centerText: !0,
-                lazy: !0,
-                showDetailsMenu: !0,
-                overlayPlayButton: !0
-            }), enableScrollX() && (html += "</div>")), elem.innerHTML = html, imageLoader.lazyChildren(elem)
-        })
     }
 
     function getRequirePromise(deps) {
@@ -338,16 +299,12 @@ define(["connectionManager", "cardBuilder", "registrationServices", "appSettings
     }
 
     function getDownloadsSectionHtml(apiClient, user, userSettings) {
-        if (!appHost.supports("sync") || !user.Policy.EnableContentDownloading) return Promise.resolve("");
-        var promise = apiClient.getLatestOfflineItems ? apiClient.getLatestOfflineItems({
+        return appHost.supports("sync") && user.Policy.EnableContentDownloading ? (apiClient.getLatestOfflineItems ? apiClient.getLatestOfflineItems({
             Limit: 20,
             Filters: "IsNotFolder"
-        }) : Promise.resolve([]);
-        return promise.then(function(items) {
+        }) : Promise.resolve([])).then(function(items) {
             var html = "";
-            html += '<div class="verticalSection">', html += '<div class="sectionTitleContainer padded-left">', layoutManager.tv ? html += '<h2 class="sectionTitle sectionTitle-cards">' + globalize.translate("sharedcomponents#HeaderMyDownloads") + "</h2>" : (html += '<a is="emby-linkbutton" href="' + appRouter.getRouteUrl("downloads") + '" class="more button-flat button-flat-mini sectionTitleTextButton">', html += '<h2 class="sectionTitle sectionTitle-cards">', html += globalize.translate("sharedcomponents#HeaderMyDownloads"), html += "</h2>", html += '<i class="md-icon">&#xE5CC;</i>', html += "</a>", html += '<a is="emby-linkbutton" href="' + appRouter.getRouteUrl("managedownloads") + '" class="sectionTitleIconButton"><i class="md-icon">&#xE8B8;</i></a>'), html += "</div>", html += '<div is="emby-scroller" data-mousewheel="false" data-centerfocus="true" class="padded-top-focusscale padded-bottom-focusscale"><div is="emby-itemscontainer" class="scrollSlider focuscontainer-x padded-left padded-right">';
-            var cardLayout = !1;
-            return html += cardBuilder.getCardsHtml({
+            return html += '<div class="verticalSection">', html += '<div class="sectionTitleContainer padded-left">', layoutManager.tv ? html += '<h2 class="sectionTitle sectionTitle-cards">' + globalize.translate("sharedcomponents#HeaderMyDownloads") + "</h2>" : (html += '<a is="emby-linkbutton" href="' + appRouter.getRouteUrl("downloads") + '" class="more button-flat button-flat-mini sectionTitleTextButton">', html += '<h2 class="sectionTitle sectionTitle-cards">', html += globalize.translate("sharedcomponents#HeaderMyDownloads"), html += "</h2>", html += '<i class="md-icon">&#xE5CC;</i>', html += "</a>", html += '<a is="emby-linkbutton" href="' + appRouter.getRouteUrl("managedownloads") + '" class="sectionTitleIconButton"><i class="md-icon">&#xE8B8;</i></a>'), html += "</div>", html += '<div is="emby-scroller" data-mousewheel="false" data-centerfocus="true" class="padded-top-focusscale padded-bottom-focusscale"><div is="emby-itemscontainer" class="scrollSlider focuscontainer-x padded-left padded-right">', html += cardBuilder.getCardsHtml({
                 items: items,
                 preferThumb: "auto",
                 shape: "autooverflow",
@@ -358,29 +315,28 @@ define(["connectionManager", "cardBuilder", "registrationServices", "appSettings
                 showDetailsMenu: !0,
                 overlayPlayButton: !0,
                 context: "home",
-                centerText: !cardLayout,
+                centerText: !0,
                 allowBottomPadding: !1,
-                cardLayout: cardLayout,
+                cardLayout: !1,
                 showYear: !0,
                 lines: 2
             }), html += "</div>", html += "</div>"
-        })
+        }) : Promise.resolve("")
     }
 
     function loadLibraryTiles(elem, apiClient, user, userSettings, shape, userViews, allSections) {
         elem.classList.remove("verticalSection");
         var html = "",
             scrollX = !layoutManager.desktop;
-        return userViews.length && (html += '<div class="verticalSection">', html += '<div class="sectionTitleContainer">', html += '<h2 class="sectionTitle sectionTitle-cards padded-left">' + globalize.translate("Medien") + "</h2>", layoutManager.tv || (html += '<button type="button" is="paper-icon-button-light" class="sectionTitleIconButton btnHomeScreenSettings"><i class="md-icon">&#xE8B8;</i></button>'), html += "</div>", html += scrollX ? '<div is="emby-scroller" class="padded-top-focusscale padded-bottom-focusscale" data-mousewheel="false" data-centerfocus="true"><div is="emby-itemscontainer" class="scrollSlider focuscontainer-x padded-left padded-right">' : '<div is="emby-itemscontainer" class="itemsContainer padded-left padded-right vertical-wrap focuscontainer-x">', html += cardBuilder.getCardsHtml({
+        return userViews.length && (html += '<div class="verticalSection">', html += '<div class="sectionTitleContainer">', html += '<h2 class="sectionTitle sectionTitle-cards padded-left">' + globalize.translate("sharedcomponents#HeaderMyMedia") + "</h2>", layoutManager.tv || (html += '<button type="button" is="paper-icon-button-light" class="sectionTitleIconButton btnHomeScreenSettings"><i class="md-icon">&#xE8B8;</i></button>'), html += "</div>", html += scrollX ? '<div is="emby-scroller" class="padded-top-focusscale padded-bottom-focusscale" data-mousewheel="false" data-centerfocus="true"><div is="emby-itemscontainer" class="scrollSlider focuscontainer-x padded-left padded-right">' : '<div is="emby-itemscontainer" class="itemsContainer padded-left padded-right vertical-wrap focuscontainer-x">', html += cardBuilder.getCardsHtml({
             items: userViews,
-            shape: scrollX ? "overflowBackdrop" : shape,
+            shape: scrollX ? "overflowSmallBackdrop" : shape,
             showTitle: !0,
             centerText: !0,
             overlayText: !1,
             lazy: !0,
             transition: !1,
-            allowBottomPadding: !scrollX,
-            cardClass: scrollX ? "overflowHomeLibraryCard" : null
+            allowBottomPadding: !scrollX
         }), scrollX && (html += "</div>"), html += "</div>", html += "</div>"), Promise.all([getAppInfo(apiClient), getDownloadsSectionHtml(apiClient, user, userSettings)]).then(function(responses) {
             var infoHtml = responses[0],
                 downloadsHtml = responses[1];
@@ -407,7 +363,6 @@ define(["connectionManager", "cardBuilder", "registrationServices", "appSettings
     }
 
     function getContinueWatchingItemsHtml(items) {
-        var cardLayout = !1;
         return cardBuilder.getCardsHtml({
             items: items,
             preferThumb: !0,
@@ -419,9 +374,9 @@ define(["connectionManager", "cardBuilder", "registrationServices", "appSettings
             showDetailsMenu: !0,
             overlayPlayButton: !0,
             context: "home",
-            centerText: !cardLayout,
+            centerText: !0,
             allowBottomPadding: !1,
-            cardLayout: cardLayout,
+            cardLayout: !1,
             showYear: !0,
             lines: 2
         })
@@ -429,7 +384,7 @@ define(["connectionManager", "cardBuilder", "registrationServices", "appSettings
 
     function loadResumeVideo(elem, apiClient, userId) {
         var html = "";
-        html += '<h2 class="sectionTitle sectionTitle-cards padded-left">' + globalize.translate("sharedcomponents#HeaderContinueWatching") + "</h2>", html += enableScrollX() ? '<div is="emby-scroller" data-mousewheel="false" data-centerfocus="true" class="padded-top-focusscale padded-bottom-focusscale"><div is="emby-itemscontainer" class="itemsContainer scrollSlider focuscontainer-x padded-left padded-right" data-monitor="videoplayback,markplayed">' : '<div is="emby-itemscontainer" class="itemsContainer padded-left padded-right vertical-wrap focuscontainer-x" data-monitor="videoplayback,markplayed">', enableScrollX() && (html += "</div>"), html += "</div>", elem.classList.add("hide"), elem.innerHTML = html;
+        html += '<h2 class="sectionTitle sectionTitle-cards padded-left">' + globalize.translate("sharedcomponents#HeaderContinueWatching") + "</h2>", enableScrollX() ? html += '<div is="emby-scroller" data-mousewheel="false" data-centerfocus="true" class="padded-top-focusscale padded-bottom-focusscale"><div is="emby-itemscontainer" class="itemsContainer scrollSlider focuscontainer-x padded-left padded-right" data-monitor="videoplayback,markplayed">' : html += '<div is="emby-itemscontainer" class="itemsContainer padded-left padded-right vertical-wrap focuscontainer-x" data-monitor="videoplayback,markplayed">', enableScrollX() && (html += "</div>"), html += "</div>", elem.classList.add("hide"), elem.innerHTML = html;
         var itemsContainer = elem.querySelector(".itemsContainer");
         itemsContainer.fetchData = getContinueWatchingFetchFn(apiClient.serverId()), itemsContainer.getItemsHtml = getContinueWatchingItemsHtml, itemsContainer.parentContainer = elem
     }
@@ -453,7 +408,6 @@ define(["connectionManager", "cardBuilder", "registrationServices", "appSettings
     }
 
     function getContinueListeningItemsHtml(items) {
-        var cardLayout = !1;
         return cardBuilder.getCardsHtml({
             items: items,
             preferThumb: !0,
@@ -465,9 +419,9 @@ define(["connectionManager", "cardBuilder", "registrationServices", "appSettings
             showDetailsMenu: !0,
             overlayPlayButton: !0,
             context: "home",
-            centerText: !cardLayout,
+            centerText: !0,
             allowBottomPadding: !1,
-            cardLayout: cardLayout,
+            cardLayout: !1,
             showYear: !0,
             lines: 2
         })
@@ -475,7 +429,7 @@ define(["connectionManager", "cardBuilder", "registrationServices", "appSettings
 
     function loadResumeAudio(elem, apiClient, userId) {
         var html = "";
-        html += '<h2 class="sectionTitle sectionTitle-cards padded-left">' + globalize.translate("sharedcomponents#HeaderContinueWatching") + "</h2>", html += enableScrollX() ? '<div is="emby-scroller" data-mousewheel="false" data-centerfocus="true" class="padded-top-focusscale padded-bottom-focusscale"><div is="emby-itemscontainer" class="itemsContainer scrollSlider focuscontainer-x padded-left padded-right" data-monitor="audioplayback,markplayed">' : '<div is="emby-itemscontainer" class="itemsContainer padded-left padded-right vertical-wrap focuscontainer-x" data-monitor="audioplayback,markplayed">', enableScrollX() && (html += "</div>"), html += "</div>", elem.classList.add("hide"), elem.innerHTML = html;
+        html += '<h2 class="sectionTitle sectionTitle-cards padded-left">' + globalize.translate("sharedcomponents#HeaderContinueWatching") + "</h2>", enableScrollX() ? html += '<div is="emby-scroller" data-mousewheel="false" data-centerfocus="true" class="padded-top-focusscale padded-bottom-focusscale"><div is="emby-itemscontainer" class="itemsContainer scrollSlider focuscontainer-x padded-left padded-right" data-monitor="audioplayback,markplayed">' : html += '<div is="emby-itemscontainer" class="itemsContainer padded-left padded-right vertical-wrap focuscontainer-x" data-monitor="audioplayback,markplayed">', enableScrollX() && (html += "</div>"), html += "</div>", elem.classList.add("hide"), elem.innerHTML = html;
         var itemsContainer = elem.querySelector(".itemsContainer");
         itemsContainer.fetchData = getContinueListeningFetchFn(apiClient.serverId()), itemsContainer.getItemsHtml = getContinueListeningItemsHtml, itemsContainer.parentContainer = elem
     }
@@ -555,20 +509,20 @@ define(["connectionManager", "cardBuilder", "registrationServices", "appSettings
                 result = responses[1],
                 html = "";
             if (result.Items.length && registered) {
-                elem.classList.remove("padded-left"), elem.classList.remove("padded-right"), elem.classList.remove("padded-bottom"), elem.classList.remove("verticalSection"), html += '<div class="verticalSection">', html += '<div class="sectionTitleContainer padded-left">', html += '<h2 class="sectionTitle">' + globalize.translate("sharedcomponents#LiveTV") + "</h2>", html += "</div>", enableScrollX() ? (html += '<div is="emby-scroller" class="padded-top-focusscale padded-bottom-focusscale" data-mousewheel="false" data-centerfocus="true" data-scrollbuttons="false">', html += '<div class="scrollSlider padded-left padded-right padded-top padded-bottom focuscontainer-x">') : html += '<div class="padded-left padded-right padded-top focuscontainer-x">', html += '<a style="margin:0;padding:.9em 1em;" is="emby-linkbutton" href="' + appRouter.getRouteUrl("livetv", {
+                elem.classList.remove("padded-left"), elem.classList.remove("padded-right"), elem.classList.remove("padded-bottom"), elem.classList.remove("verticalSection"), html += '<div class="verticalSection">', html += '<div class="sectionTitleContainer padded-left">', html += '<h2 class="sectionTitle">' + globalize.translate("sharedcomponents#LiveTV") + "</h2>", html += "</div>", enableScrollX() ? (html += '<div is="emby-scroller" class="padded-top-focusscale padded-bottom-focusscale" data-mousewheel="false" data-centerfocus="true" data-scrollbuttons="false">', html += '<div class="scrollSlider padded-left padded-right padded-top padded-bottom focuscontainer-x">') : html += '<div class="padded-left padded-right padded-top focuscontainer-x">', html += '<a style="margin:0;" is="emby-linkbutton" href="' + appRouter.getRouteUrl("livetv", {
                     serverId: apiClient.serverId()
-                }) + '" class="raised"><span>' + globalize.translate("sharedcomponents#Programs") + "</span></a>", html += '<a style="margin:0 0 0 1em;padding:.9em 1em;" is="emby-linkbutton" href="' + appRouter.getRouteUrl("livetv", {
+                }) + '" class="raised"><span>' + globalize.translate("sharedcomponents#Programs") + "</span></a>", html += '<a style="margin:0 0 0 1em;" is="emby-linkbutton" href="' + appRouter.getRouteUrl("livetv", {
                     serverId: apiClient.serverId(),
                     section: "guide"
-                }) + '" class="raised"><span>' + globalize.translate("sharedcomponents#Guide") + "</span></a>", html += '<a style="margin:0 0 0 1em;padding:.9em 1em;" is="emby-linkbutton" href="' + appRouter.getRouteUrl("recordedtv", {
+                }) + '" class="raised"><span>' + globalize.translate("sharedcomponents#Guide") + "</span></a>", html += '<a style="margin:0 0 0 1em;" is="emby-linkbutton" href="' + appRouter.getRouteUrl("recordedtv", {
                     serverId: apiClient.serverId()
-                }) + '" class="raised"><span>' + globalize.translate("sharedcomponents#Recordings") + "</span></a>", html += '<a style="margin:0 0 0 1em;padding:.9em 1em;" is="emby-linkbutton" href="' + appRouter.getRouteUrl("livetv", {
+                }) + '" class="raised"><span>' + globalize.translate("sharedcomponents#Recordings") + "</span></a>", html += '<a style="margin:0 0 0 1em;" is="emby-linkbutton" href="' + appRouter.getRouteUrl("livetv", {
                     serverId: apiClient.serverId(),
                     section: "dvrschedule"
                 }) + '" class="raised"><span>' + globalize.translate("sharedcomponents#Schedule") + "</span></a>", html += "</div>", enableScrollX() && (html += "</div>"), html += "</div>", html += "</div>", html += '<div class="verticalSection">', html += '<div class="sectionTitleContainer padded-left">', layoutManager.tv ? html += '<h2 class="sectionTitle sectionTitle-cards">' + globalize.translate("sharedcomponents#HeaderOnNow") + "</h2>" : (html += '<a is="emby-linkbutton" href="' + appRouter.getRouteUrl("livetv", {
                     serverId: apiClient.serverId(),
                     section: "onnow"
-                }) + '" class="more button-flat button-flat-mini sectionTitleTextButton">', html += '<h2 class="sectionTitle sectionTitle-cards">', html += globalize.translate("sharedcomponents#HeaderOnNow"), html += "</h2>", html += '<i class="md-icon">&#xE5CC;</i>', html += "</a>"), html += "</div>", html += enableScrollX() ? '<div is="emby-scroller" data-mousewheel="false" data-centerfocus="true" class="padded-top-focusscale padded-bottom-focusscale"><div is="emby-itemscontainer" class="itemsContainer scrollSlider focuscontainer-x padded-left padded-right" data-refreshinterval="300000">' : '<div is="emby-itemscontainer" class="itemsContainer padded-left padded-right vertical-wrap focuscontainer-x" data-refreshinterval="300000">', enableScrollX() && (html += "</div>"), html += "</div>", html += "</div>", elem.innerHTML = html;
+                }) + '" class="more button-flat button-flat-mini sectionTitleTextButton">', html += '<h2 class="sectionTitle sectionTitle-cards">', html += globalize.translate("sharedcomponents#HeaderOnNow"), html += "</h2>", html += '<i class="md-icon">&#xE5CC;</i>', html += "</a>"), html += "</div>", enableScrollX() ? html += '<div is="emby-scroller" data-mousewheel="false" data-centerfocus="true" class="padded-top-focusscale padded-bottom-focusscale"><div is="emby-itemscontainer" class="itemsContainer scrollSlider focuscontainer-x padded-left padded-right" data-refreshinterval="300000">' : html += '<div is="emby-itemscontainer" class="itemsContainer padded-left padded-right vertical-wrap focuscontainer-x" data-refreshinterval="300000">', enableScrollX() && (html += "</div>"), html += "</div>", html += "</div>", elem.innerHTML = html;
                 var itemsContainer = elem.querySelector(".itemsContainer");
                 itemsContainer.parentContainer = elem, itemsContainer.fetchData = getOnNowFetchFn(apiClient.serverId()), itemsContainer.getItemsHtml = getOnNowItemsHtml
             } else result.Items.length && !registered && (elem.classList.add("padded-left"), elem.classList.add("padded-right"), elem.classList.add("padded-bottom"), html += '<h2 class="sectionTitle">' + globalize.translate("sharedcomponents#LiveTvRequiresUnlock") + "</h2>", html += '<button is="emby-button" type="button" class="raised button-submit block btnUnlock">', html += "<span>" + globalize.translate("sharedcomponents#HeaderBecomeProjectSupporter") + "</span>", html += "</button>", elem.innerHTML = html);
@@ -591,7 +545,6 @@ define(["connectionManager", "cardBuilder", "registrationServices", "appSettings
     }
 
     function getNextUpItemsHtml(items) {
-        var cardLayout = !1;
         return cardBuilder.getCardsHtml({
             items: items,
             preferThumb: !0,
@@ -602,9 +555,9 @@ define(["connectionManager", "cardBuilder", "registrationServices", "appSettings
             lazy: !0,
             overlayPlayButton: !0,
             context: "home",
-            centerText: !cardLayout,
+            centerText: !0,
             allowBottomPadding: !enableScrollX(),
-            cardLayout: cardLayout
+            cardLayout: !1
         })
     }
 
@@ -612,58 +565,9 @@ define(["connectionManager", "cardBuilder", "registrationServices", "appSettings
         var html = "";
         html += '<div class="sectionTitleContainer padded-left">', layoutManager.tv ? html += '<h2 class="sectionTitle sectionTitle-cards">' + globalize.translate("sharedcomponents#HeaderNextUp") + "</h2>" : (html += '<a is="emby-linkbutton" href="' + appRouter.getRouteUrl("nextup", {
             serverId: apiClient.serverId()
-        }) + '" class="button-flat button-flat-mini sectionTitleTextButton">', html += '<h2 class="sectionTitle sectionTitle-cards">', html += globalize.translate("sharedcomponents#HeaderNextUp"), html += "</h2>", html += '<i class="md-icon">&#xE5CC;</i>', html += "</a>"), html += "</div>", html += enableScrollX() ? '<div is="emby-scroller" data-mousewheel="false" data-centerfocus="true" class="padded-top-focusscale padded-bottom-focusscale"><div is="emby-itemscontainer" class="itemsContainer scrollSlider focuscontainer-x padded-left padded-right" data-monitor="videoplayback,markplayed">' : '<div is="emby-itemscontainer" class="itemsContainer padded-left padded-right vertical-wrap focuscontainer-x" data-monitor="videoplayback,markplayed">', enableScrollX() && (html += "</div>"), html += "</div>", elem.classList.add("hide"), elem.innerHTML = html;
+        }) + '" class="button-flat button-flat-mini sectionTitleTextButton">', html += '<h2 class="sectionTitle sectionTitle-cards">', html += globalize.translate("sharedcomponents#HeaderNextUp"), html += "</h2>", html += '<i class="md-icon">&#xE5CC;</i>', html += "</a>"), html += "</div>", enableScrollX() ? html += '<div is="emby-scroller" data-mousewheel="false" data-centerfocus="true" class="padded-top-focusscale padded-bottom-focusscale"><div is="emby-itemscontainer" class="itemsContainer scrollSlider focuscontainer-x padded-left padded-right" data-monitor="videoplayback,markplayed">' : html += '<div is="emby-itemscontainer" class="itemsContainer padded-left padded-right vertical-wrap focuscontainer-x" data-monitor="videoplayback,markplayed">', enableScrollX() && (html += "</div>"), html += "</div>", elem.classList.add("hide"), elem.innerHTML = html;
         var itemsContainer = elem.querySelector(".itemsContainer");
         itemsContainer.fetchData = getNextUpFetchFn(apiClient.serverId()), itemsContainer.getItemsHtml = getNextUpItemsHtml, itemsContainer.parentContainer = elem
-    }
-
-    function loadLatestChannelItems(elem, apiClient, userId, options) {
-        return options = Object.assign(options || {}, {
-            UserId: userId,
-            SupportsLatestItems: !0,
-            EnableTotalRecordCount: !1
-        }), apiClient.getJSON(apiClient.getUrl("Channels", options)).then(function(result) {
-            var channels = result.Items,
-                channelsHtml = channels.map(function(c) {
-                    return '<div id="channel' + c.Id + '"></div>'
-                }).join("");
-            elem.innerHTML = channelsHtml;
-            for (var i = 0, length = channels.length; i < length; i++) {
-                var channel = channels[i];
-                loadLatestChannelItemsFromChannel(elem, apiClient, channel, i)
-            }
-        })
-    }
-
-    function loadLatestChannelItemsFromChannel(page, apiClient, channel, index) {
-        var screenWidth = dom.getWindowSize().innerWidth,
-            options = {
-                Limit: enableScrollX() ? 12 : screenWidth >= 1600 ? 10 : screenWidth >= 1440 ? 5 : 6,
-                Fields: "PrimaryImageAspectRatio,BasicSyncInfo",
-                Filters: "IsUnplayed",
-                UserId: apiClient.getCurrentUserId(),
-                ChannelIds: channel.Id,
-                EnableTotalRecordCount: !1
-            };
-        apiClient.getJSON(apiClient.getUrl("Channels/Items/Latest", options)).then(function(result) {
-            var html = "";
-            if (result.Items.length) {
-                html += '<div class="verticalSection">', html += '<div class="sectionTitleContainer">';
-                var text = globalize.translate("sharedcomponents#HeaderLatestFrom").replace("{0}", channel.Name);
-                html += '<h2 class="sectionTitle sectionTitle-cards padded-left">' + text + "</h2>", layoutManager.tv || (html += '<a is="emby-linkbutton" href="' + appRouter.getRouteUrl(channel) + '" class="raised raised-mini sectionTitleButton btnMore">' + globalize.translate("sharedcomponents#More") + "</a>"), html += "</div>", html += enableScrollX() ? '<div is="emby-scroller" data-mousewheel="false" data-centerfocus="true" class="padded-top-focusscale padded-bottom-focusscale"><div is="emby-itemscontainer" class="scrollSlider focuscontainer-x padded-left padded-right">' : '<div is="emby-itemscontainer" class="itemsContainer padded-left padded-right vertical-wrap focuscontainer-x">', html += cardBuilder.getCardsHtml({
-                    items: result.Items,
-                    shape: enableScrollX() ? "autooverflow" : "auto",
-                    showTitle: !0,
-                    centerText: !0,
-                    lazy: !0,
-                    showDetailsMenu: !0,
-                    overlayPlayButton: !0,
-                    allowBottomPadding: !enableScrollX()
-                }), enableScrollX() && (html += "</div>"), html += "</div>", html += "</div>"
-            }
-            var elem = page.querySelector("#channel" + channel.Id);
-            elem.innerHTML = html, imageLoader.lazyChildren(elem)
-        })
     }
 
     function getLatestRecordingsFetchFn(serverId, activeRecordingsOnly) {
@@ -708,15 +612,12 @@ define(["connectionManager", "cardBuilder", "registrationServices", "appSettings
     function loadLatestLiveTvRecordings(elem, activeRecordingsOnly, apiClient, userId) {
         var title = activeRecordingsOnly ? globalize.translate("sharedcomponents#HeaderActiveRecordings") : globalize.translate("sharedcomponents#HeaderLatestRecordings"),
             html = "";
-        html += '<div class="sectionTitleContainer">', html += '<h2 class="sectionTitle sectionTitle-cards padded-left">' + title + "</h2>", !layoutManager.tv, html += "</div>", html += enableScrollX() ? '<div is="emby-scroller" data-mousewheel="false" data-centerfocus="true" class="padded-top-focusscale padded-bottom-focusscale"><div is="emby-itemscontainer" class="itemsContainer scrollSlider focuscontainer-x padded-left padded-right">' : '<div is="emby-itemscontainer" class="itemsContainer padded-left padded-right vertical-wrap focuscontainer-x">',
-            enableScrollX() && (html += "</div>"), html += "</div>", elem.classList.add("hide"), elem.innerHTML = html;
+        html += '<div class="sectionTitleContainer">', html += '<h2 class="sectionTitle sectionTitle-cards padded-left">' + title + "</h2>", layoutManager.tv, html += "</div>", enableScrollX() ? html += '<div is="emby-scroller" data-mousewheel="false" data-centerfocus="true" class="padded-top-focusscale padded-bottom-focusscale"><div is="emby-itemscontainer" class="itemsContainer scrollSlider focuscontainer-x padded-left padded-right">' : html += '<div is="emby-itemscontainer" class="itemsContainer padded-left padded-right vertical-wrap focuscontainer-x">', enableScrollX() && (html += "</div>"), html += "</div>", elem.classList.add("hide"), elem.innerHTML = html;
         var itemsContainer = elem.querySelector(".itemsContainer");
         itemsContainer.fetchData = getLatestRecordingsFetchFn(apiClient.serverId(), activeRecordingsOnly), itemsContainer.getItemsHtml = getLatestRecordingItemsHtml(activeRecordingsOnly), itemsContainer.parentContainer = elem
     }
     return {
-        loadLatestChannelMedia: loadLatestChannelMedia,
         loadLibraryTiles: loadLibraryTiles,
-        loadLatestChannelItems: loadLatestChannelItems,
         getDefaultSection: getDefaultSection,
         loadSections: loadSections,
         destroySections: destroySections,

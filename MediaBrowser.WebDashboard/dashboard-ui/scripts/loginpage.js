@@ -54,8 +54,7 @@ define(["appSettings", "dom", "connectionManager", "loading", "cardStyle", "emby
             }
             html += "</div>", html += "</div>", html += '<div class="cardFooter visualCardBox-cardFooter">', html += '<div class="cardText singleCardText cardTextCentered">' + user.Name + "</div>", html += "</div>", html += "</div>", html += "</button>"
         }
-        var container = context.querySelector("#divUsers");
-        container.innerHTML = html
+        context.querySelector("#divUsers").innerHTML = html
     }
     var metroColors = ["#6FBD45", "#4BB3DD", "#4164A5", "#E12026", "#800080", "#E1B222", "#008040", "#0094FF", "#FF00C7", "#FF870F", "#7F0037"];
     return function(view, params) {
@@ -91,7 +90,7 @@ define(["appSettings", "dom", "connectionManager", "loading", "cardStyle", "emby
             apiClient.getPublicUsers().then(function(users) {
                 users.length ? users.length && users[0].EnableAutoLogin ? authenticateUserByName(view, apiClient, users[0].Name, "") : (showVisualForm(), loadUserList(view, apiClient, users)) : (view.querySelector("#txtManualName").value = "", showManualForm(view, !1, !1)), loading.hide()
             }), apiClient.getJSON(apiClient.getUrl("Branding/Configuration")).then(function(options) {
-				//myproduction-change-start
+                //myproduction-change-start
 				//Allow HTML in disclainer (innerHTML instead of innerTxt)
                 view.querySelector(".disclaimer").innerHTML = options.LoginDisclaimer || ""
 				//myproduction-change-start

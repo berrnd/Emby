@@ -149,7 +149,7 @@ namespace MediaBrowser.XbmcMetadata.Savers
             }
         }
 
-        public string GetSavePath(IHasMetadata item)
+        public string GetSavePath(BaseItem item)
         {
             return GetLocalSavePath(item);
         }
@@ -159,14 +159,14 @@ namespace MediaBrowser.XbmcMetadata.Savers
         /// </summary>
         /// <param name="item">The item.</param>
         /// <returns>System.String.</returns>
-        protected abstract string GetLocalSavePath(IHasMetadata item);
+        protected abstract string GetLocalSavePath(BaseItem item);
 
         /// <summary>
         /// Gets the name of the root element.
         /// </summary>
         /// <param name="item">The item.</param>
         /// <returns>System.String.</returns>
-        protected abstract string GetRootElementName(IHasMetadata item);
+        protected abstract string GetRootElementName(BaseItem item);
 
         /// <summary>
         /// Determines whether [is enabled for] [the specified item].
@@ -174,9 +174,9 @@ namespace MediaBrowser.XbmcMetadata.Savers
         /// <param name="item">The item.</param>
         /// <param name="updateType">Type of the update.</param>
         /// <returns><c>true</c> if [is enabled for] [the specified item]; otherwise, <c>false</c>.</returns>
-        public abstract bool IsEnabledFor(IHasMetadata item, ItemUpdateType updateType);
+        public abstract bool IsEnabledFor(BaseItem item, ItemUpdateType updateType);
 
-        protected virtual List<string> GetTagsUsed(IHasMetadata item)
+        protected virtual List<string> GetTagsUsed(BaseItem item)
         {
             var list = new List<string>();
             foreach (var providerKey in item.ProviderIds.Keys)
@@ -190,7 +190,7 @@ namespace MediaBrowser.XbmcMetadata.Savers
             return list;
         }
 
-        public void Save(IHasMetadata item, CancellationToken cancellationToken)
+        public void Save(BaseItem item, CancellationToken cancellationToken)
         {
             var path = GetSavePath(item);
 
@@ -209,27 +209,15 @@ namespace MediaBrowser.XbmcMetadata.Savers
         private void SaveToFile(Stream stream, string path)
         {
             FileSystem.CreateDirectory(FileSystem.GetDirectoryName(path));
-
-            var file = FileSystem.GetFileInfo(path);
-
-            var wasHidden = false;
-
-            // This will fail if the file is hidden
-            if (file.Exists)
-            {
-                if (file.IsHidden)
-                {
-                    wasHidden = true;
-                }
-                FileSystem.SetAttributes(path, false, false);
-            }
+            // On Windows, savint the file will fail if the file is hidden or readonly
+            FileSystem.SetAttributes(path, false, false);
 
             using (var filestream = FileSystem.GetFileStream(path, FileOpenMode.Create, FileAccessMode.Write, FileShareMode.Read))
             {
                 stream.CopyTo(filestream);
             }
 
-            if (wasHidden || ConfigurationManager.Configuration.SaveMetadataHidden)
+            if (ConfigurationManager.Configuration.SaveMetadataHidden)
             {
                 SetHidden(path, true);
             }
@@ -247,7 +235,7 @@ namespace MediaBrowser.XbmcMetadata.Savers
             }
         }
 
-        private void Save(IHasMetadata item, Stream stream, string xmlPath)
+        private void Save(BaseItem item, Stream stream, string xmlPath)
         {
             var settings = new XmlWriterSettings
             {
@@ -264,7 +252,7 @@ namespace MediaBrowser.XbmcMetadata.Savers
 
                 writer.WriteStartElement(root);
 
-                var baseItem = item as BaseItem;
+                var baseItem = item;
 
                 if (baseItem != null)
                 {
@@ -305,7 +293,7 @@ namespace MediaBrowser.XbmcMetadata.Savers
             }
         }
 
-        protected abstract void WriteCustomElements(IHasMetadata item, XmlWriter writer);
+        protected abstract void WriteCustomElements(BaseItem item, XmlWriter writer);
 
         public static void AddMediaInfo<T>(T item, XmlWriter writer)
          where T : IHasMediaSources
@@ -391,7 +379,7 @@ namespace MediaBrowser.XbmcMetadata.Savers
 
                 if (stream.Type == MediaStreamType.Video)
                 {
-                    var runtimeTicks = ((IHasMetadata) item).RunTimeTicks;
+                    var runtimeTicks = item.RunTimeTicks;
                     if (runtimeTicks.HasValue)
                     {
                         var timespan = TimeSpan.FromTicks(runtimeTicks.Value);
@@ -793,8 +781,23 @@ namespace MediaBrowser.XbmcMetadata.Savers
                     var providerId = item.ProviderIds[providerKey];
                     if (!string.IsNullOrEmpty(providerId) && !writtenProviderIds.Contains(providerKey))
                     {
-                        writer.WriteElementString(GetTagForProviderKey(providerKey), providerId);
-                        writtenProviderIds.Add(providerKey);
+                        try
+                        {
+                            var tagName = GetTagForProviderKey(providerKey);
+                            //Logger.Debug("Verifying custom provider tagname {0}", tagName);
+                            XmlConvert.VerifyName(tagName);
+                            //Logger.Debug("Saving custom provider tagname {0}", tagName);
+                            
+                            writer.WriteElementString(GetTagForProviderKey(providerKey), providerId);
+                        }
+                        catch (ArgumentException)
+                        {
+                            // catch invalid names without failing the entire operation
+                        }
+                        catch (XmlException)
+                        {
+                            // catch invalid names without failing the entire operation
+                        }
                     }
                 }
             }
@@ -845,6 +848,11 @@ namespace MediaBrowser.XbmcMetadata.Savers
                 if (!string.IsNullOrWhiteSpace(link.Path))
                 {
                     writer.WriteElementString("path", link.Path);
+                }
+
+                if (!string.IsNullOrWhiteSpace(link.LibraryItemId))
+                {
+                    writer.WriteElementString("ItemId", link.LibraryItemId);
                 }
 
                 writer.WriteEndElement();

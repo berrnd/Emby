@@ -1,4 +1,5 @@
 {
+    "HeaderCameraUploads": "Camera Uploads",
     "Latest": "Recente",
     "ValueSpecialEpisodeName": "Especial - {0}",
     "Inherit": "Herdar",
@@ -24,6 +25,7 @@
     "Channels": "Canais",
     "Movies": "Filmes",
     "Albums": "\u00c1lbuns",
+    "NameSeasonUnknown": "Temporada Desconhecida",
     "Artists": "Artistas",
     "Folders": "Pastas",
     "Songs": "M\u00fasicas",
@@ -53,7 +55,7 @@
     "UserCreatedWithName": "O usu\u00e1rio {0} foi criado",
     "UserPasswordChangedWithName": "A senha foi alterada para o usu\u00e1rio {0}",
     "UserDeletedWithName": "O usu\u00e1rio {0} foi exclu\u00eddo",
-    "UserConfigurationUpdatedWithName": "A configura\u00e7\u00e3o do usu\u00e1rio foi atualizada para {0}",
+    "UserPolicyUpdatedWithName": "A pol\u00edtica de usu\u00e1rio foi atualizada para {0}",
     "MessageServerConfigurationUpdated": "A configura\u00e7\u00e3o do servidor foi atualizada",
     "MessageNamedServerConfigurationUpdatedWithValue": "A se\u00e7\u00e3o {0} da configura\u00e7\u00e3o do servidor foi atualizada",
     "MessageApplicationUpdated": "O servidor Emby foi atualizado",

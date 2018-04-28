@@ -41,7 +41,8 @@ namespace Emby.Server.Implementations.Library
                 "#recycle",
 
                 // Qnap
-                "@Recycle"
+                "@Recycle",
+                ".@__thumb"
 
         };
         
@@ -67,7 +68,6 @@ namespace Emby.Server.Implementations.Library
             }
 
             var filename = fileInfo.Name;
-            var isHidden = fileInfo.IsHidden;
             var path = fileInfo.FullName;
 
             // Handle mac .DS_Store
@@ -78,30 +78,30 @@ namespace Emby.Server.Implementations.Library
             }
 
             // Ignore hidden files and folders
-            if (isHidden)
-            {
-                if (parent == null)
-                {
-                    var parentFolderName = Path.GetFileName(_fileSystem.GetDirectoryName(path));
+            //if (fileInfo.IsHidden)
+            //{
+            //    if (parent == null)
+            //    {
+            //        var parentFolderName = Path.GetFileName(_fileSystem.GetDirectoryName(path));
 
-                    if (string.Equals(parentFolderName, BaseItem.ThemeSongsFolderName, StringComparison.OrdinalIgnoreCase))
-                    {
-                        return false;
-                    }
-                    if (string.Equals(parentFolderName, BaseItem.ThemeVideosFolderName, StringComparison.OrdinalIgnoreCase))
-                    {
-                        return false;
-                    }
-                }
+            //        if (string.Equals(parentFolderName, BaseItem.ThemeSongsFolderName, StringComparison.OrdinalIgnoreCase))
+            //        {
+            //            return false;
+            //        }
+            //        if (string.Equals(parentFolderName, BaseItem.ThemeVideosFolderName, StringComparison.OrdinalIgnoreCase))
+            //        {
+            //            return false;
+            //        }
+            //    }
 
-                // Sometimes these are marked hidden
-                if (_fileSystem.IsRootPath(path))
-                {
-                    return false;
-                }
+            //    // Sometimes these are marked hidden
+            //    if (_fileSystem.IsRootPath(path))
+            //    {
+            //        return false;
+            //    }
 
-                return true;
-            }
+            //    return true;
+            //}
 
             if (fileInfo.IsDirectory)
             {
@@ -140,6 +140,17 @@ namespace Emby.Server.Implementations.Library
                     {
                         return true;
                     }
+                }
+
+                // Ignore samples
+                var sampleFilename = " " + filename.Replace(".", " ", StringComparison.OrdinalIgnoreCase)
+                    .Replace("-", " ", StringComparison.OrdinalIgnoreCase)
+                    .Replace("_", " ", StringComparison.OrdinalIgnoreCase)
+                    .Replace("!", " ", StringComparison.OrdinalIgnoreCase);
+
+                if (sampleFilename.IndexOf(" sample ", StringComparison.OrdinalIgnoreCase) != -1)
+                {
+                    return true;
                 }
             }
 

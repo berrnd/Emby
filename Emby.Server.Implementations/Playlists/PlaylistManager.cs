@@ -57,7 +57,7 @@ namespace Emby.Server.Implementations.Playlists
                 throw new ArgumentException();
             }
 
-            if (string.IsNullOrWhiteSpace(options.MediaType))
+            if (string.IsNullOrEmpty(options.MediaType))
             {
                 foreach (var itemId in options.ItemIdList)
                 {
@@ -68,7 +68,7 @@ namespace Emby.Server.Implementations.Playlists
                         throw new ArgumentException("No item exists with the supplied Id");
                     }
 
-                    if (!string.IsNullOrWhiteSpace(item.MediaType))
+                    if (!string.IsNullOrEmpty(item.MediaType))
                     {
                         options.MediaType = item.MediaType;
                     }
@@ -87,18 +87,18 @@ namespace Emby.Server.Implementations.Playlists
                         {
                             options.MediaType = folder.GetRecursiveChildren(i => !i.IsFolder && i.SupportsAddingToPlaylist)
                                 .Select(i => i.MediaType)
-                                .FirstOrDefault(i => !string.IsNullOrWhiteSpace(i));
+                                .FirstOrDefault(i => !string.IsNullOrEmpty(i));
                         }
                     }
 
-                    if (!string.IsNullOrWhiteSpace(options.MediaType))
+                    if (!string.IsNullOrEmpty(options.MediaType))
                     {
                         break;
                     }
                 }
             }
 
-            if (string.IsNullOrWhiteSpace(options.MediaType))
+            if (string.IsNullOrEmpty(options.MediaType))
             {
                 options.MediaType = "Audio";
             }
@@ -117,14 +117,16 @@ namespace Emby.Server.Implementations.Playlists
                 var playlist = new Playlist
                 {
                     Name = name,
-                    Path = path
+                    Path = path,
+                    Shares = new[]
+                    {
+                        new Share
+                        {
+                            UserId = options.UserId,
+                            CanEdit = true
+                        }
+                    }
                 };
-
-                playlist.Shares.Add(new Share
-                {
-                    UserId = options.UserId,
-                    CanEdit = true
-                });
 
                 playlist.SetMediaType(options.MediaType);
 
@@ -135,7 +137,7 @@ namespace Emby.Server.Implementations.Playlists
 
                 if (options.ItemIdList.Length > 0)
                 {
-                    await AddToPlaylistInternal(playlist.Id.ToString("N"), options.ItemIdList, user, new DtoOptions(false)
+                    AddToPlaylistInternal(playlist.Id.ToString("N"), options.ItemIdList, user, new DtoOptions(false)
                     {
                         EnableImages = true
                     });
@@ -170,17 +172,17 @@ namespace Emby.Server.Implementations.Playlists
             return Playlist.GetPlaylistItems(playlistMediaType, items, user, options);
         }
 
-        public Task AddToPlaylist(string playlistId, IEnumerable<string> itemIds, string userId)
+        public void AddToPlaylist(string playlistId, IEnumerable<string> itemIds, string userId)
         {
-            var user = string.IsNullOrWhiteSpace(userId) ? null : _userManager.GetUserById(userId);
+            var user = string.IsNullOrEmpty(userId) ? null : _userManager.GetUserById(userId);
 
-            return AddToPlaylistInternal(playlistId, itemIds, user, new DtoOptions(false)
+            AddToPlaylistInternal(playlistId, itemIds, user, new DtoOptions(false)
             {
                 EnableImages = true
             });
         }
 
-        private async Task AddToPlaylistInternal(string playlistId, IEnumerable<string> itemIds, User user, DtoOptions options)
+        private void AddToPlaylistInternal(string playlistId, IEnumerable<string> itemIds, User user, DtoOptions options)
         {
             var playlist = _libraryManager.GetItemById(playlistId) as Playlist;
 
@@ -197,11 +199,6 @@ namespace Emby.Server.Implementations.Playlists
 
             foreach (var item in items)
             {
-                if (string.IsNullOrWhiteSpace(item.Path))
-                {
-                    continue;
-                }
-
                 list.Add(LinkedChild.Create(item));
             }
 
@@ -218,7 +215,7 @@ namespace Emby.Server.Implementations.Playlists
             }, RefreshPriority.High);
         }
 
-        public async Task RemoveFromPlaylist(string playlistId, IEnumerable<string> entryIds)
+        public void RemoveFromPlaylist(string playlistId, IEnumerable<string> entryIds)
         {
             var playlist = _libraryManager.GetItemById(playlistId) as Playlist;
 
@@ -246,7 +243,7 @@ namespace Emby.Server.Implementations.Playlists
             }, RefreshPriority.High);
         }
 
-        public async Task MoveItem(string playlistId, string entryId, int newIndex)
+        public void MoveItem(string playlistId, string entryId, int newIndex)
         {
             var playlist = _libraryManager.GetItemById(playlistId) as Playlist;
 

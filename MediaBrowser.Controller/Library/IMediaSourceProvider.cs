@@ -15,12 +15,12 @@ namespace MediaBrowser.Controller.Library
         /// <param name="item">The item.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>Task&lt;IEnumerable&lt;MediaSourceInfo&gt;&gt;.</returns>
-        Task<IEnumerable<MediaSourceInfo>> GetMediaSources(IHasMediaSources item, CancellationToken cancellationToken);
+        Task<IEnumerable<MediaSourceInfo>> GetMediaSources(BaseItem item, CancellationToken cancellationToken);
 
         /// <summary>
         /// Opens the media source.
         /// </summary>
-        Task<Tuple<MediaSourceInfo,IDirectStreamProvider>> OpenMediaSource(string openToken, bool allowLiveStreamProbe, CancellationToken cancellationToken);
+        Task<Tuple<MediaSourceInfo,IDirectStreamProvider,bool>> OpenMediaSource(string openToken, CancellationToken cancellationToken);
 
         /// <summary>
         /// Closes the media source.

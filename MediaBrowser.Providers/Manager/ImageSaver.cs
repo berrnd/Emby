@@ -68,19 +68,19 @@ namespace MediaBrowser.Providers.Manager
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>Task.</returns>
         /// <exception cref="System.ArgumentNullException">mimeType</exception>
-        public Task SaveImage(IHasMetadata item, Stream source, string mimeType, ImageType type, int? imageIndex, CancellationToken cancellationToken)
+        public Task SaveImage(BaseItem item, Stream source, string mimeType, ImageType type, int? imageIndex, CancellationToken cancellationToken)
         {
             return SaveImage(item, source, mimeType, type, imageIndex, null, cancellationToken);
         }
 
-        public async Task SaveImage(IHasMetadata item, Stream source, string mimeType, ImageType type, int? imageIndex, bool? saveLocallyWithMedia, CancellationToken cancellationToken)
+        public async Task SaveImage(BaseItem item, Stream source, string mimeType, ImageType type, int? imageIndex, bool? saveLocallyWithMedia, CancellationToken cancellationToken)
         {
             if (string.IsNullOrEmpty(mimeType))
             {
                 throw new ArgumentNullException("mimeType");
             }
 
-            var saveLocally = item.SupportsLocalMetadata && item.IsSaveLocalMetadataEnabled() && !item.IsOwnedItem && !(item is Audio);
+            var saveLocally = item.SupportsLocalMetadata && item.IsSaveLocalMetadataEnabled() && !item.ExtraType.HasValue && !(item is Audio);
 
             if (item is User)
             {
@@ -92,8 +92,7 @@ namespace MediaBrowser.Providers.Manager
                 saveLocally = false;
             }
 
-            var locationType = item.LocationType;
-            if (locationType == LocationType.Remote || locationType == LocationType.Virtual)
+            if (!item.IsFileProtocol)
             {
                 saveLocally = false;
 
@@ -127,7 +126,7 @@ namespace MediaBrowser.Providers.Manager
             var retryPaths = GetSavePaths(item, type, imageIndex, mimeType, false);
 
             // If there are more than one output paths, the stream will need to be seekable
-            var memoryStream = _memoryStreamProvider.CreateNew();
+            var memoryStream = new MemoryStream();
             using (source)
             {
                 await source.CopyToAsync(memoryStream).ConfigureAwait(false);
@@ -236,7 +235,7 @@ namespace MediaBrowser.Providers.Manager
         /// <returns>Task.</returns>
         private async Task SaveImageToLocation(Stream source, string path, CancellationToken cancellationToken)
         {
-            _logger.Info("Saving image to {0}", path);
+            _logger.Debug("Saving image to {0}", path);
 
             var parentFolder = _fileSystem.GetDirectoryName(path);
 
@@ -287,7 +286,7 @@ namespace MediaBrowser.Providers.Manager
         /// <param name="mimeType">Type of the MIME.</param>
         /// <param name="saveLocally">if set to <c>true</c> [save locally].</param>
         /// <returns>IEnumerable{System.String}.</returns>
-        private string[] GetSavePaths(IHasMetadata item, ImageType type, int? imageIndex, string mimeType, bool saveLocally)
+        private string[] GetSavePaths(BaseItem item, ImageType type, int? imageIndex, string mimeType, bool saveLocally)
         {
             if (!saveLocally || (_config.Configuration.ImageSavingConvention == ImageSavingConvention.Legacy))
             {
@@ -309,7 +308,7 @@ namespace MediaBrowser.Providers.Manager
         /// or
         /// imageIndex
         /// </exception>
-        private ItemImageInfo GetCurrentImage(IHasMetadata item, ImageType type, int imageIndex)
+        private ItemImageInfo GetCurrentImage(BaseItem item, ImageType type, int imageIndex)
         {
             return item.GetImageInfo(type, imageIndex);
         }
@@ -324,7 +323,7 @@ namespace MediaBrowser.Providers.Manager
         /// <exception cref="System.ArgumentNullException">imageIndex
         /// or
         /// imageIndex</exception>
-        private void SetImagePath(IHasMetadata item, ImageType type, int? imageIndex, string path)
+        private void SetImagePath(BaseItem item, ImageType type, int? imageIndex, string path)
         {
             item.SetImagePath(type, imageIndex ?? 0, _fileSystem.GetFileInfo(path));
         }
@@ -343,7 +342,7 @@ namespace MediaBrowser.Providers.Manager
         /// or
         /// imageIndex
         /// </exception>
-        private string GetStandardSavePath(IHasMetadata item, ImageType type, int? imageIndex, string mimeType, bool saveLocally)
+        private string GetStandardSavePath(BaseItem item, ImageType type, int? imageIndex, string mimeType, bool saveLocally)
         {
             var season = item as Season;
             var extension = MimeTypes.ToExtension(mimeType);
@@ -416,7 +415,7 @@ namespace MediaBrowser.Providers.Manager
                     filename = item is MusicAlbum ? "cdart" : "disc";
                     break;
                 case ImageType.Primary:
-                    filename = item is Episode ? _fileSystem.GetFileNameWithoutExtension(item.Path) : folderName;
+                    filename = saveLocally && item is Episode ? _fileSystem.GetFileNameWithoutExtension(item.Path) : folderName;
                     break;
                 case ImageType.Backdrop:
                     filename = GetBackdropSaveFilename(item.GetImages(type), "backdrop", "backdrop", imageIndex);
@@ -496,7 +495,7 @@ namespace MediaBrowser.Providers.Manager
         /// <param name="mimeType">Type of the MIME.</param>
         /// <returns>IEnumerable{System.String}.</returns>
         /// <exception cref="System.ArgumentNullException">imageIndex</exception>
-        private string[] GetCompatibleSavePaths(IHasMetadata item, ImageType type, int? imageIndex, string mimeType)
+        private string[] GetCompatibleSavePaths(BaseItem item, ImageType type, int? imageIndex, string mimeType)
         {
             var season = item as Season;
 
@@ -616,7 +615,7 @@ namespace MediaBrowser.Providers.Manager
         /// <param name="imageFilename">The image filename.</param>
         /// <param name="extension">The extension.</param>
         /// <returns>System.String.</returns>
-        private string GetSavePathForItemInMixedFolder(IHasMetadata item, ImageType type, string imageFilename, string extension)
+        private string GetSavePathForItemInMixedFolder(BaseItem item, ImageType type, string imageFilename, string extension)
         {
             if (type == ImageType.Primary)
             {

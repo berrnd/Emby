@@ -13,6 +13,7 @@ using MediaBrowser.Model.Net;
 using MediaBrowser.Model.System;
 using MediaBrowser.Model.Text;
 using SocketHttpListener.Primitives;
+using System.Security.Authentication;
 
 namespace SocketHttpListener.Net
 {
@@ -22,7 +23,7 @@ namespace SocketHttpListener.Net
         const int BufferSize = 8192;
         Socket _socket;
         Stream _stream;
-        EndPointListener _epl;
+        HttpEndPointListener _epl;
         MemoryStream _memoryStream;
         byte[] _buffer;
         HttpListenerContext _context;
@@ -47,7 +48,7 @@ namespace SocketHttpListener.Net
         private readonly IFileSystem _fileSystem;
         private readonly IEnvironmentInfo _environment;
 
-        private HttpConnection(ILogger logger, Socket socket, EndPointListener epl, bool secure, X509Certificate cert, ICryptoProvider cryptoProvider, IMemoryStreamFactory memoryStreamFactory, ITextEncoding textEncoding, IFileSystem fileSystem, IEnvironmentInfo environment)
+        public HttpConnection(ILogger logger, Socket socket, HttpEndPointListener epl, bool secure, X509Certificate cert, ICryptoProvider cryptoProvider, IMemoryStreamFactory memoryStreamFactory, ITextEncoding textEncoding, IFileSystem fileSystem, IEnvironmentInfo environment)
         {
             _logger = logger;
             this._socket = socket;
@@ -59,43 +60,33 @@ namespace SocketHttpListener.Net
             _textEncoding = textEncoding;
             _fileSystem = fileSystem;
             _environment = environment;
-        }
 
-        private async Task InitStream()
-        {
             if (secure == false)
             {
                 _stream = new SocketStream(_socket, false);
             }
             else
             {
-                //ssl_stream = _epl.Listener.CreateSslStream(new NetworkStream(_socket, false), false, (t, c, ch, e) =>
-                //{
-                //    if (c == null)
-                //        return true;
-                //    var c2 = c as X509Certificate2;
-                //    if (c2 == null)
-                //        c2 = new X509Certificate2(c.GetRawCertData());
-                //    client_cert = c2;
-                //    client_cert_errors = new int[] { (int)e };
-                //    return true;
-                //});
-                //_stream = ssl_stream.AuthenticatedStream;
+                ssl_stream = new SslStream(new SocketStream(_socket, false), false, (t, c, ch, e) =>
+                {
+                    if (c == null)
+                    {
+                        return true;
+                    }
 
-                ssl_stream = new SslStream(new SocketStream(_socket, false), false);
-                await ssl_stream.AuthenticateAsServerAsync(cert).ConfigureAwait(false);
+                    //var c2 = c as X509Certificate2;
+                    //if (c2 == null)
+                    //{
+                    //    c2 = new X509Certificate2(c.GetRawCertData());
+                    //}
+
+                    //_clientCert = c2;
+                    //_clientCertErrors = new int[] { (int)e };
+                    return true;
+                });
+
                 _stream = ssl_stream;
             }
-            Init();
-        }
-
-        public static async Task<HttpConnection> Create(ILogger logger, Socket sock, EndPointListener epl, bool secure, X509Certificate cert, ICryptoProvider cryptoProvider, IMemoryStreamFactory memoryStreamFactory, ITextEncoding textEncoding, IFileSystem fileSystem, IEnvironmentInfo environment)
-        {
-            var connection = new HttpConnection(logger, sock, epl, secure, cert, cryptoProvider, memoryStreamFactory, textEncoding, fileSystem, environment);
-
-            await connection.InitStream().ConfigureAwait(false);
-
-            return connection;
         }
 
         public Stream Stream
@@ -106,7 +97,17 @@ namespace SocketHttpListener.Net
             }
         }
 
-        void Init()
+        public async Task Init()
+        {
+            if (ssl_stream != null)
+            {
+                ssl_stream.AuthenticateAsServer(cert, false, (SslProtocols)ServicePointManager.SecurityProtocol, false);
+            }
+
+            InitInternal();
+        }
+
+        private void InitInternal()
         {
             _contextBound = false;
             _requestStream = null;
@@ -497,14 +498,14 @@ namespace SocketHttpListener.Net
                         // Don't close. Keep working.
                         _reuses++;
                         Unbind();
-                        Init();
+                        InitInternal();
                         BeginReadRequest();
                         return;
                     }
 
                     _reuses++;
                     Unbind();
-                    Init();
+                    InitInternal();
                     BeginReadRequest();
                     return;
                 }

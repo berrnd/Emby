@@ -32,12 +32,12 @@ namespace MediaBrowser.Providers.MediaInfo
             _fileSystem = fileSystem;
         }
 
-        public IEnumerable<ImageType> GetSupportedImages(IHasMetadata item)
+        public IEnumerable<ImageType> GetSupportedImages(BaseItem item)
         {
             return new List<ImageType> { ImageType.Primary };
         }
 
-        public Task<DynamicImageResponse> GetImage(IHasMetadata item, ImageType type, CancellationToken cancellationToken)
+        public Task<DynamicImageResponse> GetImage(BaseItem item, ImageType type, CancellationToken cancellationToken)
         {
             var audio = (Audio)item;
 
@@ -96,9 +96,11 @@ namespace MediaBrowser.Providers.MediaInfo
 
             if (item.GetType() == typeof(Audio))
             {
-                if (!string.IsNullOrWhiteSpace(item.Album))
+                var albumArtist = item.AlbumArtists.FirstOrDefault();
+
+                if (!string.IsNullOrWhiteSpace(item.Album) && !string.IsNullOrWhiteSpace(albumArtist))
                 {
-                    filename = item.Album.GetMD5().ToString("N");
+                    filename = (item.Album + "-" + albumArtist).GetMD5().ToString("N");
                 }
                 else
                 {
@@ -131,11 +133,11 @@ namespace MediaBrowser.Providers.MediaInfo
             get { return "Image Extractor"; }
         }
 
-        public bool Supports(IHasMetadata item)
+        public bool Supports(BaseItem item)
         {
             var audio = item as Audio;
 
-            return item.LocationType == LocationType.FileSystem && audio != null;
+            return item.IsFileProtocol && audio != null;
         }
     }
 }

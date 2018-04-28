@@ -4,6 +4,7 @@ using System.Globalization;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Serialization;
 using SQLitePCL.pretty;
+using System.IO;
 
 namespace Emby.Server.Implementations.Data
 {
@@ -110,6 +111,20 @@ namespace Emby.Server.Implementations.Data
                 DateTimeStyles.None).ToUniversalTime();
         }
 
+        public static DateTime? TryReadDateTime(this IResultSetValue result)
+        {
+            var dateText = result.ToString();
+
+            DateTime dateTimeResult;
+
+            if (DateTime.TryParseExact(dateText, _datetimeFormats, DateTimeFormatInfo.InvariantInfo, DateTimeStyles.None, out dateTimeResult))
+            {
+                return dateTimeResult.ToUniversalTime();
+            }
+
+            return null;
+        }
+
         /// <summary>
         /// Serializes to bytes.
         /// </summary>
@@ -122,7 +137,7 @@ namespace Emby.Server.Implementations.Data
                 throw new ArgumentNullException("obj");
             }
 
-            using (var stream = streamProvider.CreateNew())
+            using (var stream = new MemoryStream())
             {
                 json.SerializeToStream(obj, stream);
                 return stream.ToArray();

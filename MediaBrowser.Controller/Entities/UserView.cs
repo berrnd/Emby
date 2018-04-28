@@ -8,10 +8,11 @@ using System.Linq;
 using MediaBrowser.Model.Serialization;
 using System.Threading.Tasks;
 using MediaBrowser.Controller.Dto;
+using MediaBrowser.Controller.Collections;
 
 namespace MediaBrowser.Controller.Entities
 {
-    public class UserView : Folder
+    public class UserView : Folder, IHasCollectionType
     {
         public string ViewType { get; set; }
         public Guid DisplayParentId { get; set; }
@@ -21,15 +22,24 @@ namespace MediaBrowser.Controller.Entities
         public static ITVSeriesManager TVSeriesManager;
         public static IPlaylistManager PlaylistManager;
 
+        [IgnoreDataMember]
+        public string CollectionType
+        {
+            get
+            {
+                return ViewType;
+            }
+        }
+
         public override IEnumerable<Guid> GetIdsForAncestorQuery()
         {
             var list = new List<Guid>();
 
-            if (DisplayParentId != Guid.Empty)
+            if (!DisplayParentId.Equals(Guid.Empty))
             {
                 list.Add(DisplayParentId);
             }
-            else if (ParentId != Guid.Empty)
+            else if (!ParentId.Equals(Guid.Empty))
             {
                 list.Add(ParentId);
             }
@@ -75,17 +85,17 @@ namespace MediaBrowser.Controller.Entities
         {
             var parent = this as Folder;
 
-            if (DisplayParentId != Guid.Empty)
+            if (!DisplayParentId.Equals(Guid.Empty))
             {
                 parent = LibraryManager.GetItemById(DisplayParentId) as Folder ?? parent;
             }
-            else if (ParentId != Guid.Empty)
+            else if (!ParentId.Equals(Guid.Empty))
             {
                 parent = LibraryManager.GetItemById(ParentId) as Folder ?? parent;
             }
 
-            return new UserViewBuilder(UserViewManager, LiveTvManager, ChannelManager, LibraryManager, Logger, UserDataManager, TVSeriesManager, ConfigurationManager, PlaylistManager)
-                .GetUserItems(parent, this, ViewType, query).Result;
+            return new UserViewBuilder(UserViewManager, LibraryManager, Logger, UserDataManager, TVSeriesManager, ConfigurationManager, PlaylistManager)
+                .GetUserItems(parent, this, CollectionType, query);
         }
 
         public override List<BaseItem> GetChildren(User user, bool includeLinkedChildren)
@@ -113,19 +123,12 @@ namespace MediaBrowser.Controller.Entities
 
         public override IEnumerable<BaseItem> GetRecursiveChildren(User user, InternalItemsQuery query)
         {
-            var result = GetItemList(new InternalItemsQuery
-            {
-                User = user,
-                Recursive = true,
-                EnableTotalRecordCount = false,
+            query.SetUser(user);
+            query.Recursive = true;
+            query.EnableTotalRecordCount = false;
+            query.ForceDirect = true;
 
-                ForceDirect = true,
-
-                DtoOptions = query.DtoOptions
-
-            });
-
-            return result.Where(i => UserViewBuilder.FilterItem(i, query));
+            return GetItemList(query);
         }
 
         protected override IEnumerable<BaseItem> GetEligibleChildrenForRecursiveChildren(User user)
@@ -133,13 +136,13 @@ namespace MediaBrowser.Controller.Entities
             return GetChildren(user, false);
         }
 
-        public static bool IsUserSpecific(Folder folder)
-        {
-            var standaloneTypes = new List<string>
+        private static string[] UserSpecificViewTypes = new string[]
             {
-                CollectionType.Playlists
+                MediaBrowser.Model.Entities.CollectionType.Playlists
             };
 
+        public static bool IsUserSpecific(Folder folder)
+        {
             var collectionFolder = folder as ICollectionFolder;
 
             if (collectionFolder == null)
@@ -153,7 +156,7 @@ namespace MediaBrowser.Controller.Entities
                 return true;
             }
 
-            return standaloneTypes.Contains(collectionFolder.CollectionType ?? string.Empty);
+            return UserSpecificViewTypes.Contains(collectionFolder.CollectionType ?? string.Empty, StringComparer.OrdinalIgnoreCase);
         }
 
         public static bool IsEligibleForGrouping(Folder folder)
@@ -162,32 +165,32 @@ namespace MediaBrowser.Controller.Entities
             return collectionFolder != null && IsEligibleForGrouping(collectionFolder.CollectionType);
         }
 
-        public static bool IsEligibleForGrouping(string viewType)
-        {
-            var types = new[] 
-            { 
-                CollectionType.Movies, 
-                CollectionType.TvShows,
+        private static string[] ViewTypesEligibleForGrouping = new string[]
+            {
+                MediaBrowser.Model.Entities.CollectionType.Movies,
+                MediaBrowser.Model.Entities.CollectionType.TvShows,
                 string.Empty
             };
 
-            return types.Contains(viewType ?? string.Empty, StringComparer.OrdinalIgnoreCase);
+        public static bool IsEligibleForGrouping(string viewType)
+        {
+            return ViewTypesEligibleForGrouping.Contains(viewType ?? string.Empty, StringComparer.OrdinalIgnoreCase);
         }
+
+        private static string[] OriginalFolderViewTypes = new string[]
+            {
+                MediaBrowser.Model.Entities.CollectionType.Games,
+                MediaBrowser.Model.Entities.CollectionType.Books,
+                MediaBrowser.Model.Entities.CollectionType.MusicVideos,
+                MediaBrowser.Model.Entities.CollectionType.HomeVideos,
+                MediaBrowser.Model.Entities.CollectionType.Photos,
+                MediaBrowser.Model.Entities.CollectionType.Music,
+                MediaBrowser.Model.Entities.CollectionType.BoxSets
+            };
 
         public static bool EnableOriginalFolder(string viewType)
         {
-            var types = new[] 
-            { 
-                CollectionType.Games, 
-                CollectionType.Books, 
-                CollectionType.MusicVideos, 
-                CollectionType.HomeVideos, 
-                CollectionType.Photos, 
-                CollectionType.Music, 
-                CollectionType.BoxSets
-            };
-
-            return types.Contains(viewType ?? string.Empty, StringComparer.OrdinalIgnoreCase);
+            return OriginalFolderViewTypes.Contains(viewType ?? string.Empty, StringComparer.OrdinalIgnoreCase);
         }
 
         protected override Task ValidateChildrenInternal(IProgress<double> progress, System.Threading.CancellationToken cancellationToken, bool recursive, bool refreshChildMetadata, Providers.MetadataRefreshOptions refreshOptions, Providers.IDirectoryService directoryService)

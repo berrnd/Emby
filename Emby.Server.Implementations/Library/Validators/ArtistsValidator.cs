@@ -84,8 +84,8 @@ namespace Emby.Server.Implementations.Library.Validators
             var deadEntities = _libraryManager.GetItemList(new InternalItemsQuery
             {
                 IncludeItemTypes = new[] { typeof(MusicArtist).Name },
-                IsDeadArtist = true
-
+                IsDeadArtist = true,
+                IsLocked = false
             }).Cast<MusicArtist>().ToList();
 
             foreach (var item in deadEntities)
@@ -94,14 +94,14 @@ namespace Emby.Server.Implementations.Library.Validators
                 {
                     continue;
                 }
-
+                
                 _logger.Info("Deleting dead {2} {0} {1}.", item.Id.ToString("N"), item.Name, item.GetType().Name);
 
-                await _libraryManager.DeleteItem(item, new DeleteOptions
+                _libraryManager.DeleteItem(item, new DeleteOptions
                 {
                     DeleteFileLocation = false
 
-                }).ConfigureAwait(false);
+                }, false);
             }
 
             progress.Report(100);

@@ -40,6 +40,11 @@ namespace MediaBrowser.Providers.MediaInfo
         {
             var streams = new List<MediaStream>();
 
+            if (!video.IsFileProtocol)
+            {
+                return streams;
+            }
+
             GetExternalSubtitleStreams(streams, video.ContainingFolderPath, video.Path, startIndex, directoryService, clearCache);
 
             startIndex += streams.Count;
@@ -60,9 +65,14 @@ namespace MediaBrowser.Providers.MediaInfo
           IDirectoryService directoryService,
           bool clearCache)
         {
-            var streams = GetExternalSubtitleStreams(video, 0, directoryService, clearCache);
-
             var list = new List<string>();
+
+            if (!video.IsFileProtocol)
+            {
+                return list;
+            }
+
+            var streams = GetExternalSubtitleStreams(video, 0, directoryService, clearCache);
 
             foreach (var stream in streams)
             {
@@ -81,7 +91,7 @@ namespace MediaBrowser.Providers.MediaInfo
             var videoFileNameWithoutExtension = _fileSystem.GetFileNameWithoutExtension(videoPath);
             videoFileNameWithoutExtension = NormalizeFilenameForSubtitleComparison(videoFileNameWithoutExtension);
 
-            var files = directoryService.GetFilePaths(folder, clearCache);
+            var files = directoryService.GetFilePaths(folder, clearCache).OrderBy(i => i).ToArray();
 
             foreach (var fullName in files)
             {
@@ -131,16 +141,13 @@ namespace MediaBrowser.Providers.MediaInfo
                     var language = fileNameWithoutExtension
                         .Replace(".forced", string.Empty, StringComparison.OrdinalIgnoreCase)
                         .Replace(".foreign", string.Empty, StringComparison.OrdinalIgnoreCase)
+                        .Replace(".default", string.Empty, StringComparison.OrdinalIgnoreCase)
                         .Split('.')
                         .LastOrDefault();
 
                     // Try to translate to three character code
                     // Be flexible and check against both the full and three character versions
-                    var culture = _localization.GetCultures()
-                        .FirstOrDefault(i => string.Equals(i.DisplayName, language, StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(i.Name, language, StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(i.ThreeLetterISOLanguageName, language, StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(i.TwoLetterISOLanguageName, language, StringComparison.OrdinalIgnoreCase));
+                    var culture = _localization.FindLanguageInfo(language);
 
                     if (culture != null)
                     {

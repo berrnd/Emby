@@ -13,18 +13,15 @@ namespace MediaBrowser.Controller.Entities.Movies
     /// <summary>
     /// Class BoxSet
     /// </summary>
-    public class BoxSet : Folder, IHasTrailers, IHasDisplayOrder, IHasLookupInfo<BoxSetInfo>, IHasShares
+    public class BoxSet : Folder, IHasTrailers, IHasDisplayOrder, IHasLookupInfo<BoxSetInfo>
     {
-        public List<Share> Shares { get; set; }
-
         public BoxSet()
         {
             RemoteTrailers = EmptyMediaUrlArray;
-            LocalTrailerIds = EmptyGuidArray;
-            RemoteTrailerIds = EmptyGuidArray;
+            LocalTrailerIds = new Guid[] {};
+            RemoteTrailerIds = new Guid[] {};
 
             DisplayOrder = ItemSortBy.PremiereDate;
-            Shares = new List<Share>();
         }
 
         [IgnoreDataMember]
@@ -109,7 +106,7 @@ namespace MediaBrowser.Controller.Entities.Movies
         {
             get
             {
-                if (string.IsNullOrWhiteSpace(Path))
+                if (string.IsNullOrEmpty(Path))
                 {
                     return false;
                 }
@@ -142,29 +139,6 @@ namespace MediaBrowser.Controller.Entities.Movies
             return true;
         }
 
-        /// <summary>
-        /// Updates the official rating based on content and returns true or false indicating if it changed.
-        /// </summary>
-        /// <returns></returns>
-        public bool UpdateRatingToContent()
-        {
-            var currentOfficialRating = OfficialRating;
-
-            // Gather all possible ratings
-            var ratings = GetLinkedChildren()
-                .Select(i => i.OfficialRating)
-                .Where(i => !string.IsNullOrEmpty(i))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .Select(i => new Tuple<string, int?>(i, LocalizationManager.GetRatingLevel(i)))
-                .OrderBy(i => i.Item2 ?? 1000)
-                .Select(i => i.Item1);
-
-            OfficialRating = ratings.FirstOrDefault() ?? currentOfficialRating;
-
-            return !string.Equals(currentOfficialRating ?? string.Empty, OfficialRating ?? string.Empty,
-                StringComparison.OrdinalIgnoreCase);
-        }
-
         public override List<BaseItem> GetChildren(User user, bool includeLinkedChildren)
         {
             var children = base.GetChildren(user, includeLinkedChildren);
@@ -192,14 +166,6 @@ namespace MediaBrowser.Controller.Entities.Movies
 
         public override bool IsVisible(User user)
         {
-            var userId = user.Id.ToString("N");
-
-            // Need to check Count > 0 for boxsets created prior to the introduction of Shares
-            if (Shares.Count > 0 && Shares.Any(i => string.Equals(userId, i.UserId, StringComparison.OrdinalIgnoreCase)))
-            {
-                return true;
-            }
-
             if (base.IsVisible(user))
             {
                 return base.GetChildren(user, true).Count > 0;

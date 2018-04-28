@@ -12,6 +12,7 @@ using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Logging;
 using MediaBrowser.Model.Net;
 using MediaBrowser.Model.System;
+using System.Numerics;
 
 namespace Emby.Server.Implementations.Networking
 {
@@ -20,13 +21,15 @@ namespace Emby.Server.Implementations.Networking
         protected ILogger Logger { get; private set; }
 
         public event EventHandler NetworkChanged;
+        public Func<string[]> LocalSubnetsFn { get; set; }
 
         public NetworkManager(ILogger logger, IEnvironmentInfo environment)
         {
             Logger = logger;
 
             // In FreeBSD these events cause a crash
-            if (environment.OperatingSystem != MediaBrowser.Model.System.OperatingSystem.BSD)
+            if (environment.OperatingSystem != MediaBrowser.Model.System.OperatingSystem.BSD &&
+                environment.OperatingSystem != MediaBrowser.Model.System.OperatingSystem.Linux)
             {
                 try
                 {
@@ -65,6 +68,7 @@ namespace Emby.Server.Implementations.Networking
             lock (_localIpAddressSyncLock)
             {
                 _localIpAddresses = null;
+                _macAddresses = null;
             }
             if (NetworkChanged != null)
             {
@@ -72,16 +76,16 @@ namespace Emby.Server.Implementations.Networking
             }
         }
 
-        private List<IpAddressInfo> _localIpAddresses;
+        private IpAddressInfo[] _localIpAddresses;
         private readonly object _localIpAddressSyncLock = new object();
 
-        public List<IpAddressInfo> GetLocalIpAddresses()
+        public IpAddressInfo[] GetLocalIpAddresses()
         {
             lock (_localIpAddressSyncLock)
             {
                 if (_localIpAddresses == null)
                 {
-                    var addresses = GetLocalIpAddressesInternal().Result.Select(ToIpAddressInfo).ToList();
+                    var addresses = GetLocalIpAddressesInternal().Result.Select(ToIpAddressInfo).ToArray();
 
                     _localIpAddresses = addresses;
 
@@ -125,6 +129,11 @@ namespace Emby.Server.Implementations.Networking
 
         public bool IsInPrivateAddressSpace(string endpoint)
         {
+            return IsInPrivateAddressSpace(endpoint, true);
+        }
+
+        private bool IsInPrivateAddressSpace(string endpoint, bool checkSubnets)
+        {
             if (string.Equals(endpoint, "::1", StringComparison.OrdinalIgnoreCase))
             {
                 return true;
@@ -151,12 +160,24 @@ namespace Emby.Server.Implementations.Networking
                 return Is172AddressPrivate(endpoint);
             }
 
-            return endpoint.StartsWith("localhost", StringComparison.OrdinalIgnoreCase) ||
+            if (endpoint.StartsWith("localhost", StringComparison.OrdinalIgnoreCase) ||
                 endpoint.StartsWith("127.", StringComparison.OrdinalIgnoreCase) ||
-                endpoint.StartsWith("192.168", StringComparison.OrdinalIgnoreCase) ||
-                endpoint.StartsWith("169.", StringComparison.OrdinalIgnoreCase) ||
-                //endpoint.StartsWith("10.", StringComparison.OrdinalIgnoreCase) ||
-                IsInPrivateAddressSpaceAndLocalSubnet(endpoint);
+                endpoint.StartsWith("169.", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (checkSubnets && endpoint.StartsWith("192.168", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (checkSubnets && IsInPrivateAddressSpaceAndLocalSubnet(endpoint))
+            {
+                return true;
+            }
+
+            return false;
         }
 
         public bool IsInPrivateAddressSpaceAndLocalSubnet(string endpoint)
@@ -243,9 +264,38 @@ namespace Emby.Server.Implementations.Networking
             return IsInLocalNetworkInternal(endpoint, true);
         }
 
-        public bool IsInLocalNetworkInternal(string endpoint, bool resolveHost)
+        public bool IsAddressInSubnets(string addressString, string[] subnets)
         {
-            if (string.IsNullOrWhiteSpace(endpoint))
+            return IsAddressInSubnets(IPAddress.Parse(addressString), addressString, subnets);
+        }
+
+        private bool IsAddressInSubnets(IPAddress address, string addressString, string[] subnets)
+        {
+            foreach (var subnet in subnets)
+            {
+                var normalizedSubnet = subnet.Trim();
+
+                if (string.Equals(normalizedSubnet, addressString, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+
+                if (normalizedSubnet.IndexOf('/') != -1)
+                {
+                    var ipnetwork = IPNetwork.Parse(normalizedSubnet);
+                    if (ipnetwork.Contains(address))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private bool IsInLocalNetworkInternal(string endpoint, bool resolveHost)
+        {
+            if (string.IsNullOrEmpty(endpoint))
             {
                 throw new ArgumentNullException("endpoint");
             }
@@ -255,11 +305,25 @@ namespace Emby.Server.Implementations.Networking
             {
                 var addressString = address.ToString();
 
+                var localSubnetsFn = LocalSubnetsFn;
+                if (localSubnetsFn != null)
+                {
+                    var localSubnets = localSubnetsFn();
+                    foreach (var subnet in localSubnets)
+                    {
+                        // only validate if there's at least one valid entry
+                        if (!string.IsNullOrWhiteSpace(subnet))
+                        {
+                            return IsAddressInSubnets(address, addressString, localSubnets) || IsInPrivateAddressSpace(addressString, false);
+                        }
+                    }
+                }
+
                 int lengthMatch = 100;
                 if (address.AddressFamily == AddressFamily.InterNetwork)
                 {
                     lengthMatch = 4;
-                    if (IsInPrivateAddressSpace(addressString))
+                    if (IsInPrivateAddressSpace(addressString, true))
                     {
                         return true;
                     }
@@ -267,7 +331,7 @@ namespace Emby.Server.Implementations.Networking
                 else if (address.AddressFamily == AddressFamily.InterNetworkV6)
                 {
                     lengthMatch = 9;
-                    if (IsInPrivateAddressSpace(endpoint))
+                    if (IsInPrivateAddressSpace(endpoint, true))
                     {
                         return true;
                     }
@@ -358,13 +422,7 @@ namespace Emby.Server.Implementations.Networking
                         return new List<IPAddress>();
                     }
 
-                    //if (!_validNetworkInterfaceTypes.Contains(network.NetworkInterfaceType))
-                    //{
-                    //    return new List<IPAddress>();
-                    //}
-
                     return ipProperties.UnicastAddresses
-                        //.Where(i => i.IsDnsEligible)
                         .Select(i => i.Address)
                         .Where(i => i.AddressFamily == AddressFamily.InterNetwork || i.AddressFamily == AddressFamily.InterNetworkV6)
                         .ToList();
@@ -413,16 +471,40 @@ namespace Emby.Server.Implementations.Networking
             }
         }
 
-        /// <summary>
-        /// Returns MAC Address from first Network Card in Computer
-        /// </summary>
-        /// <returns>[string] MAC Address</returns>
-        public string GetMacAddress()
+        private List<string> _macAddresses;
+        public List<string> GetMacAddresses()
+        {
+            if (_macAddresses == null)
+            {
+                _macAddresses = GetMacAddressesInternal();
+            }
+            return _macAddresses;
+        }
+
+        private List<string> GetMacAddressesInternal()
         {
             return NetworkInterface.GetAllNetworkInterfaces()
                 .Where(i => i.NetworkInterfaceType != NetworkInterfaceType.Loopback)
-                .Select(i => BitConverter.ToString(i.GetPhysicalAddress().GetAddressBytes()))
-                .FirstOrDefault();
+                .Select(i =>
+                {
+                    try
+                    {
+                        var physicalAddress = i.GetPhysicalAddress();
+
+                        if (physicalAddress == null)
+                        {
+                            return null;
+                        }
+
+                        return physicalAddress.ToString();
+                    }
+                    catch (Exception ex)
+                    {
+                        return null;
+                    }
+                })
+                .Where(i => i != null)
+                .ToList();
         }
 
         /// <summary>

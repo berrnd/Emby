@@ -158,9 +158,7 @@ namespace MediaBrowser.Controller.Entities.TV
 
             var items = GetEpisodes(user, query.DtoOptions).Where(filter);
 
-            var result = PostFilterAndSort(items, query, false, false);
-
-            return result;
+            return PostFilterAndSort(items, query, false);
         }
 
         /// <summary>
@@ -251,9 +249,9 @@ namespace MediaBrowser.Controller.Entities.TV
         /// This is called before any metadata refresh and returns true or false indicating if changes were made
         /// </summary>
         /// <returns><c>true</c> if XXXX, <c>false</c> otherwise.</returns>
-        public override bool BeforeMetadataRefresh()
+        public override bool BeforeMetadataRefresh(bool replaceAllMetdata)
         {
-            var hasChanges = base.BeforeMetadataRefresh();
+            var hasChanges = base.BeforeMetadataRefresh(replaceAllMetdata);
 
             if (!IndexNumber.HasValue && !string.IsNullOrEmpty(Path))
             {

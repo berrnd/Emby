@@ -266,7 +266,7 @@ namespace Emby.Server.Implementations.IO
         /// <exception cref="System.ArgumentNullException">path</exception>
         private static bool ContainsParentFolder(IEnumerable<string> lst, string path)
         {
-            if (string.IsNullOrWhiteSpace(path))
+            if (string.IsNullOrEmpty(path))
             {
                 throw new ArgumentNullException("path");
             }
@@ -304,6 +304,12 @@ namespace Emby.Server.Implementations.IO
                 }
             }
 
+            if (_environmentInfo.OperatingSystem == MediaBrowser.Model.System.OperatingSystem.Android)
+            {
+                // causing crashing
+                return;
+            }
+
             // Already being watched
             if (_fileSystemWatchers.ContainsKey(path))
             {
@@ -323,7 +329,7 @@ namespace Emby.Server.Implementations.IO
                     if (_environmentInfo.OperatingSystem == MediaBrowser.Model.System.OperatingSystem.Windows ||
                     _environmentInfo.OperatingSystem == MediaBrowser.Model.System.OperatingSystem.OSX)
                     {
-                        newWatcher.InternalBufferSize = 32767;
+                        newWatcher.InternalBufferSize = 65536;
                     }
 
                     newWatcher.NotifyFilter = NotifyFilters.CreationTime |
@@ -485,13 +491,13 @@ namespace Emby.Server.Implementations.IO
             {
                 if (_fileSystem.AreEqual(i, path))
                 {
-                    Logger.Debug("Ignoring change to {0}", path);
+                    //Logger.Debug("Ignoring change to {0}", path);
                     return true;
                 }
 
                 if (_fileSystem.ContainsSubPath(i, path))
                 {
-                    Logger.Debug("Ignoring change to {0}", path);
+                    //Logger.Debug("Ignoring change to {0}", path);
                     return true;
                 }
 
@@ -501,7 +507,7 @@ namespace Emby.Server.Implementations.IO
                 {
                     if (_fileSystem.AreEqual(parent, path))
                     {
-                        Logger.Debug("Ignoring change to {0}", path);
+                        //Logger.Debug("Ignoring change to {0}", path);
                         return true;
                     }
                 }
@@ -616,7 +622,6 @@ namespace Emby.Server.Implementations.IO
         {
             _disposed = true;
             Dispose(true);
-            GC.SuppressFinalize(this);
         }
 
         /// <summary>
@@ -648,7 +653,6 @@ namespace Emby.Server.Implementations.IO
 
         public void Dispose()
         {
-            GC.SuppressFinalize(this);
         }
     }
 }

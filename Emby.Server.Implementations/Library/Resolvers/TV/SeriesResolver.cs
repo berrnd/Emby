@@ -75,12 +75,12 @@ namespace Emby.Server.Implementations.Library.Resolvers.TV
                     var configuredContentType = _libraryManager.GetConfiguredContentType(args.Path);
                     if (!string.Equals(configuredContentType, CollectionType.TvShows, StringComparison.OrdinalIgnoreCase))
                     {
-						Series series = new Series
+                        Series series = new Series
                         {
                             Path = args.Path,
                             Name = Path.GetFileName(args.Path)
                         };
-
+						
 						//myproduction-change-start
 						//OV & ForeignMedia series handling
 						if (args.Path.Contains("SerienOV"))
@@ -94,13 +94,13 @@ namespace Emby.Server.Implementations.Library.Resolvers.TV
 
 						return series;
 						//myproduction-change-end
-					}
-				}
-				else if (string.IsNullOrWhiteSpace(collectionType))
+                    }
+                }
+                else if (string.IsNullOrEmpty(collectionType))
                 {
                     if (args.ContainsFileSystemEntryByName("tvshow.nfo"))
                     {
-                        if (args.Parent.IsRoot)
+                        if (args.Parent != null && args.Parent.IsRoot)
                         {
                             // For now, return null, but if we want to allow this in the future then add some additional checks to guard against a misplaced tvshow.nfo
                             return null;
@@ -113,7 +113,7 @@ namespace Emby.Server.Implementations.Library.Resolvers.TV
                         };
                     }
 
-                    if (args.Parent.IsRoot)
+                    if (args.Parent != null && args.Parent.IsRoot)
                     {
                         return null;
                     }
@@ -174,11 +174,19 @@ namespace Emby.Server.Implementations.Library.Resolvers.TV
                             return true;
                         }
 
-                        var allowOptimisticEpisodeDetection = isTvContentType;
-                        var namingOptions = ((LibraryManager)libraryManager).GetNamingOptions(allowOptimisticEpisodeDetection);
+                        var namingOptions = ((LibraryManager)libraryManager).GetNamingOptions();
 
                         var episodeResolver = new Emby.Naming.TV.EpisodeResolver(namingOptions);
-                        var episodeInfo = episodeResolver.Resolve(fullName, false, false);
+                        bool? isNamed = null;
+                        bool? isOptimistic = null;
+
+                        if (!isTvContentType)
+                        {
+                            isNamed = true;
+                            isOptimistic = false;
+                        }
+
+                        var episodeInfo = episodeResolver.Resolve(fullName, false, isNamed, isOptimistic, null, false);
                         if (episodeInfo != null && episodeInfo.EpisodeNumber.HasValue)
                         {
                             return true;
@@ -220,7 +228,7 @@ namespace Emby.Server.Implementations.Library.Resolvers.TV
         {
             var namingOptions = ((LibraryManager)libraryManager).GetNamingOptions();
 
-            var seasonNumber = new SeasonPathParser(namingOptions, new RegexProvider()).Parse(path, isTvContentType, isTvContentType).SeasonNumber;
+            var seasonNumber = new SeasonPathParser(namingOptions).Parse(path, isTvContentType, isTvContentType).SeasonNumber;
 
             return seasonNumber.HasValue;
         }

@@ -40,7 +40,7 @@ namespace Emby.Server.Implementations.LiveTv
             _appPaths = appPaths;
         }
 
-        public Task<IEnumerable<MediaSourceInfo>> GetMediaSources(IHasMediaSources item, CancellationToken cancellationToken)
+        public Task<IEnumerable<MediaSourceInfo>> GetMediaSources(BaseItem item, CancellationToken cancellationToken)
         {
             var baseItem = (BaseItem)item;
 
@@ -48,20 +48,20 @@ namespace Emby.Server.Implementations.LiveTv
             {
                 var activeRecordingInfo = _liveTvManager.GetActiveRecordingInfo(item.Path);
 
-                if (string.IsNullOrWhiteSpace(baseItem.Path) || activeRecordingInfo != null)
+                if (string.IsNullOrEmpty(baseItem.Path) || activeRecordingInfo != null)
                 {
                     return GetMediaSourcesInternal(item, activeRecordingInfo, cancellationToken);
                 }
             }
 
-            return Task.FromResult<IEnumerable<MediaSourceInfo>>(new List<MediaSourceInfo>());
+            return Task.FromResult<IEnumerable<MediaSourceInfo>>(Array.Empty<MediaSourceInfo>());
         }
 
         // Do not use a pipe here because Roku http requests to the server will fail, without any explicit error message.
         private const char StreamIdDelimeter = '_';
         private const string StreamIdDelimeterString = "_";
 
-        private async Task<IEnumerable<MediaSourceInfo>> GetMediaSourcesInternal(IHasMediaSources item, ActiveRecordingInfo activeRecordingInfo, CancellationToken cancellationToken)
+        private async Task<IEnumerable<MediaSourceInfo>> GetMediaSourcesInternal(BaseItem item, ActiveRecordingInfo activeRecordingInfo, CancellationToken cancellationToken)
         {
             IEnumerable<MediaSourceInfo> sources;
 
@@ -69,30 +69,20 @@ namespace Emby.Server.Implementations.LiveTv
 
             try
             {
-                if (item is ILiveTvRecording)
+                if (activeRecordingInfo != null)
                 {
-                    sources = await _liveTvManager.GetRecordingMediaSources(item, cancellationToken)
+                    sources = await EmbyTV.EmbyTV.Current.GetRecordingStreamMediaSources(activeRecordingInfo, cancellationToken)
                         .ConfigureAwait(false);
                 }
                 else
                 {
-                    if (activeRecordingInfo != null)
-                    {
-                        sources = await EmbyTV.EmbyTV.Current.GetRecordingStreamMediaSources(activeRecordingInfo, cancellationToken)
-                            .ConfigureAwait(false);
-                    }
-                    else
-                    {
-                        sources = await _liveTvManager.GetChannelMediaSources(item, cancellationToken)
-                            .ConfigureAwait(false);
-                    }
+                    sources = await _liveTvManager.GetChannelMediaSources(item, cancellationToken)
+                        .ConfigureAwait(false);
                 }
             }
             catch (NotImplementedException)
             {
-                var hasMediaSources = (IHasMediaSources)item;
-
-                sources = _mediaSourceManager.GetStaticMediaSources(hasMediaSources, false);
+                sources = _mediaSourceManager.GetStaticMediaSources(item, false);
 
                 forceRequireOpening = true;
             }
@@ -131,7 +121,7 @@ namespace Emby.Server.Implementations.LiveTv
             return list;
         }
 
-        public async Task<Tuple<MediaSourceInfo, IDirectStreamProvider>> OpenMediaSource(string openToken, bool allowLiveStreamProbe, CancellationToken cancellationToken)
+        public async Task<Tuple<MediaSourceInfo, IDirectStreamProvider, bool>> OpenMediaSource(string openToken, CancellationToken cancellationToken)
         {
             MediaSourceInfo stream = null;
             const bool isAudio = false;
@@ -140,20 +130,18 @@ namespace Emby.Server.Implementations.LiveTv
             var mediaSourceId = keys.Length >= 3 ? keys[2] : null;
             IDirectStreamProvider directStreamProvider = null;
 
-            if (string.Equals(keys[0], typeof(LiveTvChannel).Name, StringComparison.OrdinalIgnoreCase))
-            {
-                var info = await _liveTvManager.GetChannelStream(keys[1], mediaSourceId, cancellationToken).ConfigureAwait(false);
-                stream = info.Item1;
-                directStreamProvider = info.Item2;
-            }
-            else
-            {
-                stream = await _liveTvManager.GetRecordingStream(keys[1], cancellationToken).ConfigureAwait(false);
-            }
+            bool addProbeDelay = false;
+            bool allowLiveMediaProbe = false;
+
+            var info = await _liveTvManager.GetChannelStream(keys[1], mediaSourceId, cancellationToken).ConfigureAwait(false);
+            stream = info.Item1;
+            directStreamProvider = info.Item2 as IDirectStreamProvider;
+            addProbeDelay = true;
+            allowLiveMediaProbe = directStreamProvider != null;
 
             try
             {
-                if (!allowLiveStreamProbe || !stream.SupportsProbing || stream.MediaStreams.Any(i => i.Index != -1))
+                if (stream.MediaStreams.Any(i => i.Index != -1) || !stream.SupportsProbing)
                 {
                     AddMediaInfo(stream, isAudio, cancellationToken);
                 }
@@ -161,16 +149,16 @@ namespace Emby.Server.Implementations.LiveTv
                 {
                     var cacheKey = keys[1] + "-" + mediaSourceId;
 
-                    await new LiveStreamHelper(_mediaEncoder, _logger, _jsonSerializer, _appPaths).AddMediaInfoWithProbe(stream, isAudio, cacheKey, cancellationToken).ConfigureAwait(false);
+                    await new LiveStreamHelper(_mediaEncoder, _logger, _jsonSerializer, _appPaths).AddMediaInfoWithProbe(stream, isAudio, cacheKey, addProbeDelay, cancellationToken).ConfigureAwait(false);
                 }
             }
             catch (Exception ex)
             {
                 _logger.ErrorException("Error probing live tv stream", ex);
+                AddMediaInfo(stream, isAudio, cancellationToken);
             }
 
-            _logger.Info("Live stream info: {0}", _jsonSerializer.SerializeToString(stream));
-            return new Tuple<MediaSourceInfo, IDirectStreamProvider>(stream, directStreamProvider);
+            return new Tuple<MediaSourceInfo, IDirectStreamProvider, bool>(stream, directStreamProvider, allowLiveMediaProbe);
         }
 
         private void AddMediaInfo(MediaSourceInfo mediaSource, bool isAudio, CancellationToken cancellationToken)

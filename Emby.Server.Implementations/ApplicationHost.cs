@@ -33,7 +33,6 @@ using Emby.Server.Implementations.ScheduledTasks;
 using Emby.Server.Implementations.Security;
 using Emby.Server.Implementations.Serialization;
 using Emby.Server.Implementations.Session;
-using Emby.Server.Implementations.Social;
 using Emby.Server.Implementations.Threading;
 using Emby.Server.Implementations.TV;
 using Emby.Server.Implementations.Updates;
@@ -93,7 +92,6 @@ using MediaBrowser.Model.News;
 using MediaBrowser.Model.Reflection;
 using MediaBrowser.Model.Serialization;
 using MediaBrowser.Model.Services;
-using MediaBrowser.Model.Social;
 using MediaBrowser.Model.System;
 using MediaBrowser.Model.Tasks;
 using MediaBrowser.Model.Text;
@@ -121,6 +119,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using StringExtensions = MediaBrowser.Controller.Extensions.StringExtensions;
 using X509Certificate = System.Security.Cryptography.X509Certificates.X509Certificate;
+using MediaBrowser.Controller.Authentication;
+using System.Diagnostics;
 
 namespace Emby.Server.Implementations
 {
@@ -218,16 +218,10 @@ namespace Emby.Server.Implementations
         protected ServerApplicationPaths ApplicationPaths { get; set; }
 
         /// <summary>
-        /// Gets assemblies that failed to load
-        /// </summary>
-        /// <value>The failed assemblies.</value>
-        public List<string> FailedAssemblies { get; protected set; }
-
-        /// <summary>
         /// Gets all concrete types.
         /// </summary>
         /// <value>All concrete types.</value>
-        public Type[] AllConcreteTypes { get; protected set; }
+        public Tuple<Type, string>[] AllConcreteTypes { get; protected set; }
 
         /// <summary>
         /// The disposable parts
@@ -432,11 +426,10 @@ namespace Emby.Server.Implementations
             XmlSerializer = new MyXmlSerializer(fileSystem, logManager.GetLogger("XmlSerializer"));
 
             NetworkManager = networkManager;
+            networkManager.LocalSubnetsFn = GetConfiguredLocalSubnets;
             EnvironmentInfo = environmentInfo;
             SystemEvents = systemEvents;
             MemoryStreamFactory = new MemoryStreamProvider();
-
-            FailedAssemblies = new List<string>();
 
             ApplicationPaths = applicationPaths;
             LogManager = logManager;
@@ -460,6 +453,11 @@ namespace Emby.Server.Implementations
             NetworkManager.NetworkChanged += NetworkManager_NetworkChanged;
         }
 
+        private string[] GetConfiguredLocalSubnets()
+        {
+            return ServerConfigurationManager.Configuration.LocalNetworkSubnets;
+        }
+
         private void NetworkManager_NetworkChanged(object sender, EventArgs e)
         {
             _validAddressResults.Clear();
@@ -474,7 +472,7 @@ namespace Emby.Server.Implementations
         {
             get
             {
-                return _version ?? (_version = GetAssembly(GetType()).GetName().Version);
+                return _version ?? (_version = GetType().GetTypeInfo().Assembly.GetName().Version);
             }
         }
 
@@ -504,9 +502,12 @@ namespace Emby.Server.Implementations
             }
         }
 
-        private Assembly GetAssembly(Type type)
+        private Tuple<Assembly, string> GetAssembly(Type type)
         {
-            return type.GetTypeInfo().Assembly;
+            var assembly = type.GetTypeInfo().Assembly;
+            string path = null;
+
+            return new Tuple<Assembly, string>(assembly, path);
         }
 
         public virtual bool SupportsAutoRunAtStartup
@@ -524,16 +525,7 @@ namespace Emby.Server.Implementations
         /// <returns>System.Object.</returns>
         public object CreateInstance(Type type)
         {
-            try
-            {
-                return Container.GetInstance(type);
-            }
-            catch (Exception ex)
-            {
-                Logger.ErrorException("Error creating {0}", ex, type.FullName);
-
-                throw;
-            }
+            return Container.GetInstance(type);
         }
 
         /// <summary>
@@ -541,8 +533,10 @@ namespace Emby.Server.Implementations
         /// </summary>
         /// <param name="type">The type.</param>
         /// <returns>System.Object.</returns>
-        protected object CreateInstanceSafe(Type type)
+        protected object CreateInstanceSafe(Tuple<Type, string> typeInfo)
         {
+            var type = typeInfo.Item1;
+
             try
             {
                 return Container.GetInstance(type);
@@ -619,15 +613,16 @@ namespace Emby.Server.Implementations
         /// </summary>
         /// <param name="file">The file.</param>
         /// <returns>Assembly.</returns>
-        protected Assembly LoadAssembly(string file)
+        protected Tuple<Assembly, string> LoadAssembly(string file)
         {
             try
             {
-                return Assembly.Load(File.ReadAllBytes(file));
+                var assembly = Assembly.Load(File.ReadAllBytes(file));
+
+                return new Tuple<Assembly, string>(assembly, file);
             }
             catch (Exception ex)
             {
-                FailedAssemblies.Add(file);
                 Logger.ErrorException("Error loading assembly {0}", ex, file);
                 return null;
             }
@@ -638,11 +633,11 @@ namespace Emby.Server.Implementations
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <returns>IEnumerable{Type}.</returns>
-        public IEnumerable<Type> GetExportTypes<T>()
+        public IEnumerable<Tuple<Type, string>> GetExportTypes<T>()
         {
             var currentType = typeof(T);
 
-            return AllConcreteTypes.Where(currentType.IsAssignableFrom);
+            return AllConcreteTypes.Where(i => currentType.IsAssignableFrom(i.Item1));
         }
 
         /// <summary>
@@ -664,6 +659,33 @@ namespace Emby.Server.Implementations
                 lock (DisposableParts)
                 {
                     DisposableParts.AddRange(parts.OfType<IDisposable>());
+                }
+            }
+
+            return parts;
+        }
+
+        public List<Tuple<T, string>> GetExportsWithInfo<T>(bool manageLiftime = true)
+        {
+            var parts = GetExportTypes<T>()
+                .Select(i =>
+                {
+                    var obj = CreateInstanceSafe(i);
+
+                    if (obj == null)
+                    {
+                        return null;
+                    }
+                    return new Tuple<T, string>((T)obj, i.Item2);
+                })
+                .Where(i => i != null)
+                .ToList();
+
+            if (manageLiftime)
+            {
+                lock (DisposableParts)
+                {
+                    DisposableParts.AddRange(parts.Select(i => i.Item1).OfType<IDisposable>());
                 }
             }
 
@@ -703,13 +725,30 @@ namespace Emby.Server.Implementations
             //}
 
             Logger.Info("ServerId: {0}", SystemId);
+
+            var entryPoints = GetExports<IServerEntryPoint>().ToList();
+            RunEntryPoints(entryPoints, true);
+
             Logger.Info("Core startup complete");
             HttpServer.GlobalResponse = null;
 
             Logger.Info("Post-init migrations complete");
 
-            foreach (var entryPoint in GetExports<IServerEntryPoint>().ToList())
+            RunEntryPoints(entryPoints, false);
+            Logger.Info("All entry points have started");
+
+            LogManager.RemoveConsoleOutput();
+        }
+
+        private void RunEntryPoints(IEnumerable<IServerEntryPoint> entryPoints, bool isBeforeStartup)
+        {
+            foreach (var entryPoint in entryPoints)
             {
+                if (isBeforeStartup != (entryPoint is IRunBeforeStartup))
+                {
+                    continue;
+                }
+
                 var name = entryPoint.GetType().FullName;
                 Logger.Info("Starting entry point {0}", name);
                 var now = DateTime.UtcNow;
@@ -723,9 +762,6 @@ namespace Emby.Server.Implementations
                 }
                 Logger.Info("Entry point completed: {0}. Duration: {1} seconds", name, (DateTime.UtcNow - now).TotalSeconds.ToString(CultureInfo.InvariantCulture), "ImageInfos");
             }
-            Logger.Info("All entry points have started");
-
-            LogManager.RemoveConsoleOutput();
         }
 
         /// <summary>
@@ -745,20 +781,10 @@ namespace Emby.Server.Implementations
 
         private IJsonSerializer CreateJsonSerializer()
         {
-            try
-            {
-                // https://github.com/ServiceStack/ServiceStack/blob/master/tests/ServiceStack.WebHost.IntegrationTests/Web.config#L4
-                Licensing.RegisterLicense("1001-e1JlZjoxMDAxLE5hbWU6VGVzdCBCdXNpbmVzcyxUeXBlOkJ1c2luZXNzLEhhc2g6UHVNTVRPclhvT2ZIbjQ5MG5LZE1mUTd5RUMzQnBucTFEbTE3TDczVEF4QUNMT1FhNXJMOWkzVjFGL2ZkVTE3Q2pDNENqTkQyUktRWmhvUVBhYTBiekJGUUZ3ZE5aZHFDYm9hL3lydGlwUHI5K1JsaTBYbzNsUC85cjVJNHE5QVhldDN6QkE4aTlvdldrdTgyTk1relY2eis2dFFqTThYN2lmc0JveHgycFdjPSxFeHBpcnk6MjAxMy0wMS0wMX0=");
-            }
-            catch
-            {
-                // Failing under mono
-            }
-
             return new JsonSerializer(FileSystemManager, LogManager.GetLogger("JsonSerializer"));
         }
 
-        public async Task Init(IProgress<double> progress)
+        public void Init()
         {
             HttpPort = ServerConfigurationManager.Configuration.HttpServerPortNumber;
             HttpsPort = ServerConfigurationManager.Configuration.HttpsPortNumber;
@@ -770,39 +796,24 @@ namespace Emby.Server.Implementations
                 HttpsPort = ServerConfiguration.DefaultHttpsPort;
             }
 
-            progress.Report(1);
-
             JsonSerializer = CreateJsonSerializer();
 
             OnLoggerLoaded(true);
             LogManager.LoggerLoaded += (s, e) => OnLoggerLoaded(false);
 
             IsFirstRun = !ConfigurationManager.CommonConfiguration.IsStartupWizardCompleted;
-            progress.Report(2);
 
             LogManager.LogSeverity = ConfigurationManager.CommonConfiguration.EnableDebugLevelLogging
                 ? LogSeverity.Debug
                 : LogSeverity.Info;
 
-            progress.Report(3);
-
             DiscoverTypes();
-            progress.Report(14);
 
             SetHttpLimit();
-            progress.Report(15);
 
-            var innerProgress = new ActionableProgress<double>();
-            innerProgress.RegisterAction(p => progress.Report(.8 * p + 15));
-
-            await RegisterResources(innerProgress).ConfigureAwait(false);
+            RegisterResources();
 
             FindParts();
-            progress.Report(95);
-
-            await InstallIsoMounters(CancellationToken.None).ConfigureAwait(false);
-
-            progress.Report(100);
         }
 
         protected virtual void OnLoggerLoaded(bool isFirstLoad)
@@ -813,16 +824,6 @@ namespace Emby.Server.Implementations
             {
                 LogEnvironmentInfo(Logger, ApplicationPaths, false);
             }
-
-            // Put the app config in the log for troubleshooting purposes
-            var configJson = new StringBuilder(JsonSerializer.SerializeToString(ConfigurationManager.CommonConfiguration));
-
-            if (!string.IsNullOrWhiteSpace(ServerConfigurationManager.Configuration.CertificatePassword))
-            {
-                configJson = configJson.Replace(ServerConfigurationManager.Configuration.CertificatePassword, "####");
-            }
-
-            Logger.LogMultiline("Application configuration:", LogSeverity.Info, configJson);
 
             if (Plugins != null)
             {
@@ -848,7 +849,7 @@ namespace Emby.Server.Implementations
         /// <summary>
         /// Registers resources that classes will depend on
         /// </summary>
-        protected async Task RegisterResources(IProgress<double> progress)
+        protected void RegisterResources()
         {
             RegisterSingleInstance(ConfigurationManager);
             RegisterSingleInstance<IApplicationHost>(this);
@@ -895,7 +896,7 @@ namespace Emby.Server.Implementations
             SecurityManager = new PluginSecurityManager(this, HttpClient, JsonSerializer, ApplicationPaths, LogManager, FileSystemManager, CryptographyProvider);
             RegisterSingleInstance(SecurityManager);
 
-            InstallationManager = new InstallationManager(LogManager.GetLogger("InstallationManager"), this, ApplicationPaths, HttpClient, JsonSerializer, SecurityManager, ConfigurationManager, FileSystemManager, CryptographyProvider, PackageRuntime);
+            InstallationManager = new InstallationManager(LogManager.GetLogger("InstallationManager"), this, ApplicationPaths, HttpClient, JsonSerializer, SecurityManager, ServerConfigurationManager, FileSystemManager, CryptographyProvider, PackageRuntime);
             RegisterSingleInstance(InstallationManager);
 
             ZipClient = new ZipClient(FileSystemManager);
@@ -953,9 +954,6 @@ namespace Emby.Server.Implementations
             LibraryMonitor = new LibraryMonitor(LogManager, TaskManager, LibraryManager, ServerConfigurationManager, FileSystemManager, TimerFactory, SystemEvents, EnvironmentInfo);
             RegisterSingleInstance(LibraryMonitor);
 
-            ProviderManager = new ProviderManager(HttpClient, ServerConfigurationManager, LibraryMonitor, LogManager, FileSystemManager, ApplicationPaths, () => LibraryManager, JsonSerializer, MemoryStreamFactory);
-            RegisterSingleInstance(ProviderManager);
-
             RegisterSingleInstance<ISearchEngine>(() => new SearchEngine(LogManager, LibraryManager, UserManager));
 
             CertificateInfo = GetCertificateInfo(true);
@@ -964,13 +962,9 @@ namespace Emby.Server.Implementations
             HttpServer = HttpServerFactory.CreateServer(this, LogManager, ServerConfigurationManager, NetworkManager, MemoryStreamFactory, "Emby", "web/index.html", textEncoding, SocketFactory, CryptographyProvider, JsonSerializer, XmlSerializer, EnvironmentInfo, Certificate, FileSystemManager, SupportsDualModeSockets);
             HttpServer.GlobalResponse = LocalizationManager.GetLocalizedString("StartupEmbyServerIsLoading");
             RegisterSingleInstance(HttpServer, false);
-            progress.Report(10);
 
             ServerManager = new ServerManager.ServerManager(this, JsonSerializer, LogManager.GetLogger("ServerManager"), ServerConfigurationManager, MemoryStreamFactory, textEncoding);
             RegisterSingleInstance(ServerManager);
-
-            var innerProgress = new ActionableProgress<double>();
-            innerProgress.RegisterAction(p => progress.Report((.75 * p) + 15));
 
             ImageProcessor = GetImageProcessor();
             RegisterSingleInstance(ImageProcessor);
@@ -981,9 +975,6 @@ namespace Emby.Server.Implementations
             SyncManager = CreateSyncManager();
             RegisterSingleInstance(SyncManager);
 
-            DtoService = new DtoService(LogManager.GetLogger("DtoService"), LibraryManager, UserDataManager, ItemRepository, ImageProcessor, ServerConfigurationManager, FileSystemManager, ProviderManager, () => ChannelManager, SyncManager, this, () => DeviceManager, () => MediaSourceManager, () => LiveTvManager);
-            RegisterSingleInstance(DtoService);
-
             var encryptionManager = new EncryptionManager();
             RegisterSingleInstance<IEncryptionManager>(encryptionManager);
 
@@ -992,20 +983,27 @@ namespace Emby.Server.Implementations
 
             var deviceRepo = new SqliteDeviceRepository(LogManager.GetLogger("DeviceManager"), ServerConfigurationManager, FileSystemManager, JsonSerializer);
             deviceRepo.Initialize();
-            DeviceManager = new DeviceManager(deviceRepo, UserManager, FileSystemManager, LibraryMonitor, ServerConfigurationManager, LogManager.GetLogger("DeviceManager"), NetworkManager);
+            DeviceManager = new DeviceManager(deviceRepo, LibraryManager, LocalizationManager, UserManager, FileSystemManager, LibraryMonitor, ServerConfigurationManager, LogManager.GetLogger("DeviceManager"), NetworkManager);
             RegisterSingleInstance<IDeviceRepository>(deviceRepo);
             RegisterSingleInstance(DeviceManager);
 
             var newsService = new Emby.Server.Implementations.News.NewsService(ApplicationPaths, JsonSerializer);
             RegisterSingleInstance<INewsService>(newsService);
 
-            progress.Report(15);
+            MediaSourceManager = new MediaSourceManager(ItemRepository, LocalizationManager, UserManager, LibraryManager, LogManager.GetLogger("MediaSourceManager"), JsonSerializer, FileSystemManager, UserDataManager, TimerFactory, () => MediaEncoder);
+            RegisterSingleInstance(MediaSourceManager);
+
+            SubtitleManager = new SubtitleManager(LogManager.GetLogger("SubtitleManager"), FileSystemManager, LibraryMonitor, MediaSourceManager, ServerConfigurationManager, LocalizationManager);
+            RegisterSingleInstance(SubtitleManager);
+
+            ProviderManager = new ProviderManager(HttpClient, SubtitleManager, ServerConfigurationManager, LibraryMonitor, LogManager, FileSystemManager, ApplicationPaths, () => LibraryManager, JsonSerializer, MemoryStreamFactory);
+            RegisterSingleInstance(ProviderManager);
+
+            DtoService = new DtoService(LogManager.GetLogger("DtoService"), LibraryManager, UserDataManager, ItemRepository, ImageProcessor, ServerConfigurationManager, FileSystemManager, ProviderManager, () => ChannelManager, SyncManager, this, () => DeviceManager, () => MediaSourceManager, () => LiveTvManager);
+            RegisterSingleInstance(DtoService);
 
             ChannelManager = new ChannelManager(UserManager, DtoService, LibraryManager, LogManager.GetLogger("ChannelManager"), ServerConfigurationManager, FileSystemManager, UserDataManager, JsonSerializer, LocalizationManager, HttpClient, ProviderManager);
             RegisterSingleInstance(ChannelManager);
-
-            MediaSourceManager = new MediaSourceManager(ItemRepository, UserManager, LibraryManager, LogManager.GetLogger("MediaSourceManager"), JsonSerializer, FileSystemManager, UserDataManager, TimerFactory);
-            RegisterSingleInstance(MediaSourceManager);
 
             SessionManager = new SessionManager(UserDataManager, LogManager.GetLogger("SessionManager"), LibraryManager, UserManager, musicManager, DtoService, ImageProcessor, JsonSerializer, this, HttpClient, AuthenticationRepository, DeviceManager, MediaSourceManager, TimerFactory);
             RegisterSingleInstance(SessionManager);
@@ -1016,13 +1014,13 @@ namespace Emby.Server.Implementations
             var connectionManager = new ConnectionManager(dlnaManager, ServerConfigurationManager, LogManager.GetLogger("UpnpConnectionManager"), HttpClient, new XmlReaderSettingsFactory());
             RegisterSingleInstance<IConnectionManager>(connectionManager);
 
-            CollectionManager = new CollectionManager(LibraryManager, FileSystemManager, LibraryMonitor, LogManager.GetLogger("CollectionManager"), ProviderManager);
+            CollectionManager = new CollectionManager(LibraryManager, ApplicationPaths, LocalizationManager, FileSystemManager, LibraryMonitor, LogManager.GetLogger("CollectionManager"), ProviderManager);
             RegisterSingleInstance(CollectionManager);
 
             PlaylistManager = new PlaylistManager(LibraryManager, FileSystemManager, LibraryMonitor, LogManager.GetLogger("PlaylistManager"), UserManager, ProviderManager);
             RegisterSingleInstance<IPlaylistManager>(PlaylistManager);
 
-            LiveTvManager = new LiveTvManager(this, ServerConfigurationManager, Logger, ItemRepository, ImageProcessor, UserDataManager, DtoService, UserManager, LibraryManager, TaskManager, LocalizationManager, JsonSerializer, ProviderManager, FileSystemManager, SecurityManager);
+            LiveTvManager = new LiveTvManager(this, ServerConfigurationManager, Logger, ItemRepository, ImageProcessor, UserDataManager, DtoService, UserManager, LibraryManager, TaskManager, LocalizationManager, JsonSerializer, ProviderManager, FileSystemManager, SecurityManager, () => ChannelManager);
             RegisterSingleInstance(LiveTvManager);
 
             UserViewManager = new UserViewManager(LibraryManager, LocalizationManager, UserManager, ChannelManager, LiveTvManager, ServerConfigurationManager);
@@ -1037,25 +1035,15 @@ namespace Emby.Server.Implementations
             NotificationManager = new NotificationManager(LogManager, UserManager, ServerConfigurationManager);
             RegisterSingleInstance(NotificationManager);
 
-            SubtitleManager = new SubtitleManager(LogManager.GetLogger("SubtitleManager"), FileSystemManager, LibraryMonitor, LibraryManager, MediaSourceManager, ServerConfigurationManager);
-            RegisterSingleInstance(SubtitleManager);
-
             RegisterSingleInstance<IDeviceDiscovery>(new DeviceDiscovery(LogManager.GetLogger("IDeviceDiscovery"), ServerConfigurationManager, SocketFactory, TimerFactory));
 
             ChapterManager = new ChapterManager(LibraryManager, LogManager.GetLogger("ChapterManager"), ServerConfigurationManager, ItemRepository);
             RegisterSingleInstance(ChapterManager);
 
-            await RegisterMediaEncoder(innerProgress).ConfigureAwait(false);
-            progress.Report(90);
+            RegisterMediaEncoder(assemblyInfo);
 
             EncodingManager = new EncodingManager(FileSystemManager, Logger, MediaEncoder, ChapterManager, LibraryManager);
             RegisterSingleInstance(EncodingManager);
-
-            var sharingRepo = new SharingRepository(LogManager.GetLogger("SharingRepository"), ApplicationPaths, FileSystemManager);
-            sharingRepo.Initialize();
-            // This is only needed for disposal purposes. If removing this, make sure to have the manager handle disposing it
-            RegisterSingleInstance<ISharingRepository>(sharingRepo);
-            RegisterSingleInstance<ISharingManager>(new SharingManager(sharingRepo, ServerConfigurationManager, LibraryManager, this));
 
             var activityLogRepo = GetActivityLogRepository();
             RegisterSingleInstance(activityLogRepo);
@@ -1065,7 +1053,7 @@ namespace Emby.Server.Implementations
             RegisterSingleInstance<IAuthorizationContext>(authContext);
             RegisterSingleInstance<ISessionContext>(new SessionContext(UserManager, authContext, SessionManager));
 
-            AuthService = new AuthService(UserManager, authContext, ServerConfigurationManager, ConnectManager, SessionManager, DeviceManager);
+            AuthService = new AuthService(UserManager, authContext, ServerConfigurationManager, ConnectManager, SessionManager, NetworkManager);
             RegisterSingleInstance<IAuthService>(AuthService);
 
             SubtitleEncoder = new SubtitleEncoder(LibraryManager, LogManager.GetLogger("SubtitleEncoder"), ApplicationPaths, FileSystemManager, MediaEncoder, JsonSerializer, HttpClient, MediaSourceManager, MemoryStreamFactory, ProcessFactory, textEncoding);
@@ -1081,7 +1069,6 @@ namespace Emby.Server.Implementations
             itemRepo.Initialize(userDataRepo);
             ((LibraryManager)LibraryManager).ItemRepository = ItemRepository;
             ConfigureNotificationsRepository();
-            progress.Report(100);
 
             SetStaticProperties();
 
@@ -1142,37 +1129,6 @@ namespace Emby.Server.Implementations
             }
         }
 
-        /// <summary>
-        /// Installs the iso mounters.
-        /// </summary>
-        /// <param name="cancellationToken">The cancellation token.</param>
-        /// <returns>Task.</returns>
-        private async Task InstallIsoMounters(CancellationToken cancellationToken)
-        {
-            var list = new List<IIsoMounter>();
-
-            foreach (var isoMounter in GetExports<IIsoMounter>())
-            {
-                try
-                {
-                    if (isoMounter.RequiresInstallation && !isoMounter.IsInstalled)
-                    {
-                        Logger.Info("Installing {0}", isoMounter.Name);
-
-                        await isoMounter.Install(cancellationToken).ConfigureAwait(false);
-                    }
-
-                    list.Add(isoMounter);
-                }
-                catch (Exception ex)
-                {
-                    Logger.ErrorException("{0} failed to load.", ex, isoMounter.Name);
-                }
-            }
-
-            IsoManager.AddParts(list);
-        }
-
         protected string GetDefaultUserAgent()
         {
             var name = FormatAttribute(Name);
@@ -1228,7 +1184,7 @@ namespace Emby.Server.Implementations
                 //localCert.PrivateKey = PrivateKey.CreateFromFile(pvk_file).RSA;
                 if (!localCert.HasPrivateKey)
                 {
-                    //throw new FileNotFoundException("Secure requested, no private key included", certificateLocation);
+                    Logger.Error("No private key included in SSL cert {0}.", certificateLocation);
                     return null;
                 }
 
@@ -1261,7 +1217,6 @@ namespace Emby.Server.Implementations
                 info.FFProbeFilename = "ffprobe";
                 info.ArchiveType = "7z";
                 info.Version = "20170308";
-                info.DownloadUrls = GetLinuxDownloadUrls();
             }
             else if (EnvironmentInfo.OperatingSystem == MediaBrowser.Model.System.OperatingSystem.Windows)
             {
@@ -1269,7 +1224,6 @@ namespace Emby.Server.Implementations
                 info.FFProbeFilename = "ffprobe.exe";
                 info.Version = "20170308";
                 info.ArchiveType = "7z";
-                info.DownloadUrls = new string[] { };
             }
             else if (EnvironmentInfo.OperatingSystem == MediaBrowser.Model.System.OperatingSystem.OSX)
             {
@@ -1277,51 +1231,27 @@ namespace Emby.Server.Implementations
                 info.FFProbeFilename = "ffprobe";
                 info.ArchiveType = "7z";
                 info.Version = "20170308";
-                info.DownloadUrls = new string[] { };
-            }
-            else
-            {
-                // No version available - user requirement
-                info.DownloadUrls = new string[] { };
             }
 
             return info;
         }
 
-        private string[] GetLinuxDownloadUrls()
+        protected virtual FFMpegInfo GetFFMpegInfo()
         {
-            Type t = Type.GetType("Mono.Runtime");
-            if (t != null)
-            {
-                switch (EnvironmentInfo.SystemArchitecture)
-                {
-                    case MediaBrowser.Model.System.Architecture.X64:
-                        return new[]
-                        {
-                        "https://embydata.com/downloads/ffmpeg/linux/ffmpeg-git-20170301-64bit-static.7z"
-                    };
-                    case MediaBrowser.Model.System.Architecture.X86:
-                        return new[]
-                        {
-                        "https://embydata.com/downloads/ffmpeg/linux/ffmpeg-git-20170301-32bit-static.7z"
-                    };
-                }
-            }
-
-            return new string[] { };
+            return new FFMpegLoader(Logger, ApplicationPaths, HttpClient, ZipClient, FileSystemManager, GetFfmpegInstallInfo())
+                .GetFFMpegInfo(StartupOptions);
         }
 
         /// <summary>
         /// Registers the media encoder.
         /// </summary>
         /// <returns>Task.</returns>
-        private async Task RegisterMediaEncoder(IProgress<double> progress)
+        private void RegisterMediaEncoder(IAssemblyInfo assemblyInfo)
         {
             string encoderPath = null;
             string probePath = null;
 
-            var info = await new FFMpegLoader(Logger, ApplicationPaths, HttpClient, ZipClient, FileSystemManager, GetFfmpegInstallInfo())
-                .GetFFMpegInfo(StartupOptions, progress).ConfigureAwait(false);
+            var info = GetFFMpegInfo();
 
             encoderPath = info.EncoderPath;
             probePath = info.ProbePath;
@@ -1348,7 +1278,8 @@ namespace Emby.Server.Implementations
                 (Environment.ProcessorCount > 2 ? 14000 : 40000),
                 EnvironmentInfo.OperatingSystem == MediaBrowser.Model.System.OperatingSystem.Windows,
                 EnvironmentInfo,
-                BlurayExaminer);
+                BlurayExaminer,
+                assemblyInfo);
 
             MediaEncoder = mediaEncoder;
             RegisterSingleInstance(MediaEncoder);
@@ -1417,11 +1348,11 @@ namespace Emby.Server.Implementations
             BaseItem.FileSystem = FileSystemManager;
             BaseItem.UserDataManager = UserDataManager;
             BaseItem.ChannelManager = ChannelManager;
-            BaseItem.LiveTvManager = LiveTvManager;
+            Video.LiveTvManager = LiveTvManager;
             Folder.UserViewManager = UserViewManager;
             UserView.TVSeriesManager = TVSeriesManager;
             UserView.PlaylistManager = PlaylistManager;
-            BaseItem.CollectionManager = CollectionManager;
+            UserView.CollectionManager = CollectionManager;
             BaseItem.MediaSourceManager = MediaSourceManager;
             CollectionFolder.XmlSerializer = XmlSerializer;
             AuthenticatedAttribute.AuthService = AuthService;
@@ -1440,7 +1371,7 @@ namespace Emby.Server.Implementations
             }
 
             ConfigurationManager.AddParts(GetExports<IConfigurationFactory>());
-            Plugins = GetExports<IPlugin>().Select(LoadPlugin).Where(i => i != null).ToArray();
+            Plugins = GetExportsWithInfo<IPlugin>().Select(LoadPlugin).Where(i => i != null).ToArray();
 
             HttpServer.Init(GetExports<IService>(false));
 
@@ -1449,7 +1380,6 @@ namespace Emby.Server.Implementations
             StartServer();
 
             LibraryManager.AddParts(GetExports<IResolverIgnoreRule>(),
-                GetExports<IVirtualFolderCreator>(),
                 GetExports<IItemResolver>(),
                 GetExports<IIntroProvider>(),
                 GetExports<IBaseItemComparer>(),
@@ -1467,18 +1397,21 @@ namespace Emby.Server.Implementations
 
             SubtitleManager.AddParts(GetExports<ISubtitleProvider>());
 
-            SessionManager.AddParts(GetExports<ISessionControllerFactory>());
-
             ChannelManager.AddParts(GetExports<IChannel>());
 
             MediaSourceManager.AddParts(GetExports<IMediaSourceProvider>());
 
             NotificationManager.AddParts(GetExports<INotificationService>(), GetExports<INotificationTypeFactory>());
-            SyncManager.AddParts(GetExports<ISyncProvider>());
+            UserManager.AddParts(GetExports<IAuthenticationProvider>());
+
+            IsoManager.AddParts(GetExports<IIsoMounter>());
         }
 
-        private IPlugin LoadPlugin(IPlugin plugin)
+        private IPlugin LoadPlugin(Tuple<IPlugin, string> info)
         {
+            var plugin = info.Item1;
+            var assemblyFilePath = info.Item2;
+
             try
             {
                 var assemblyPlugin = plugin as IPluginAssembly;
@@ -1488,10 +1421,9 @@ namespace Emby.Server.Implementations
                     var assembly = plugin.GetType().Assembly;
                     var assemblyName = assembly.GetName();
 
-                    var assemblyFileName = assemblyName.Name + ".dll";
-                    var assemblyFilePath = Path.Combine(ApplicationPaths.PluginsPath, assemblyFileName);
+                    var dataFolderPath = Path.Combine(ApplicationPaths.PluginsPath, Path.GetFileNameWithoutExtension(assemblyFilePath));
 
-                    assemblyPlugin.SetAttributes(assemblyFilePath, assemblyFileName, assemblyName.Version);
+                    assemblyPlugin.SetAttributes(assemblyFilePath, dataFolderPath, assemblyName.Version);
 
                     try
                     {
@@ -1510,8 +1442,11 @@ namespace Emby.Server.Implementations
                     }
                 }
 
-                var isFirstRun = !File.Exists(plugin.ConfigurationFilePath);
-                plugin.SetStartupInfo(isFirstRun, File.GetLastWriteTimeUtc, s => Directory.CreateDirectory(s));
+                var hasPluginConfiguration = plugin as IHasPluginConfiguration;
+                if (hasPluginConfiguration != null)
+                {
+                    hasPluginConfiguration.SetStartupInfo(s => Directory.CreateDirectory(s));
+                }
             }
             catch (Exception ex)
             {
@@ -1529,18 +1464,30 @@ namespace Emby.Server.Implementations
         {
             Logger.Info("Loading assemblies");
 
-            FailedAssemblies.Clear();
+            var assemblyInfos = GetComposablePartAssemblies();
 
-            var assemblies = GetComposablePartAssemblies().ToList();
-
-            foreach (var assembly in assemblies)
+            foreach (var assemblyInfo in assemblyInfos)
             {
-                Logger.Info("Loading {0}", assembly.FullName);
+                var assembly = assemblyInfo.Item1;
+                var path = assemblyInfo.Item2;
+
+                if (path == null)
+                {
+                    Logger.Info("Loading {0}", assembly.FullName);
+                }
+                else
+                {
+                    Logger.Info("Loading {0} from {1}", assembly.FullName, path);
+                }
             }
 
-            AllConcreteTypes = assemblies
+            AllConcreteTypes = assemblyInfos
                 .SelectMany(GetTypes)
-                .Where(t => t.IsClass && !t.IsAbstract && !t.IsInterface && !t.IsGenericType)
+                .Where(info =>
+                {
+                    var t = info.Item1;
+                    return t.IsClass && !t.IsAbstract && !t.IsInterface && !t.IsGenericType;
+                })
                 .ToArray();
         }
 
@@ -1548,22 +1495,21 @@ namespace Emby.Server.Implementations
         /// Gets a list of types within an assembly
         /// This will handle situations that would normally throw an exception - such as a type within the assembly that depends on some other non-existant reference
         /// </summary>
-        /// <param name="assembly">The assembly.</param>
-        /// <returns>IEnumerable{Type}.</returns>
-        /// <exception cref="System.ArgumentNullException">assembly</exception>
-        protected List<Type> GetTypes(Assembly assembly)
+        protected List<Tuple<Type, string>> GetTypes(Tuple<Assembly, string> assemblyInfo)
         {
-            if (assembly == null)
+            if (assemblyInfo == null)
             {
-                return new List<Type>();
+                return new List<Tuple<Type, string>>();
             }
+
+            var assembly = assemblyInfo.Item1;
 
             try
             {
                 // This null checking really shouldn't be needed but adding it due to some
                 // unhandled exceptions in mono 5.0 that are a little hard to hunt down
                 var types = assembly.GetTypes() ?? new Type[] { };
-                return types.Where(t => t != null).ToList();
+                return types.Where(t => t != null).Select(i => new Tuple<Type, string>(i, assemblyInfo.Item2)).ToList();
             }
             catch (ReflectionTypeLoadException ex)
             {
@@ -1580,13 +1526,13 @@ namespace Emby.Server.Implementations
 
                 // If it fails we can still get a list of the Types it was able to resolve
                 var types = ex.Types ?? new Type[] { };
-                return types.Where(t => t != null).ToList();
+                return types.Where(t => t != null).Select(i => new Tuple<Type, string>(i, assemblyInfo.Item2)).ToList();
             }
             catch (Exception ex)
             {
                 Logger.ErrorException("Error loading types from assembly", ex);
 
-                return new List<Type>();
+                return new List<Tuple<Type, string>>();
             }
         }
 
@@ -1595,9 +1541,7 @@ namespace Emby.Server.Implementations
 
         private IEnumerable<string> GetUrlPrefixes()
         {
-            var hosts = new List<string>();
-
-            hosts.Add("+");
+            var hosts = new[] { "+" };
 
             return hosts.SelectMany(i =>
             {
@@ -1798,10 +1742,9 @@ namespace Emby.Server.Implementations
         /// Gets the composable part assemblies.
         /// </summary>
         /// <returns>IEnumerable{Assembly}.</returns>
-        protected IEnumerable<Assembly> GetComposablePartAssemblies()
+        protected List<Tuple<Assembly, string>> GetComposablePartAssemblies()
         {
-            var list = GetPluginAssemblies()
-                .ToList();
+            var list = GetPluginAssemblies();
 
             // Gets all plugin assemblies by first reading all bytes of the .dll and calling Assembly.Load against that
             // This will prevent the .dll file from getting locked, and allow us to replace it when needed
@@ -1842,7 +1785,7 @@ namespace Emby.Server.Implementations
             // Xbmc 
             list.Add(GetAssembly(typeof(ArtistNfoProvider)));
 
-            list.AddRange(GetAssembliesWithPartsInternal());
+            list.AddRange(GetAssembliesWithPartsInternal().Select(i => new Tuple<Assembly, string>(i, null)));
 
             return list.ToList();
         }
@@ -1853,11 +1796,80 @@ namespace Emby.Server.Implementations
         /// Gets the plugin assemblies.
         /// </summary>
         /// <returns>IEnumerable{Assembly}.</returns>
-        private IEnumerable<Assembly> GetPluginAssemblies()
+        private List<Tuple<Assembly, string>> GetPluginAssemblies()
+        {
+            // Copy pre-installed plugins
+            var sourcePath = Path.Combine(ApplicationPaths.ApplicationResourcesPath, "plugins");
+            CopyPlugins(sourcePath, ApplicationPaths.PluginsPath);
+
+            return GetPluginAssemblies(ApplicationPaths.PluginsPath);
+        }
+
+        private void CopyPlugins(string source, string target)
+        {
+            List<string> files;
+
+            try
+            {
+                files = Directory.EnumerateFiles(source, "*.dll", SearchOption.TopDirectoryOnly)
+                   .ToList();
+
+            }
+            catch (DirectoryNotFoundException)
+            {
+                return;
+            }
+
+            if (files.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var sourceFile in files)
+            {
+                var filename = Path.GetFileName(sourceFile);
+                var targetFile = Path.Combine(target, filename);
+
+                var targetFileExists = File.Exists(targetFile);
+
+                if (!targetFileExists && ServerConfigurationManager.Configuration.UninstalledPlugins.Contains(filename, StringComparer.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (targetFileExists && GetDllVersion(targetFile) >= GetDllVersion(sourceFile))
+                {
+                    continue;
+                }
+
+                Directory.CreateDirectory(target);
+                File.Copy(sourceFile, targetFile, true);
+            }
+        }
+
+        private Version GetDllVersion(string path)
         {
             try
             {
-                return Directory.EnumerateFiles(ApplicationPaths.PluginsPath, "*.dll", SearchOption.TopDirectoryOnly)
+                var result = Version.Parse(FileVersionInfo.GetVersionInfo(path).FileVersion);
+
+                Logger.Info("File {0} has version {1}", path, result);
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Logger.ErrorException("Error getting version number from {0}", ex, path);
+
+                return new Version(1, 0);
+            }
+        }
+
+        private List<Tuple<Assembly, string>> GetPluginAssemblies(string path)
+        {
+            try
+            {
+                return Directory.EnumerateFiles(path, "*.dll", SearchOption.TopDirectoryOnly)
                     .Where(EnablePlugin)
                     .Select(LoadAssembly)
                     .Where(a => a != null)
@@ -1865,7 +1877,7 @@ namespace Emby.Server.Implementations
             }
             catch (DirectoryNotFoundException)
             {
-                return new List<Assembly>();
+                return new List<Tuple<Assembly, string>>();
             }
         }
 
@@ -1903,7 +1915,8 @@ namespace Emby.Server.Implementations
                 "MediaBrowser.Channels.HitboxTV.dll",
                 "MediaBrowser.Channels.HockeyStreams.dll",
                 "MediaBrowser.Plugins.ITV.dll",
-                "MediaBrowser.Plugins.Lastfm.dll"
+                "MediaBrowser.Plugins.Lastfm.dll",
+                "ServerRestart.dll"
             };
 
             return !exclude.Contains(filename ?? string.Empty, StringComparer.OrdinalIgnoreCase);
@@ -1923,8 +1936,6 @@ namespace Emby.Server.Implementations
                 IsShuttingDown = IsShuttingDown,
                 Version = ApplicationVersion.ToString(),
                 WebSocketPortNumber = HttpPort,
-                FailedPluginAssemblies = FailedAssemblies.ToArray(),
-                InProgressInstallations = InstallationManager.CurrentInstallations.Select(i => i.Item1).ToArray(),
                 CompletedInstallations = InstallationManager.CompletedInstallations.ToArray(),
                 Id = SystemId,
                 ProgramDataPath = ApplicationPaths.ProgramDataPath,
@@ -1932,7 +1943,6 @@ namespace Emby.Server.Implementations
                 ItemsByNamePath = ApplicationPaths.ItemsByNamePath,
                 InternalMetadataPath = ApplicationPaths.InternalMetadataPath,
                 CachePath = ApplicationPaths.CachePath,
-                MacAddress = GetMacAddress(),
                 HttpServerPortNumber = HttpPort,
                 SupportsHttps = SupportsHttps,
                 HttpsPortNumber = HttpsPort,
@@ -1955,6 +1965,16 @@ namespace Emby.Server.Implementations
             };
         }
 
+        public WakeOnLanInfo[] GetWakeOnLanInfo()
+        {
+            return NetworkManager.GetMacAddresses()
+                .Select(i => new WakeOnLanInfo
+                {
+                    MacAddress = i
+                })
+                .ToArray();
+        }
+
         public async Task<PublicSystemInfo> GetPublicSystemInfo(CancellationToken cancellationToken)
         {
             var localAddress = await GetLocalApiUrl(cancellationToken).ConfigureAwait(false);
@@ -1974,7 +1994,7 @@ namespace Emby.Server.Implementations
         {
             get
             {
-                return SupportsHttps && (ServerConfigurationManager.Configuration.EnableHttps || ServerConfigurationManager.Configuration.RequireHttps);
+                return SupportsHttps && ServerConfigurationManager.Configuration.EnableHttps;
             }
         }
 
@@ -2103,14 +2123,20 @@ namespace Emby.Server.Implementations
                 return cachedResult;
             }
 
+            var logPing = false;
+
+#if DEBUG
+            logPing = true;
+#endif
+
             try
             {
                 using (var response = await HttpClient.SendAsync(new HttpRequestOptions
                 {
                     Url = apiUrl,
                     LogErrorResponseBody = false,
-                    LogErrors = false,
-                    LogRequest = false,
+                    LogErrors = logPing,
+                    LogRequest = logPing,
                     TimeoutMs = 30000,
                     BufferContent = false,
 
@@ -2147,7 +2173,7 @@ namespace Emby.Server.Implementations
         {
             get
             {
-                return string.IsNullOrWhiteSpace(ServerConfigurationManager.Configuration.ServerName)
+                return string.IsNullOrEmpty(ServerConfigurationManager.Configuration.ServerName)
                     ? Environment.MachineName
                     : ServerConfigurationManager.Configuration.ServerName;
             }
@@ -2156,23 +2182,6 @@ namespace Emby.Server.Implementations
         public int HttpPort { get; private set; }
 
         public int HttpsPort { get; private set; }
-
-        /// <summary>
-        /// Gets the mac address.
-        /// </summary>
-        /// <returns>System.String.</returns>
-        private string GetMacAddress()
-        {
-            try
-            {
-                return NetworkManager.GetMacAddress();
-            }
-            catch (Exception ex)
-            {
-                Logger.ErrorException("Error getting mac address", ex);
-                return null;
-            }
-        }
 
         /// <summary>
         /// Shuts down.
@@ -2272,7 +2281,7 @@ namespace Emby.Server.Implementations
             try
             {
                 var result = await new GithubUpdater(HttpClient, JsonSerializer).CheckForUpdateResult("MediaBrowser",
-                    "Emby",
+                    "Emby.Releases",
                     ApplicationVersion,
                     updateLevel,
                     ReleaseAssetFilename,
@@ -2346,7 +2355,7 @@ namespace Emby.Server.Implementations
         /// <returns>The hostname in <paramref name="externalDns"/></returns>
         private static string GetHostnameFromExternalDns(string externalDns)
         {
-            if (string.IsNullOrWhiteSpace(externalDns))
+            if (string.IsNullOrEmpty(externalDns))
             {
                 return "localhost";
             }
@@ -2428,7 +2437,6 @@ namespace Emby.Server.Implementations
                 _disposed = true;
 
                 Dispose(true);
-                GC.SuppressFinalize(this);
             }
         }
 
@@ -2462,6 +2470,52 @@ namespace Emby.Server.Implementations
                     }
                 }
             }
+        }
+
+        private Dictionary<string, string> _values;
+        public string GetValue(string name)
+        {
+            if (_values == null)
+            {
+                _values = LoadValues();
+            }
+
+            string value;
+
+            if (_values.TryGetValue(name, out value))
+            {
+                return value;
+            }
+
+            return null;
+        }
+
+        private Dictionary<string, string> LoadValues()
+        {
+            Dictionary<string, string> values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+            using (var stream = typeof(ApplicationHost).Assembly.GetManifestResourceStream(typeof(ApplicationHost).Namespace + ".values.txt"))
+            {
+                using (var reader = new StreamReader(stream))
+                {
+                    while (!reader.EndOfStream)
+                    {
+                        var line = reader.ReadLine();
+                        if (string.IsNullOrEmpty(line))
+                        {
+                            continue;
+                        }
+
+                        var index = line.IndexOf('=');
+                        if (index != -1)
+                        {
+                            values[line.Substring(0, index)] = line.Substring(index + 1);
+                        }
+                    }
+                }
+            }
+
+            return values;
         }
     }
 

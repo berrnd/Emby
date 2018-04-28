@@ -24,7 +24,7 @@ namespace Emby.Server.Implementations.Library
             _channelManager = channelManager;
         }
 
-        public async Task Run(IProgress<double> progress, CancellationToken cancellationToken)
+        public Task Run(IProgress<double> progress, CancellationToken cancellationToken)
         {
             var items = _libraryManager.GetItemList(new InternalItemsQuery
             {
@@ -45,7 +45,6 @@ namespace Emby.Server.Implementations.Library
                 TrailerTypes = trailerTypes,
                 Recursive = true,
                 DtoOptions = new DtoOptions(false)
-
             });
 
             var numComplete = 0;
@@ -63,6 +62,8 @@ namespace Emby.Server.Implementations.Library
             }
 
             progress.Report(100);
+
+            return Task.CompletedTask;
         }
 
         private void AssignTrailers(IHasTrailers item, IEnumerable<BaseItem> channelTrailers)
@@ -77,12 +78,12 @@ namespace Emby.Server.Implementations.Library
 
             var trailers = channelTrailers.Where(i =>
             {
-                if (!string.IsNullOrWhiteSpace(imdbId) &&
+                if (!string.IsNullOrEmpty(imdbId) &&
                     string.Equals(imdbId, i.GetProviderId(MetadataProviders.Imdb), StringComparison.OrdinalIgnoreCase))
                 {
                     return true;
                 }
-                if (!string.IsNullOrWhiteSpace(tmdbId) &&
+                if (!string.IsNullOrEmpty(tmdbId) &&
                     string.Equals(tmdbId, i.GetProviderId(MetadataProviders.Tmdb), StringComparison.OrdinalIgnoreCase))
                 {
                     return true;

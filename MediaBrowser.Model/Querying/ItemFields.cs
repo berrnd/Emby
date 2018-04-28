@@ -11,11 +11,6 @@
         AirTime,
 
         /// <summary>
-        /// The alternate episode numbers
-        /// </summary>
-        AlternateEpisodeNumbers,
-
-        /// <summary>
         /// The can delete
         /// </summary>
         CanDelete,
@@ -215,6 +210,7 @@
         DateLastRefreshed,
         DateLastSaved,
         RefreshState,
-        ChannelImage
+        ChannelImage,
+        EnableMediaSourceDisplay
     }
 }

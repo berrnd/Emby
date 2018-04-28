@@ -1,4 +1,5 @@
 ﻿using MediaBrowser.Model.Configuration;
+using System;
 
 namespace MediaBrowser.Model.Users
 {
@@ -34,6 +35,7 @@ namespace MediaBrowser.Model.Users
         public UnratedItem[] BlockUnratedItems { get; set; }
         public bool EnableRemoteControlOfOtherUsers { get; set; }
         public bool EnableSharedDeviceControl { get; set; }
+        public bool EnableRemoteAccess { get; set; }
 
         public bool EnableLiveTvManagement { get; set; }
         public bool EnableLiveTvAccess { get; set; }
@@ -70,11 +72,12 @@ namespace MediaBrowser.Model.Users
         public string[] BlockedChannels { get; set; }
 
         public int RemoteClientBitrateLimit { get; set; }
+        public string AuthenticationProviderId { get; set; }
 
         public UserPolicy()
         {
             EnableContentDeletion = true;
-            EnableContentDeletionFromFolders = new string[] { };
+            EnableContentDeletionFromFolders = new string[] {};
 
             EnableSyncTranscoding = true;
 
@@ -92,7 +95,7 @@ namespace MediaBrowser.Model.Users
 
             EnableSharedDeviceControl = true;
 
-            BlockedTags = new string[] { };
+            BlockedTags = new string[] {};
             BlockUnratedItems = new UnratedItem[] { };
 
             EnableUserPreferenceAccess = true;
@@ -100,16 +103,17 @@ namespace MediaBrowser.Model.Users
             AccessSchedules = new AccessSchedule[] { };
 
             EnableAllChannels = true;
-            EnabledChannels = new string[] { };
+            EnabledChannels = new string[] {};
 
             EnableAllFolders = true;
-            EnabledFolders = new string[] { };
+            EnabledFolders = new string[] {};
 
-            EnabledDevices = new string[] { };
+            EnabledDevices = new string[] {};
             EnableAllDevices = true;
 
             EnableContentDownloading = true;
             EnablePublicSharing = true;
+            EnableRemoteAccess = true;
         }
     }
 }

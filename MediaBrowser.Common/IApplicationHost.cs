@@ -84,18 +84,6 @@ namespace MediaBrowser.Common
         bool IsFirstRun { get; }
 
         /// <summary>
-        /// Gets the failed assemblies.
-        /// </summary>
-        /// <value>The failed assemblies.</value>
-        List<string> FailedAssemblies { get; }
-
-        /// <summary>
-        /// Gets all concrete types.
-        /// </summary>
-        /// <value>All concrete types.</value>
-        Type[] AllConcreteTypes { get; }
-
-        /// <summary>
         /// Gets the exports.
         /// </summary>
         /// <typeparam name="T"></typeparam>
@@ -149,9 +137,7 @@ namespace MediaBrowser.Common
         /// <summary>
         /// Inits this instance.
         /// </summary>
-        /// <param name="progress">The progress.</param>
-        /// <returns>Task.</returns>
-        Task Init(IProgress<double> progress);
+        void Init();
 
         /// <summary>
         /// Creates the instance.
@@ -161,5 +147,7 @@ namespace MediaBrowser.Common
         object CreateInstance(Type type);
 
         PackageVersionClass SystemUpdateLevel { get; }
+
+        string GetValue(string name);
     }
 }

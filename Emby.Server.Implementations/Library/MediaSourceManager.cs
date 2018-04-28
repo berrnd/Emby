@@ -1,5 +1,6 @@
 ﻿using MediaBrowser.Common.Extensions;
 using MediaBrowser.Controller.Entities;
+using MediaBrowser.Controller.Entities.Audio;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.MediaEncoding;
 using MediaBrowser.Controller.Persistence;
@@ -16,6 +17,8 @@ using System.Threading.Tasks;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Configuration;
 using MediaBrowser.Model.Threading;
+using MediaBrowser.Model.Dlna;
+using MediaBrowser.Model.Globalization;
 
 namespace Emby.Server.Implementations.Library
 {
@@ -31,8 +34,10 @@ namespace Emby.Server.Implementations.Library
         private readonly ILogger _logger;
         private readonly IUserDataManager _userDataManager;
         private readonly ITimerFactory _timerFactory;
+        private readonly Func<IMediaEncoder> _mediaEncoder;
+        private ILocalizationManager _localizationManager;
 
-        public MediaSourceManager(IItemRepository itemRepo, IUserManager userManager, ILibraryManager libraryManager, ILogger logger, IJsonSerializer jsonSerializer, IFileSystem fileSystem, IUserDataManager userDataManager, ITimerFactory timerFactory)
+        public MediaSourceManager(IItemRepository itemRepo, ILocalizationManager localizationManager, IUserManager userManager, ILibraryManager libraryManager, ILogger logger, IJsonSerializer jsonSerializer, IFileSystem fileSystem, IUserDataManager userDataManager, ITimerFactory timerFactory, Func<IMediaEncoder> mediaEncoder)
         {
             _itemRepo = itemRepo;
             _userManager = userManager;
@@ -42,6 +47,8 @@ namespace Emby.Server.Implementations.Library
             _fileSystem = fileSystem;
             _userDataManager = userDataManager;
             _timerFactory = timerFactory;
+            _mediaEncoder = mediaEncoder;
+            _localizationManager = localizationManager;
         }
 
         public void AddParts(IEnumerable<IMediaSourceProvider> providers)
@@ -109,20 +116,23 @@ namespace Emby.Server.Implementations.Library
             return streams;
         }
 
-        public async Task<IEnumerable<MediaSourceInfo>> GetPlayackMediaSources(string id, string userId, bool enablePathSubstitution, string[] supportedLiveMediaTypes, CancellationToken cancellationToken)
+        public async Task<List<MediaSourceInfo>> GetPlayackMediaSources(BaseItem item, User user, bool allowMediaProbe, bool enablePathSubstitution, CancellationToken cancellationToken)
         {
-            var item = _libraryManager.GetItemById(id);
+            var mediaSources = GetStaticMediaSources(item, enablePathSubstitution, user);
 
-            var hasMediaSources = (IHasMediaSources)item;
-            User user = null;
-
-            if (!string.IsNullOrWhiteSpace(userId))
+            if (allowMediaProbe && mediaSources[0].Type != MediaSourceType.Placeholder && !mediaSources[0].MediaStreams.Any(i => i.Type == MediaStreamType.Audio || i.Type == MediaStreamType.Video))
             {
-                user = _userManager.GetUserById(userId);
+                await item.RefreshMetadata(new MediaBrowser.Controller.Providers.MetadataRefreshOptions(_fileSystem)
+                {
+                    EnableRemoteContentProbe = true,
+                    MetadataRefreshMode = MediaBrowser.Controller.Providers.MetadataRefreshMode.FullRefresh
+
+                }, cancellationToken).ConfigureAwait(false);
+
+                mediaSources = GetStaticMediaSources(item, enablePathSubstitution, user);
             }
 
-            var mediaSources = GetStaticMediaSources(hasMediaSources, enablePathSubstitution, user);
-            var dynamicMediaSources = await GetDynamicMediaSources(hasMediaSources, cancellationToken).ConfigureAwait(false);
+            var dynamicMediaSources = await GetDynamicMediaSources(item, cancellationToken).ConfigureAwait(false);
 
             var list = new List<MediaSourceInfo>();
 
@@ -132,23 +142,13 @@ namespace Emby.Server.Implementations.Library
             {
                 if (user != null)
                 {
-                    SetUserProperties(hasMediaSources, source, user);
+                    SetDefaultAudioAndSubtitleStreamIndexes(item, source, user);
                 }
-                if (source.Protocol == MediaProtocol.File)
+
+                // Validate that this is actually possible
+                if (source.SupportsDirectStream)
                 {
-                    // TODO: Path substitution
-                    if (!_fileSystem.FileExists(source.Path))
-                    {
-                        source.SupportsDirectStream = false;
-                    }
-                }
-                else if (source.Protocol == MediaProtocol.Http)
-                {
-                    // trust whatever was set by the media source provider
-                }
-                else
-                {
-                    source.SupportsDirectStream = false;
+                    source.SupportsDirectStream = SupportsDirectStream(source.Path, source.Protocol);
                 }
 
                 list.Add(source);
@@ -168,10 +168,59 @@ namespace Emby.Server.Implementations.Library
                 }
             }
 
-            return SortMediaSources(list).Where(i => i.Type != MediaSourceType.Placeholder);
+            return SortMediaSources(list).Where(i => i.Type != MediaSourceType.Placeholder).ToList();
         }
 
-        private async Task<IEnumerable<MediaSourceInfo>> GetDynamicMediaSources(IHasMediaSources item, CancellationToken cancellationToken)
+        public MediaProtocol GetPathProtocol(string path)
+        {
+            if (path.StartsWith("Rtsp", StringComparison.OrdinalIgnoreCase))
+            {
+                return MediaProtocol.Rtsp;
+            }
+            if (path.StartsWith("Rtmp", StringComparison.OrdinalIgnoreCase))
+            {
+                return MediaProtocol.Rtmp;
+            }
+            if (path.StartsWith("Http", StringComparison.OrdinalIgnoreCase))
+            {
+                return MediaProtocol.Http;
+            }
+            if (path.StartsWith("rtp", StringComparison.OrdinalIgnoreCase))
+            {
+                return MediaProtocol.Rtp;
+            }
+            if (path.StartsWith("ftp", StringComparison.OrdinalIgnoreCase))
+            {
+                return MediaProtocol.Ftp;
+            }
+
+            return _fileSystem.IsPathFile(path) ? MediaProtocol.File : MediaProtocol.Http;
+        }
+
+        public bool SupportsDirectStream(string path, MediaProtocol protocol)
+        {
+            if (protocol == MediaProtocol.File)
+            {
+                return true;
+            }
+
+            if (protocol == MediaProtocol.Http)
+            {
+                if (path != null)
+                {
+                    if (path.IndexOf(".m3u", StringComparison.OrdinalIgnoreCase) != -1)
+                    {
+                        return false;
+                    }
+
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private async Task<IEnumerable<MediaSourceInfo>> GetDynamicMediaSources(BaseItem item, CancellationToken cancellationToken)
         {
             var tasks = _providers.Select(i => GetDynamicMediaSources(item, i, cancellationToken));
             var results = await Task.WhenAll(tasks).ConfigureAwait(false);
@@ -179,7 +228,7 @@ namespace Emby.Server.Implementations.Library
             return results.SelectMany(i => i.ToList());
         }
 
-        private async Task<IEnumerable<MediaSourceInfo>> GetDynamicMediaSources(IHasMediaSources item, IMediaSourceProvider provider, CancellationToken cancellationToken)
+        private async Task<IEnumerable<MediaSourceInfo>> GetDynamicMediaSources(BaseItem item, IMediaSourceProvider provider, CancellationToken cancellationToken)
         {
             try
             {
@@ -206,78 +255,65 @@ namespace Emby.Server.Implementations.Library
         {
             var prefix = provider.GetType().FullName.GetMD5().ToString("N") + LiveStreamIdDelimeter;
 
-            if (!string.IsNullOrWhiteSpace(mediaSource.OpenToken) && !mediaSource.OpenToken.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            if (!string.IsNullOrEmpty(mediaSource.OpenToken) && !mediaSource.OpenToken.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
             {
                 mediaSource.OpenToken = prefix + mediaSource.OpenToken;
             }
 
-            if (!string.IsNullOrWhiteSpace(mediaSource.LiveStreamId) && !mediaSource.LiveStreamId.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            if (!string.IsNullOrEmpty(mediaSource.LiveStreamId) && !mediaSource.LiveStreamId.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
             {
                 mediaSource.LiveStreamId = prefix + mediaSource.LiveStreamId;
             }
         }
 
-        public async Task<MediaSourceInfo> GetMediaSource(IHasMediaSources item, string mediaSourceId, string liveStreamId, bool enablePathSubstitution, CancellationToken cancellationToken)
+        public async Task<MediaSourceInfo> GetMediaSource(BaseItem item, string mediaSourceId, string liveStreamId, bool enablePathSubstitution, CancellationToken cancellationToken)
         {
-            if (!string.IsNullOrWhiteSpace(liveStreamId))
+            if (!string.IsNullOrEmpty(liveStreamId))
             {
                 return await GetLiveStream(liveStreamId, cancellationToken).ConfigureAwait(false);
             }
-            //await _liveStreamSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
 
-            //try
-            //{
-            //    var stream = _openStreams.Values.FirstOrDefault(i => string.Equals(i.MediaSource.Id, mediaSourceId, StringComparison.OrdinalIgnoreCase));
-
-            //    if (stream != null)
-            //    {
-            //        return stream.MediaSource;
-            //    }
-            //}
-            //finally
-            //{
-            //    _liveStreamSemaphore.Release();
-            //}
-
-            var sources = await GetPlayackMediaSources(item.Id.ToString("N"), null, enablePathSubstitution, new[] { MediaType.Audio, MediaType.Video },
-                        CancellationToken.None).ConfigureAwait(false);
+            var sources = await GetPlayackMediaSources(item, null, false, enablePathSubstitution, cancellationToken).ConfigureAwait(false);
 
             return sources.FirstOrDefault(i => string.Equals(i.Id, mediaSourceId, StringComparison.OrdinalIgnoreCase));
         }
 
-        public List<MediaSourceInfo> GetStaticMediaSources(IHasMediaSources item, bool enablePathSubstitution, User user = null)
+        public List<MediaSourceInfo> GetStaticMediaSources(BaseItem item, bool enablePathSubstitution, User user = null)
         {
             if (item == null)
             {
                 throw new ArgumentNullException("item");
             }
 
-            if (!(item is Video))
-            {
-                return item.GetMediaSources(enablePathSubstitution);
-            }
+            var hasMediaSources = (IHasMediaSources)item;
 
-            var sources = item.GetMediaSources(enablePathSubstitution);
+            var sources = hasMediaSources.GetMediaSources(enablePathSubstitution);
 
             if (user != null)
             {
                 foreach (var source in sources)
                 {
-                    SetUserProperties(item, source, user);
+                    SetDefaultAudioAndSubtitleStreamIndexes(item, source, user);
                 }
             }
 
             return sources;
         }
 
-        private void SetUserProperties(IHasUserData item, MediaSourceInfo source, User user)
+        private string[] NormalizeLanguage(string language)
         {
-            var userData = item == null ? new UserItemData() : _userDataManager.GetUserData(user, item);
+            if (language != null)
+            {
+                var culture = _localizationManager.FindLanguageInfo(language);
+                if (culture != null)
+                {
+                    return culture.ThreeLetterISOLanguageNames;
+                }
 
-            var allowRememberingSelection = item == null || item.EnableRememberingTrackSelections;
+                return new string[] { language };
+            }
 
-            SetDefaultAudioStreamIndex(source, userData, user, allowRememberingSelection);
-            SetDefaultSubtitleStreamIndex(source, userData, user, allowRememberingSelection);
+            return Array.Empty<string>();
         }
 
         private void SetDefaultSubtitleStreamIndex(MediaSourceInfo source, UserItemData userData, User user, bool allowRememberingSelection)
@@ -292,9 +328,9 @@ namespace Emby.Server.Implementations.Library
                     return;
                 }
             }
-            
+
             var preferredSubs = string.IsNullOrEmpty(user.Configuration.SubtitleLanguagePreference)
-                ? new string[] { } : new string[] { user.Configuration.SubtitleLanguagePreference };
+                ? Array.Empty<string>() : NormalizeLanguage(user.Configuration.SubtitleLanguagePreference);
 
             var defaultAudioIndex = source.DefaultAudioStreamIndex;
             var audioLangage = defaultAudioIndex == null
@@ -324,10 +360,32 @@ namespace Emby.Server.Implementations.Library
             }
 
             var preferredAudio = string.IsNullOrEmpty(user.Configuration.AudioLanguagePreference)
-                ? new string[] { }
-                : new[] { user.Configuration.AudioLanguagePreference };
+                ? Array.Empty<string>()
+                : NormalizeLanguage(user.Configuration.SubtitleLanguagePreference);
 
             source.DefaultAudioStreamIndex = MediaStreamSelector.GetDefaultAudioStreamIndex(source.MediaStreams, preferredAudio, user.Configuration.PlayDefaultAudioTrack);
+        }
+
+        public void SetDefaultAudioAndSubtitleStreamIndexes(BaseItem item, MediaSourceInfo source, User user)
+        {
+            if (item is Video)
+            {
+                var userData = item == null ? new UserItemData() : _userDataManager.GetUserData(user, item);
+
+                var allowRememberingSelection = item == null || item.EnableRememberingTrackSelections;
+
+                SetDefaultAudioStreamIndex(source, userData, user, allowRememberingSelection);
+                SetDefaultSubtitleStreamIndex(source, userData, user, allowRememberingSelection);
+            }
+            else if (item is Audio)
+            {
+                var audio = source.MediaStreams.FirstOrDefault(i => i.Type == MediaStreamType.Audio);
+
+                if (audio != null)
+                {
+                    source.DefaultAudioStreamIndex = audio.Index;
+                }
+            }
         }
 
         private IEnumerable<MediaSourceInfo> SortMediaSources(IEnumerable<MediaSourceInfo> sources)
@@ -363,11 +421,17 @@ namespace Emby.Server.Implementations.Library
                 var tuple = GetProvider(request.OpenToken);
                 var provider = tuple.Item1;
 
-                var mediaSourceTuple = await provider.OpenMediaSource(tuple.Item2, request.EnableMediaProbe, cancellationToken).ConfigureAwait(false);
+                var mediaSourceTuple = await provider.OpenMediaSource(tuple.Item2, cancellationToken).ConfigureAwait(false);
 
                 var mediaSource = mediaSourceTuple.Item1;
 
-                if (string.IsNullOrWhiteSpace(mediaSource.LiveStreamId))
+                // Validate that this is actually possible
+                if (mediaSource.SupportsDirectStream)
+                {
+                    mediaSource.SupportsDirectStream = SupportsDirectStream(mediaSource.Path, mediaSource.Protocol);
+                }
+
+                if (string.IsNullOrEmpty(mediaSource.LiveStreamId))
                 {
                     throw new InvalidOperationException(string.Format("{0} returned null LiveStreamId", provider.GetType().Name));
                 }
@@ -378,22 +442,23 @@ namespace Emby.Server.Implementations.Library
                 {
                     Id = mediaSource.LiveStreamId,
                     MediaSource = mediaSource,
-                    DirectStreamProvider = mediaSourceTuple.Item2
+                    DirectStreamProvider = mediaSourceTuple.Item2,
+                    AllowLiveMediaInfoProbe = mediaSourceTuple.Item3
                 };
 
                 _openStreams[mediaSource.LiveStreamId] = info;
 
                 var json = _jsonSerializer.SerializeToString(mediaSource);
-                _logger.Debug("Live stream opened: " + json);
+                _logger.Info("Live stream opened: " + json);
                 var clone = _jsonSerializer.DeserializeFromString<MediaSourceInfo>(json);
-               
-                if (!string.IsNullOrWhiteSpace(request.UserId))
+
+                if (!string.IsNullOrEmpty(request.UserId))
                 {
                     var user = _userManager.GetUserById(request.UserId);
-                    var item = string.IsNullOrWhiteSpace(request.ItemId)
+                    var item = string.IsNullOrEmpty(request.ItemId)
                         ? null
                         : _libraryManager.GetItemById(request.ItemId);
-                    SetUserProperties(item, clone, user);
+                    SetDefaultAudioAndSubtitleStreamIndexes(item, clone, user);
                 }
 
                 return new LiveStreamResponse
@@ -407,14 +472,47 @@ namespace Emby.Server.Implementations.Library
             }
         }
 
+        public async Task<MediaSourceInfo> GetLiveStreamMediaInfo(string id, CancellationToken cancellationToken)
+        {
+            var liveStreamInfo = await GetLiveStreamInfo(id, cancellationToken).ConfigureAwait(false);
+
+            var mediaSource = liveStreamInfo.MediaSource;
+
+            if (liveStreamInfo.AllowLiveMediaInfoProbe)
+            {
+                var info = await _mediaEncoder().GetMediaInfo(new MediaInfoRequest
+                {
+                    MediaSource = mediaSource,
+                    ExtractChapters = false,
+                    MediaType = DlnaProfileType.Video
+
+                }, cancellationToken).ConfigureAwait(false);
+
+                mediaSource.MediaStreams = info.MediaStreams;
+                mediaSource.Container = info.Container;
+                mediaSource.Bitrate = info.Bitrate;
+            }
+
+            return mediaSource;
+        }
+
         public async Task<Tuple<MediaSourceInfo, IDirectStreamProvider>> GetLiveStreamWithDirectStreamProvider(string id, CancellationToken cancellationToken)
         {
-            if (string.IsNullOrWhiteSpace(id))
+            if (string.IsNullOrEmpty(id))
             {
                 throw new ArgumentNullException("id");
             }
 
-            _logger.Debug("Getting already opened live stream {0}", id);
+            var info = await GetLiveStreamInfo(id, cancellationToken).ConfigureAwait(false);
+            return new Tuple<MediaSourceInfo, IDirectStreamProvider>(info.MediaSource, info.DirectStreamProvider);
+        }
+
+        private async Task<LiveStreamInfo> GetLiveStreamInfo(string id, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrEmpty(id))
+            {
+                throw new ArgumentNullException("id");
+            }
 
             await _liveStreamSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
 
@@ -423,7 +521,7 @@ namespace Emby.Server.Implementations.Library
                 LiveStreamInfo info;
                 if (_openStreams.TryGetValue(id, out info))
                 {
-                    return new Tuple<MediaSourceInfo, IDirectStreamProvider>(info.MediaSource, info.DirectStreamProvider);
+                    return info;
                 }
                 else
                 {
@@ -461,7 +559,7 @@ namespace Emby.Server.Implementations.Library
 
         public async Task CloseLiveStream(string id)
         {
-            if (string.IsNullOrWhiteSpace(id))
+            if (string.IsNullOrEmpty(id))
             {
                 throw new ArgumentNullException("id");
             }
@@ -496,7 +594,7 @@ namespace Emby.Server.Implementations.Library
 
         private Tuple<IMediaSourceProvider, string> GetProvider(string key)
         {
-            if (string.IsNullOrWhiteSpace(key))
+            if (string.IsNullOrEmpty(key))
             {
                 throw new ArgumentException("key");
             }
@@ -517,7 +615,6 @@ namespace Emby.Server.Implementations.Library
         public void Dispose()
         {
             Dispose(true);
-            GC.SuppressFinalize(this);
         }
 
         private readonly object _disposeLock = new object();
@@ -547,6 +644,7 @@ namespace Emby.Server.Implementations.Library
             public bool Closed;
             public MediaSourceInfo MediaSource;
             public IDirectStreamProvider DirectStreamProvider;
+            public bool AllowLiveMediaInfoProbe { get; set; }
         }
     }
 }

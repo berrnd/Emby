@@ -41,7 +41,7 @@ namespace Emby.Server.Implementations.Library
         /// <value>The repository.</value>
         public IUserDataRepository Repository { get; set; }
 
-        public void SaveUserData(Guid userId, IHasUserData item, UserItemData userData, UserDataSaveReason reason, CancellationToken cancellationToken)
+        public void SaveUserData(Guid userId, BaseItem item, UserItemData userData, UserDataSaveReason reason, CancellationToken cancellationToken)
         {
             if (userData == null)
             {
@@ -51,7 +51,7 @@ namespace Emby.Server.Implementations.Library
             {
                 throw new ArgumentNullException("item");
             }
-            if (userId == Guid.Empty)
+            if (userId.Equals(Guid.Empty))
             {
                 throw new ArgumentNullException("userId");
             }
@@ -92,7 +92,7 @@ namespace Emby.Server.Implementations.Library
             {
                 throw new ArgumentNullException("userData");
             }
-            if (userId == Guid.Empty)
+            if (userId.Equals(Guid.Empty))
             {
                 throw new ArgumentNullException("userId");
             }
@@ -109,7 +109,7 @@ namespace Emby.Server.Implementations.Library
         /// <returns></returns>
         public List<UserItemData> GetAllUserData(Guid userId)
         {
-            if (userId == Guid.Empty)
+            if (userId.Equals(Guid.Empty))
             {
                 throw new ArgumentNullException("userId");
             }
@@ -119,7 +119,7 @@ namespace Emby.Server.Implementations.Library
 
         public UserItemData GetUserData(Guid userId, Guid itemId, List<string> keys)
         {
-            if (userId == Guid.Empty)
+            if (userId.Equals(Guid.Empty))
             {
                 throw new ArgumentNullException("userId");
             }
@@ -167,22 +167,22 @@ namespace Emby.Server.Implementations.Library
             return userId.ToString("N") + itemId.ToString("N");
         }
 
-        public UserItemData GetUserData(IHasUserData user, IHasUserData item)
+        public UserItemData GetUserData(User user, BaseItem item)
         {
             return GetUserData(user.Id, item);
         }
 
-        public UserItemData GetUserData(string userId, IHasUserData item)
+        public UserItemData GetUserData(string userId, BaseItem item)
         {
             return GetUserData(new Guid(userId), item);
         }
 
-        public UserItemData GetUserData(Guid userId, IHasUserData item)
+        public UserItemData GetUserData(Guid userId, BaseItem item)
         {
             return GetUserData(userId, item.Id, item.GetUserDataKeys());
         }
 
-        public UserItemDataDto GetUserDataDto(IHasUserData item, User user)
+        public UserItemDataDto GetUserDataDto(BaseItem item, User user)
         {
             var userData = GetUserData(user.Id, item);
             var dto = GetUserItemDataDto(userData);
@@ -191,7 +191,7 @@ namespace Emby.Server.Implementations.Library
             return dto;
         }
 
-        public UserItemDataDto GetUserDataDto(IHasUserData item, BaseItemDto itemDto, User user, ItemFields[] fields)
+        public UserItemDataDto GetUserDataDto(BaseItem item, BaseItemDto itemDto, User user, ItemFields[] fields)
         {
             var userData = GetUserData(user.Id, item);
             var dto = GetUserItemDataDto(userData);

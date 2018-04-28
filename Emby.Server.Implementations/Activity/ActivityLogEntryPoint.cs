@@ -81,7 +81,7 @@ namespace Emby.Server.Implementations.Activity
             _userManager.UserCreated += _userManager_UserCreated;
             _userManager.UserPasswordChanged += _userManager_UserPasswordChanged;
             _userManager.UserDeleted += _userManager_UserDeleted;
-            _userManager.UserConfigurationUpdated += _userManager_UserConfigurationUpdated;
+            _userManager.UserPolicyUpdated += _userManager_UserPolicyUpdated;
             _userManager.UserLockedOut += _userManager_UserLockedOut;
 
             //_config.ConfigurationUpdated += _config_ConfigurationUpdated;
@@ -183,7 +183,7 @@ namespace Emby.Server.Implementations.Activity
             string name;
             var session = e.SessionInfo;
 
-            if (string.IsNullOrWhiteSpace(session.UserName))
+            if (string.IsNullOrEmpty(session.UserName))
             {
                 name = string.Format(_localization.GetLocalizedString("DeviceOfflineWithName"), session.DeviceName);
 
@@ -254,12 +254,12 @@ namespace Emby.Server.Implementations.Activity
             });
         }
 
-        void _userManager_UserConfigurationUpdated(object sender, GenericEventArgs<User> e)
+        void _userManager_UserPolicyUpdated(object sender, GenericEventArgs<User> e)
         {
             CreateLogEntry(new ActivityLogEntry
             {
-                Name = string.Format(_localization.GetLocalizedString("UserConfigurationUpdatedWithName"), e.Argument.Name),
-                Type = "UserConfigurationUpdated",
+                Name = string.Format(_localization.GetLocalizedString("UserPolicyUpdatedWithName"), e.Argument.Name),
+                Type = "UserPolicyUpdated",
                 UserId = e.Argument.Id.ToString("N")
             });
         }
@@ -309,7 +309,7 @@ namespace Emby.Server.Implementations.Activity
             string name;
             var session = e.SessionInfo;
 
-            if (string.IsNullOrWhiteSpace(session.UserName))
+            if (string.IsNullOrEmpty(session.UserName))
             {
                 name = string.Format(_localization.GetLocalizedString("DeviceOnlineWithName"), session.DeviceName);
 
@@ -424,11 +424,11 @@ namespace Emby.Server.Implementations.Activity
             {
                 var vals = new List<string>();
 
-                if (!string.IsNullOrWhiteSpace(e.Result.ErrorMessage))
+                if (!string.IsNullOrEmpty(e.Result.ErrorMessage))
                 {
                     vals.Add(e.Result.ErrorMessage);
                 }
-                if (!string.IsNullOrWhiteSpace(e.Result.LongErrorMessage))
+                if (!string.IsNullOrEmpty(e.Result.LongErrorMessage))
                 {
                     vals.Add(e.Result.LongErrorMessage);
                 }
@@ -482,7 +482,7 @@ namespace Emby.Server.Implementations.Activity
             _userManager.UserCreated -= _userManager_UserCreated;
             _userManager.UserPasswordChanged -= _userManager_UserPasswordChanged;
             _userManager.UserDeleted -= _userManager_UserDeleted;
-            _userManager.UserConfigurationUpdated -= _userManager_UserConfigurationUpdated;
+            _userManager.UserPolicyUpdated -= _userManager_UserPolicyUpdated;
             _userManager.UserLockedOut -= _userManager_UserLockedOut;
 
             _config.ConfigurationUpdated -= _config_ConfigurationUpdated;
@@ -491,7 +491,6 @@ namespace Emby.Server.Implementations.Activity
             //_logManager.LoggerLoaded -= _logManager_LoggerLoaded;
 
             _appHost.ApplicationUpdated -= _appHost_ApplicationUpdated;
-            GC.SuppressFinalize(this);
         }
 
         /// <summary>

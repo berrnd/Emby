@@ -47,9 +47,8 @@ namespace Emby.Server.Implementations.EntryPoints
         private readonly ITaskManager _taskManager;
 
         private readonly ISessionManager _sessionManager;
-        private readonly ISyncManager _syncManager;
 
-        public ServerEventNotifier(IServerManager serverManager, IServerApplicationHost appHost, IUserManager userManager, IInstallationManager installationManager, ITaskManager taskManager, ISessionManager sessionManager, ISyncManager syncManager)
+        public ServerEventNotifier(IServerManager serverManager, IServerApplicationHost appHost, IUserManager userManager, IInstallationManager installationManager, ITaskManager taskManager, ISessionManager sessionManager)
         {
             _serverManager = serverManager;
             _userManager = userManager;
@@ -57,13 +56,13 @@ namespace Emby.Server.Implementations.EntryPoints
             _appHost = appHost;
             _taskManager = taskManager;
             _sessionManager = sessionManager;
-            _syncManager = syncManager;
         }
 
         public void Run()
         {
             _userManager.UserDeleted += userManager_UserDeleted;
             _userManager.UserUpdated += userManager_UserUpdated;
+            _userManager.UserPolicyUpdated += _userManager_UserPolicyUpdated;
             _userManager.UserConfigurationUpdated += _userManager_UserConfigurationUpdated;
 
             _appHost.HasPendingRestartChanged += kernel_HasPendingRestartChanged;
@@ -75,18 +74,6 @@ namespace Emby.Server.Implementations.EntryPoints
             _installationManager.PackageInstallationFailed += _installationManager_PackageInstallationFailed;
 
             _taskManager.TaskCompleted += _taskManager_TaskCompleted;
-            _syncManager.SyncJobCreated += _syncManager_SyncJobCreated;
-            _syncManager.SyncJobCancelled += _syncManager_SyncJobCancelled;
-        }
-
-        void _syncManager_SyncJobCancelled(object sender, GenericEventArgs<SyncJob> e)
-        {
-            _sessionManager.SendMessageToUserDeviceSessions(e.Argument.TargetId, "SyncJobCancelled", e.Argument, CancellationToken.None);
-        }
-
-        void _syncManager_SyncJobCreated(object sender, GenericEventArgs<SyncJobCreationResult> e)
-        {
-            _sessionManager.SendMessageToUserDeviceSessions(e.Argument.Job.TargetId, "SyncJobCreated", e.Argument, CancellationToken.None);
         }
 
         void _installationManager_PackageInstalling(object sender, InstallationEventArgs e)
@@ -156,6 +143,13 @@ namespace Emby.Server.Implementations.EntryPoints
             SendMessageToUserSession(e.Argument, "UserDeleted", e.Argument.Id.ToString("N"));
         }
 
+        void _userManager_UserPolicyUpdated(object sender, GenericEventArgs<User> e)
+        {
+            var dto = _userManager.GetUserDto(e.Argument);
+
+            SendMessageToUserSession(e.Argument, "UserPolicyUpdated", dto);
+        }
+
         void _userManager_UserConfigurationUpdated(object sender, GenericEventArgs<User> e)
         {
             var dto = _userManager.GetUserDto(e.Argument);
@@ -165,7 +159,18 @@ namespace Emby.Server.Implementations.EntryPoints
 
         private async void SendMessageToUserSession<T>(User user, string name, T data)
         {
-            await _sessionManager.SendMessageToUserSessions(new List<string> { user.Id.ToString("N") }, name, data, CancellationToken.None);
+            try
+            {
+                await _sessionManager.SendMessageToUserSessions(new List<string> { user.Id.ToString("N") }, name, data, CancellationToken.None);
+            }
+            catch (ObjectDisposedException)
+            {
+
+            }
+            catch (Exception ex)
+            {
+                //Logger.ErrorException("Error sending message", ex);
+            }
         }
 
         /// <summary>
@@ -174,7 +179,6 @@ namespace Emby.Server.Implementations.EntryPoints
         public void Dispose()
         {
             Dispose(true);
-            GC.SuppressFinalize(this);
         }
 
         /// <summary>
@@ -187,6 +191,7 @@ namespace Emby.Server.Implementations.EntryPoints
             {
                 _userManager.UserDeleted -= userManager_UserDeleted;
                 _userManager.UserUpdated -= userManager_UserUpdated;
+                _userManager.UserPolicyUpdated -= _userManager_UserPolicyUpdated;
                 _userManager.UserConfigurationUpdated -= _userManager_UserConfigurationUpdated;
 
                 _installationManager.PluginUninstalled -= InstallationManager_PluginUninstalled;
@@ -196,8 +201,6 @@ namespace Emby.Server.Implementations.EntryPoints
                 _installationManager.PackageInstallationFailed -= _installationManager_PackageInstallationFailed;
 
                 _appHost.HasPendingRestartChanged -= kernel_HasPendingRestartChanged;
-                _syncManager.SyncJobCreated -= _syncManager_SyncJobCreated;
-                _syncManager.SyncJobCancelled -= _syncManager_SyncJobCancelled;
             }
         }
     }

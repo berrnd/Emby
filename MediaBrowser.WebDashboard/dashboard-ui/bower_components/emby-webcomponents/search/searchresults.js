@@ -22,7 +22,7 @@ define(["layoutManager", "globalize", "require", "events", "connectionManager", 
         }
         );
         var allowSearch=!0, queryIncludeItemTypes=query.IncludeItemTypes;
-        return"tvshows"===instance.options.collectionType?query.IncludeArtists?allowSearch=!1:"Movie"!==queryIncludeItemTypes&&"LiveTvProgram"!==queryIncludeItemTypes&&"MusicAlbum"!==queryIncludeItemTypes&&"Audio"!==queryIncludeItemTypes&&"Book"!==queryIncludeItemTypes&&"AudioBook"!==queryIncludeItemTypes&&"Video"!==query.MediaTypes||(allowSearch=!1):"movies"===instance.options.collectionType?query.IncludeArtists?allowSearch=!1:"Series"!==queryIncludeItemTypes&&"Episode"!==queryIncludeItemTypes&&"LiveTvProgram"!==queryIncludeItemTypes&&"MusicAlbum"!==queryIncludeItemTypes&&"Audio"!==queryIncludeItemTypes&&"Book"!==queryIncludeItemTypes&&"AudioBook"!==queryIncludeItemTypes&&"Video"!==query.MediaTypes||(allowSearch=!1):"music"===instance.options.collectionType?query.People?allowSearch=!1:"Series"!==queryIncludeItemTypes&&"Episode"!==queryIncludeItemTypes&&"LiveTvProgram"!==queryIncludeItemTypes&&"Movie"!==queryIncludeItemTypes||(allowSearch=!1):"livetv"===instance.options.collectionType&&(query.IncludeArtists||query.IncludePeople?allowSearch=!1:"Series"!==queryIncludeItemTypes&&"Episode"!==queryIncludeItemTypes&&"MusicAlbum"!==queryIncludeItemTypes&&"Audio"!==queryIncludeItemTypes&&"Book"!==queryIncludeItemTypes&&"AudioBook"!==queryIncludeItemTypes&&"Movie"!==queryIncludeItemTypes&&"Video"!==query.MediaTypes||(allowSearch=!1)), "NullType"===queryIncludeItemTypes&&(allowSearch=!1), allowSearch?apiClient.getSearchHints(query):Promise.resolve( {
+        return"tvshows"===instance.options.collectionType?query.IncludeArtists?allowSearch=!1:"Movie"!==queryIncludeItemTypes&&"LiveTvProgram"!==queryIncludeItemTypes&&"MusicAlbum"!==queryIncludeItemTypes&&"Audio"!==queryIncludeItemTypes&&"Book"!==queryIncludeItemTypes&&"AudioBook"!==queryIncludeItemTypes&&"PhotoAlbum"!==queryIncludeItemTypes&&"Video"!==query.MediaTypes&&"Photo"!==query.MediaTypes||(allowSearch=!1):"movies"===instance.options.collectionType?query.IncludeArtists?allowSearch=!1:"Series"!==queryIncludeItemTypes&&"Episode"!==queryIncludeItemTypes&&"LiveTvProgram"!==queryIncludeItemTypes&&"MusicAlbum"!==queryIncludeItemTypes&&"Audio"!==queryIncludeItemTypes&&"Book"!==queryIncludeItemTypes&&"AudioBook"!==queryIncludeItemTypes&&"PhotoAlbum"!==queryIncludeItemTypes&&"Video"!==query.MediaTypes&&"Photo"!==query.MediaTypes||(allowSearch=!1):"music"===instance.options.collectionType?query.People?allowSearch=!1:"Series"!==queryIncludeItemTypes&&"Episode"!==queryIncludeItemTypes&&"LiveTvProgram"!==queryIncludeItemTypes&&"Movie"!==queryIncludeItemTypes||(allowSearch=!1):"livetv"===instance.options.collectionType&&(query.IncludeArtists||query.IncludePeople?allowSearch=!1:"Series"!==queryIncludeItemTypes&&"Episode"!==queryIncludeItemTypes&&"MusicAlbum"!==queryIncludeItemTypes&&"Audio"!==queryIncludeItemTypes&&"Book"!==queryIncludeItemTypes&&"AudioBook"!==queryIncludeItemTypes&&"PhotoAlbum"!==queryIncludeItemTypes&&"Movie"!==queryIncludeItemTypes&&"Video"!==query.MediaTypes&&"Photo"!==query.MediaTypes||(allowSearch=!1)), "NullType"===queryIncludeItemTypes&&(allowSearch=!1), allowSearch?apiClient.getSearchHints(query):Promise.resolve( {
             SearchHints: []
         }
         )
@@ -113,6 +113,18 @@ define(["layoutManager", "globalize", "require", "events", "connectionManager", 
             showParentTitle: !0, showTitle: !0, overlayText: !1, centerText: !0, action: "play"
         }
         ), searchType(instance, apiClient, {
+            searchTerm: value, IncludePeople: !1, IncludeMedia: !0, IncludeGenres: !1, IncludeStudios: !1, IncludeArtists: !1, MediaTypes: "Photo"
+        }
+        , context, ".photoResults", {
+            showParentTitle: !1, showTitle: !0, overlayText: !1, centerText: !0
+        }
+        ), searchType(instance, apiClient, {
+            searchTerm: value, IncludePeople: !1, IncludeMedia: !0, IncludeGenres: !1, IncludeStudios: !1, IncludeArtists: !1, IncludeItemTypes: "PhotoAlbum"
+        }
+        , context, ".photoAlbumResults", {
+            showTitle: !0, overlayText: !1, centerText: !0
+        }
+        ), searchType(instance, apiClient, {
             searchTerm: value, IncludePeople: !1, IncludeMedia: !0, IncludeGenres: !1, IncludeStudios: !1, IncludeArtists: !1, IncludeItemTypes: "Book"
         }
         , context, ".bookResults", {
@@ -166,8 +178,7 @@ define(["layoutManager", "globalize", "require", "events", "connectionManager", 
         this.options=options, embed(options.element, this, options)
     }
     return SearchResults.prototype.search=function(value) {
-        var apiClient=connectionManager.getApiClient(this.options.serverId);
-        search(this, apiClient, this.options.element, value)
+        search(this, connectionManager.getApiClient(this.options.serverId), this.options.element, value)
     }
     , SearchResults.prototype.destroy=function() {
         var options=this.options;

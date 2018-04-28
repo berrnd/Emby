@@ -2,7 +2,7 @@
 //Added jQuery
 define(["appSettings", "userSettings", "dom", "browser", "datetime", "appRouter", "events", "scrollStyles", "jQuery"], function(appSettings, userSettings, dom, browser, datetime, appRouter, events, scrollStyles, jQuery) {
 //myproduction-change-end
-	"use strict";
+    "use strict";
     var libraryBrowser = {
         getDefaultPageSize: function(key, defaultValue) {
             return 100
@@ -26,21 +26,8 @@ define(["appSettings", "userSettings", "dom", "browser", "datetime", "appRouter"
         },
         getSavedViewSetting: function(key) {
             return new Promise(function(resolve, reject) {
-                var val = libraryBrowser.getSavedView(key);
-                resolve(val)
+                resolve(libraryBrowser.getSavedView(key))
             })
-        },
-        getListItemInfo: function(elem) {
-            for (var elemWithAttributes = elem; !elemWithAttributes.getAttribute("data-id");) elemWithAttributes = elemWithAttributes.parentNode;
-            var itemId = elemWithAttributes.getAttribute("data-id"),
-                index = elemWithAttributes.getAttribute("data-index"),
-                mediaType = elemWithAttributes.getAttribute("data-mediatype");
-            return {
-                id: itemId,
-                index: index,
-                mediaType: mediaType,
-                context: elemWithAttributes.getAttribute("data-context")
-            }
         },
         showLayoutMenu: function(button, currentLayout, views) {
             var dispatchEvent = !0;
@@ -77,8 +64,7 @@ define(["appSettings", "userSettings", "dom", "browser", "datetime", "appRouter"
                 showControls = limit < totalRecordCount;
             if (html += '<div class="listPaging">', showControls) {
                 html += '<span style="vertical-align:middle;">';
-                var startAtDisplay = totalRecordCount ? startIndex + 1 : 0;
-                html += startAtDisplay + "-" + recordsEnd + " of " + totalRecordCount, html += "</span>"
+                html += (totalRecordCount ? startIndex + 1 : 0) + "-" + recordsEnd + " of " + totalRecordCount, html += "</span>"
             }
             return (showControls || options.viewButton || options.filterButton || options.sortButton || options.addLayoutButton) && (html += '<div style="display:inline-block;">', showControls && (html += '<button is="paper-icon-button-light" class="btnPreviousPage autoSize" ' + (startIndex ? "" : "disabled") + '><i class="md-icon">&#xE5C4;</i></button>', html += '<button is="paper-icon-button-light" class="btnNextPage autoSize" ' + (startIndex + limit >= totalRecordCount ? "disabled" : "") + '><i class="md-icon">&#xE5C8;</i></button>'), options.addLayoutButton && (html += '<button is="paper-icon-button-light" title="' + Globalize.translate("ButtonSelectView") + '" class="btnChangeLayout autoSize" data-layouts="' + (options.layouts || "") + '" onclick="LibraryBrowser.showLayoutMenu(this, \'' + (options.currentLayout || "") + '\');"><i class="md-icon">&#xE42A;</i></button>'), options.sortButton && (html += '<button is="paper-icon-button-light" class="btnSort autoSize" title="' + Globalize.translate("ButtonSort") + '"><i class="md-icon">&#xE053;</i></button>'), options.filterButton && (html += '<button is="paper-icon-button-light" class="btnFilter autoSize" title="' + Globalize.translate("ButtonFilter") + '"><i class="md-icon">&#xE152;</i></button>'), html += "</div>"), html += "</div>"
         },
@@ -122,52 +108,46 @@ define(["appSettings", "userSettings", "dom", "browser", "datetime", "appRouter"
             })
         },
         renderDetailImage: function(page, elem, item, apiClient, editable, imageLoader, indicators) {
-            var preferThumb = !1;
             "SeriesTimer" !== item.Type && "Program" !== item.Type || (editable = !1), "Person" !== item.Type ? (elem.classList.add("detailimg-hidemobile"), page.querySelector(".detailPageContent").classList.add("detailPageContent-nodetailimg")) : page.querySelector(".detailPageContent").classList.remove("detailPageContent-nodetailimg");
             var imageTags = item.ImageTags || {};
             item.PrimaryImageTag && (imageTags.Primary = item.PrimaryImageTag);
             var url, html = "",
                 shape = "portrait",
-                imageHeight = 360,
                 detectRatio = !1;
-            preferThumb && imageTags.Thumb ? (url = apiClient.getScaledImageUrl(item.Id, {
-                type: "Thumb",
-                maxHeight: imageHeight,
-                tag: item.ImageTags.Thumb
-            }), shape = "thumb") : imageTags.Primary ? (url = apiClient.getScaledImageUrl(item.Id, {
+            imageTags.Primary ? (url = apiClient.getScaledImageUrl(item.Id, {
                 type: "Primary",
-                maxHeight: imageHeight,
+                maxHeight: 360,
                 tag: item.ImageTags.Primary
             }), detectRatio = !0) : item.BackdropImageTags && item.BackdropImageTags.length ? (url = apiClient.getScaledImageUrl(item.Id, {
                 type: "Backdrop",
-                maxHeight: imageHeight,
+                maxHeight: 360,
                 tag: item.BackdropImageTags[0]
             }), shape = "thumb") : imageTags.Thumb ? (url = apiClient.getScaledImageUrl(item.Id, {
                 type: "Thumb",
-                maxHeight: imageHeight,
+                maxHeight: 360,
                 tag: item.ImageTags.Thumb
             }), shape = "thumb") : imageTags.Disc ? (url = apiClient.getScaledImageUrl(item.Id, {
                 type: "Disc",
-                maxHeight: imageHeight,
+                maxHeight: 360,
                 tag: item.ImageTags.Disc
             }), shape = "square") : item.AlbumId && item.AlbumPrimaryImageTag ? (url = apiClient.getScaledImageUrl(item.AlbumId, {
                 type: "Primary",
-                maxHeight: imageHeight,
+                maxHeight: 360,
                 tag: item.AlbumPrimaryImageTag
             }), shape = "square") : item.SeriesId && item.SeriesPrimaryImageTag ? url = apiClient.getScaledImageUrl(item.SeriesId, {
                 type: "Primary",
-                maxHeight: imageHeight,
+                maxHeight: 360,
                 tag: item.SeriesPrimaryImageTag
             }) : item.ParentPrimaryImageItemId && item.ParentPrimaryImageTag && (url = apiClient.getScaledImageUrl(item.ParentPrimaryImageItemId, {
                 type: "Primary",
-                maxHeight: imageHeight,
+                maxHeight: 360,
                 tag: item.ParentPrimaryImageTag
             })), html += '<div style="position:relative;">', editable && (html += "<a class='itemDetailGalleryLink' is='emby-linkbutton' style='display:block;padding:2px;margin:0;' href='#'>"), detectRatio && item.PrimaryImageAspectRatio && (item.PrimaryImageAspectRatio >= 1.48 ? shape = "thumb" : item.PrimaryImageAspectRatio >= .85 && item.PrimaryImageAspectRatio <= 1.34 && (shape = "square")), html += "<img class='itemDetailImage lazy' src='css/images/empty.png' />", editable && (html += "</a>");
             var progressHtml = item.IsFolder || !item.UserData ? "" : indicators.getProgressBarHtml(item);
             if (html += '<div class="detailImageProgressContainer">', progressHtml && (html += progressHtml), html += "</div>", html += "</div>", elem.innerHTML = html, "thumb" == shape ? (elem.classList.add("thumbDetailImageContainer"), elem.classList.remove("portraitDetailImageContainer"), elem.classList.remove("squareDetailImageContainer")) : "square" == shape ? (elem.classList.remove("thumbDetailImageContainer"), elem.classList.remove("portraitDetailImageContainer"), elem.classList.add("squareDetailImageContainer")) : (elem.classList.remove("thumbDetailImageContainer"), elem.classList.add("portraitDetailImageContainer"), elem.classList.remove("squareDetailImageContainer")), url) {
                 var img = elem.querySelector("img");
                 img.onload = function() {
-                    img.src.indexOf("empty.png") == -1 && img.classList.add("loaded")
+                    -1 == img.src.indexOf("empty.png") && img.classList.add("loaded")
                 }, imageLoader.lazyImage(img, url)
             }
         },
@@ -175,9 +155,8 @@ define(["appSettings", "userSettings", "dom", "browser", "datetime", "appRouter"
             var imgUrl, screenWidth = screen.availWidth,
                 hasbackdrop = !1,
                 itemBackdropElement = page.querySelector("#itemBackdrop"),
-                usePrimaryImage = "Video" === item.MediaType && "Movie" !== item.Type && "Trailer" !== item.Type || item.MediaType && "Video" !== item.MediaType,
-                useThumbImage = "Program" === item.Type;
-            return useThumbImage && item.ImageTags && item.ImageTags.Thumb ? (imgUrl = apiClient.getScaledImageUrl(item.Id, {
+                usePrimaryImage = "Video" === item.MediaType && "Movie" !== item.Type && "Trailer" !== item.Type || item.MediaType && "Video" !== item.MediaType;
+            return "Program" === item.Type && item.ImageTags && item.ImageTags.Thumb ? (imgUrl = apiClient.getScaledImageUrl(item.Id, {
                 type: "Thumb",
                 index: 0,
                 maxWidth: screenWidth,
@@ -204,48 +183,47 @@ define(["appSettings", "userSettings", "dom", "browser", "datetime", "appRouter"
                 tag: item.ImageTags.Thumb
             }), itemBackdropElement.classList.remove("noBackdrop"), imageLoader.lazyImage(itemBackdropElement, imgUrl, !1), hasbackdrop = !0) : (itemBackdropElement.classList.add("noBackdrop"), itemBackdropElement.style.backgroundImage = ""), hasbackdrop
         },
-		
 		//myproduction-change-start
-			//Added functions
-			ExecuteItemDetailsPageDownload: function () {
-				var itemId = getParameterByName("id");
+		//Added functions
+		ExecuteItemDetailsPageDownload: function () {
+			var itemId = getParameterByName("id");
 
-				if (itemId != null) {
-					var piwikTracker = Piwik.getAsyncTracker();
-					piwikTracker.trackEvent("MediaAccess", "DownloadedItem", document.title);
+			if (itemId != null) {
+				var piwikTracker = Piwik.getAsyncTracker();
+				piwikTracker.trackEvent("MediaAccess", "DownloadedItem", document.title);
 
-					var accessToken = ApiClient.accessToken();
-					var downloadUrl = ApiClient.getUrl("Items/" + itemId + "/Download?api_key=" + accessToken);
-					setTimeout(function () {
-						window.location.href = downloadUrl;
-					}, 500);
-				}
-			},
-
-			ExecuteItemDetailsPageExternalStream: function () {
-				var itemId = getParameterByName("id");
-
-				if (itemId != null) {
-					var accessToken = ApiClient.accessToken();
-					var deviceId = ApiClient.deviceId();
-
-					var logActivityUrl = ApiClient.getUrl("Items/" + itemId + "/NotifyStreamedExternalInPlayer?api_key=" + accessToken);
-					jQuery.ajax(
-						{
-							url: logActivityUrl,
-							type: 'GET'
-						});
-
-					var piwikTracker = Piwik.getAsyncTracker();
-					piwikTracker.trackEvent("MediaAccess", "StreamedItemInExternalPlayer", document.title);
-
-					var downloadUrl = ApiClient.getUrl("Videos/" + itemId + "/stream?static=true&mediaSourceId=" + itemId + "&deviceId=" + deviceId + "&api_key=" + accessToken);
-					setTimeout(function () {
-						window.location.href = downloadUrl;
-					}, 500);
-				}
+				var accessToken = ApiClient.accessToken();
+				var downloadUrl = ApiClient.getUrl("Items/" + itemId + "/Download?api_key=" + accessToken);
+				setTimeout(function () {
+					window.location.href = downloadUrl;
+				}, 500);
 			}
-            //myproduction-change-end
+		},
+
+		ExecuteItemDetailsPageExternalStream: function () {
+			var itemId = getParameterByName("id");
+
+			if (itemId != null) {
+				var accessToken = ApiClient.accessToken();
+				var deviceId = ApiClient.deviceId();
+
+				var logActivityUrl = ApiClient.getUrl("Items/" + itemId + "/NotifyStreamedExternalInPlayer?api_key=" + accessToken);
+				jQuery.ajax(
+					{
+						url: logActivityUrl,
+						type: 'GET'
+					});
+
+				var piwikTracker = Piwik.getAsyncTracker();
+				piwikTracker.trackEvent("MediaAccess", "StreamedItemInExternalPlayer", document.title);
+
+				var downloadUrl = ApiClient.getUrl("Videos/" + itemId + "/stream?static=true&mediaSourceId=" + itemId + "&deviceId=" + deviceId + "&api_key=" + accessToken);
+				setTimeout(function () {
+					window.location.href = downloadUrl;
+				}, 500);
+			}
+		}
+		//myproduction-change-end
     };
     return window.LibraryBrowser = libraryBrowser, libraryBrowser
 });

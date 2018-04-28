@@ -26,13 +26,17 @@ namespace Emby.Server.Implementations.IO
 
         private SharpCifsFileSystem _sharpCifsFileSystem;
         private IEnvironmentInfo _environmentInfo;
+        private bool _isEnvironmentCaseInsensitive;
 
-        public ManagedFileSystem(ILogger logger, IEnvironmentInfo environmentInfo, string tempPath)
+        private string _defaultDirectory;
+
+        public ManagedFileSystem(ILogger logger, IEnvironmentInfo environmentInfo, string defaultDirectory, string tempPath)
         {
             Logger = logger;
             _supportsAsyncFileStreams = true;
             _tempPath = tempPath;
             _environmentInfo = environmentInfo;
+            _defaultDirectory = defaultDirectory;
 
             // On Linux, this needs to be true or symbolic links are ignored
             // TODO: See if still needed under .NET Core
@@ -42,6 +46,33 @@ namespace Emby.Server.Implementations.IO
             SetInvalidFileNameChars(environmentInfo.OperatingSystem == MediaBrowser.Model.System.OperatingSystem.Windows);
 
             _sharpCifsFileSystem = new SharpCifsFileSystem(environmentInfo.OperatingSystem);
+
+            _isEnvironmentCaseInsensitive = environmentInfo.OperatingSystem == MediaBrowser.Model.System.OperatingSystem.Windows;
+        }
+
+        public string DefaultDirectory
+        {
+            get
+            {
+                var value = _defaultDirectory;
+
+                if (!string.IsNullOrEmpty(value))
+                {
+                    try
+                    {
+                        if (DirectoryExists(value))
+                        {
+                            return value;
+                        }
+                    }
+                    catch
+                    {
+
+                    }
+                }
+
+                return null;
+            }
         }
 
         public void AddShortcutHandler(IShortcutHandler handler)
@@ -115,6 +146,49 @@ namespace Emby.Server.Implementations.IO
             }
 
             return null;
+        }
+
+        public string MakeAbsolutePath(string folderPath, string filePath)
+        {
+            if (String.IsNullOrWhiteSpace(filePath)) return filePath;
+
+            if (filePath.Contains(@"://")) return filePath; //stream
+            if (filePath.Length > 3 && filePath[1] == ':' && filePath[2] == '/') return filePath; //absolute local path
+
+            // unc path
+            if (filePath.StartsWith("\\\\"))
+            {
+                return filePath;
+            }
+
+            var firstChar = filePath[0];
+            if (firstChar == '/')
+            {
+                // For this we don't really know. 
+                return filePath;
+            }
+            if (firstChar == '\\') //relative path
+            {
+                filePath = filePath.Substring(1);
+            }
+            try
+            {
+                string path = System.IO.Path.Combine(folderPath, filePath);
+                path = System.IO.Path.GetFullPath(path);
+                return path;
+            }
+            catch (ArgumentException ex)
+            {
+                return filePath;
+            }
+            catch (PathTooLongException)
+            {
+                return filePath;
+            }
+            catch (NotSupportedException)
+            {
+                return filePath;
+            }
         }
 
         /// <summary>
@@ -257,10 +331,12 @@ namespace Emby.Server.Implementations.IO
 
             if (result.Exists)
             {
-                var attributes = info.Attributes;
-                result.IsDirectory = info is DirectoryInfo || (attributes & FileAttributes.Directory) == FileAttributes.Directory;
-                result.IsHidden = (attributes & FileAttributes.Hidden) == FileAttributes.Hidden;
-                result.IsReadOnly = (attributes & FileAttributes.ReadOnly) == FileAttributes.ReadOnly;
+                result.IsDirectory = info is DirectoryInfo || (info.Attributes & FileAttributes.Directory) == FileAttributes.Directory;
+
+                //if (!result.IsDirectory)
+                //{
+                //    result.IsHidden = (info.Attributes & FileAttributes.Hidden) == FileAttributes.Hidden;
+                //}
 
                 var fileInfo = info as FileInfo;
                 if (fileInfo != null)
@@ -275,6 +351,25 @@ namespace Emby.Server.Implementations.IO
             else
             {
                 result.IsDirectory = info is DirectoryInfo;
+            }
+
+            return result;
+        }
+
+        private ExtendedFileSystemInfo GetExtendedFileSystemInfo(string path)
+        {
+            var result = new ExtendedFileSystemInfo();
+
+            var info = new FileInfo(path);
+
+            if (info.Exists)
+            {
+                result.Exists = true;
+
+                var attributes = info.Attributes;
+
+                result.IsHidden = (attributes & FileAttributes.Hidden) == FileAttributes.Hidden;
+                result.IsReadOnly = (attributes & FileAttributes.ReadOnly) == FileAttributes.ReadOnly;
             }
 
             return result;
@@ -483,7 +578,7 @@ namespace Emby.Server.Implementations.IO
                 return;
             }
 
-            var info = GetFileInfo(path);
+            var info = GetExtendedFileSystemInfo(path);
 
             if (info.Exists && info.IsHidden != isHidden)
             {
@@ -513,7 +608,7 @@ namespace Emby.Server.Implementations.IO
                 return;
             }
 
-            var info = GetFileInfo(path);
+            var info = GetExtendedFileSystemInfo(path);
 
             if (info.Exists && info.IsReadOnly != isReadOnly)
             {
@@ -543,7 +638,7 @@ namespace Emby.Server.Implementations.IO
                 return;
             }
 
-            var info = GetFileInfo(path);
+            var info = GetExtendedFileSystemInfo(path);
 
             if (!info.Exists)
             {
@@ -719,7 +814,7 @@ namespace Emby.Server.Implementations.IO
 
         public bool IsPathFile(string path)
         {
-            if (string.IsNullOrWhiteSpace(path))
+            if (string.IsNullOrEmpty(path))
             {
                 throw new ArgumentNullException("path");
             }
@@ -821,7 +916,7 @@ namespace Emby.Server.Implementations.IO
 
             // On linux and osx the search pattern is case sensitive
             // If we're OK with case-sensitivity, and we're only filtering for one extension, then use the native method
-            if (enableCaseSensitiveExtensions && extensions != null && extensions.Length == 1)
+            if ((enableCaseSensitiveExtensions || _isEnvironmentCaseInsensitive) && extensions != null && extensions.Length == 1)
             {
                 return ToMetadata(new DirectoryInfo(path).EnumerateFiles("*" + extensions[0], searchOption));
             }
@@ -1051,7 +1146,7 @@ namespace Emby.Server.Implementations.IO
 
             // On linux and osx the search pattern is case sensitive
             // If we're OK with case-sensitivity, and we're only filtering for one extension, then use the native method
-            if (enableCaseSensitiveExtensions && extensions != null && extensions.Length == 1)
+            if ((enableCaseSensitiveExtensions || _isEnvironmentCaseInsensitive) && extensions != null && extensions.Length == 1)
             {
                 return Directory.EnumerateFiles(path, "*" + extensions[0], searchOption);
             }

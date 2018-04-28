@@ -25,6 +25,7 @@ using MediaBrowser.Model.Serialization;
 using MediaBrowser.Model.Services;
 using MediaBrowser.Model.System;
 using MediaBrowser.Model.Text;
+using System.Net.Sockets;
 
 namespace Emby.Server.Implementations.HttpServer
 {
@@ -60,7 +61,6 @@ namespace Emby.Server.Implementations.HttpServer
         private readonly Func<Type, Func<string, object>> _funcParseFn;
         private readonly bool _enableDualModeSockets;
 
-        public Action<IRequest, IResponse, object>[] RequestFilters { get; set; }
         public Action<IRequest, IResponse, object>[] ResponseFilters { get; set; }
 
         private readonly Dictionary<Type, Type> ServiceOperationsMap = new Dictionary<Type, Type>();
@@ -92,7 +92,6 @@ namespace Emby.Server.Implementations.HttpServer
 
             _logger = logger;
 
-            RequestFilters = new Action<IRequest, IResponse, object>[] { };
             ResponseFilters = new Action<IRequest, IResponse, object>[] { };
         }
 
@@ -138,12 +137,6 @@ namespace Emby.Server.Implementations.HttpServer
             {
                 var attribute = attributes[i];
                 attribute.RequestFilter(req, res, requestDto);
-            }
-
-            //Exec global filters
-            foreach (var requestFilter in RequestFilters)
-            {
-                requestFilter(req, res, requestDto);
             }
 
             //Exec remaining RequestFilter attributes with Priority >= 0
@@ -271,15 +264,19 @@ namespace Emby.Server.Implementations.HttpServer
             return statusCode;
         }
 
-        private void ErrorHandler(Exception ex, IRequest httpReq, bool logException = true)
+        private void ErrorHandler(Exception ex, IRequest httpReq, bool logExceptionStackTrace, bool logExceptionMessage)
         {
             try
             {
                 ex = GetActualException(ex);
 
-                if (logException)
+                if (logExceptionStackTrace)
                 {
                     _logger.ErrorException("Error processing request", ex);
+                }
+                else if (logExceptionMessage)
+                {
+                    _logger.Error(ex.Message);
                 }
 
                 var httpRes = httpReq.Response;
@@ -293,12 +290,27 @@ namespace Emby.Server.Implementations.HttpServer
                 httpRes.StatusCode = statusCode;
 
                 httpRes.ContentType = "text/html";
-                Write(httpRes, ex.Message);
+                Write(httpRes, NormalizeExceptionMessage(ex.Message));
             }
             catch
             {
                 //_logger.ErrorException("Error this.ProcessRequest(context)(Exception while writing error to the response)", errorEx);
             }
+        }
+
+        private string NormalizeExceptionMessage(string msg)
+        {
+            if (msg == null)
+            {
+                return string.Empty;
+            }
+
+            // Strip any information we don't want to reveal
+
+            msg = msg.Replace(_config.ApplicationPaths.ProgramSystemPath, string.Empty, StringComparison.OrdinalIgnoreCase);
+            msg = msg.Replace(_config.ApplicationPaths.ProgramDataPath, string.Empty, StringComparison.OrdinalIgnoreCase);
+
+            return msg;
         }
 
         /// <summary>
@@ -329,9 +341,9 @@ namespace Emby.Server.Implementations.HttpServer
         {
             var extension = GetExtension(url);
 
-            if (string.IsNullOrWhiteSpace(extension) || !_skipLogExtensions.ContainsKey(extension))
+            if (string.IsNullOrEmpty(extension) || !_skipLogExtensions.ContainsKey(extension))
             {
-                if (string.IsNullOrWhiteSpace(localPath) || localPath.IndexOf("system/ping", StringComparison.OrdinalIgnoreCase) == -1)
+                if (string.IsNullOrEmpty(localPath) || localPath.IndexOf("system/ping", StringComparison.OrdinalIgnoreCase) == -1)
                 {
                     return true;
                 }
@@ -422,12 +434,53 @@ namespace Emby.Server.Implementations.HttpServer
             return true;
         }
 
+        private bool ValidateRequest(string remoteIp, bool isLocal)
+        {
+            if (isLocal)
+            {
+                return true;
+            }
+
+            if (_config.Configuration.EnableRemoteAccess)
+            {
+                var addressFilter = _config.Configuration.RemoteIPFilter.Where(i => !string.IsNullOrWhiteSpace(i)).ToArray();
+
+                if (addressFilter.Length > 0 && !_networkManager.IsInLocalNetwork(remoteIp))
+                {
+                    if (_config.Configuration.IsRemoteIPFilterBlacklist)
+                    {
+                        return !_networkManager.IsAddressInSubnets(remoteIp, addressFilter);
+                    }
+                    else
+                    {
+                        return _networkManager.IsAddressInSubnets(remoteIp, addressFilter);
+                    }
+                }
+            }
+            else
+            {
+                if (!_networkManager.IsInLocalNetwork(remoteIp))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         private bool ValidateSsl(string remoteIp, string urlString)
         {
-            if (_config.Configuration.RequireHttps && _appHost.EnableHttps)
+            if (_config.Configuration.RequireHttps && _appHost.EnableHttps && !_config.Configuration.IsBehindProxy)
             {
                 if (urlString.IndexOf("https://", StringComparison.OrdinalIgnoreCase) == -1)
                 {
+                    // These are hacks, but if these ever occur on ipv6 in the local network they could be incorrectly redirected
+                    if (urlString.IndexOf("system/ping", StringComparison.OrdinalIgnoreCase) != -1 ||
+                        urlString.IndexOf("dlna/", StringComparison.OrdinalIgnoreCase) != -1)
+                    {
+                        return true;
+                    }
+
                     if (!_networkManager.IsInLocalNetwork(remoteIp))
                     {
                         return false;
@@ -448,7 +501,7 @@ namespace Emby.Server.Implementations.HttpServer
             bool enableLog = false;
             bool logHeaders = false;
             string urlToLog = null;
-            string remoteIp = null;
+            string remoteIp = httpReq.RemoteIp;
 
             try
             {
@@ -468,13 +521,17 @@ namespace Emby.Server.Implementations.HttpServer
                     return;
                 }
 
+                if (!ValidateRequest(remoteIp, httpReq.IsLocal))
+                {
+                    httpRes.StatusCode = 403;
+                    httpRes.ContentType = "text/plain";
+                    Write(httpRes, "Forbidden");
+                    return;
+                }
+
                 if (!ValidateSsl(httpReq.RemoteIp, urlString))
                 {
-                    var httpsUrl = urlString
-                        .Replace("http://", "https://", StringComparison.OrdinalIgnoreCase)
-                        .Replace(":" + _config.Configuration.PublicPort.ToString(CultureInfo.InvariantCulture), ":" + _config.Configuration.PublicHttpsPort.ToString(CultureInfo.InvariantCulture), StringComparison.OrdinalIgnoreCase);
-
-                    RedirectToUrl(httpRes, httpsUrl);
+                    RedirectToSecureUrl(httpReq, httpRes, urlString);
                     return;
                 }
 
@@ -498,7 +555,6 @@ namespace Emby.Server.Implementations.HttpServer
                 if (enableLog)
                 {
                     urlToLog = GetUrlToLog(urlString);
-                    remoteIp = httpReq.RemoteIp;
 
                     LoggerUtils.LogRequest(_logger, urlToLog, httpReq.HttpMethod, httpReq.UserAgent, logHeaders ? httpReq.Headers : null);
                 }
@@ -578,7 +634,7 @@ namespace Emby.Server.Implementations.HttpServer
                     return;
                 }
 
-                if (!string.IsNullOrWhiteSpace(GlobalResponse))
+                if (!string.IsNullOrEmpty(GlobalResponse))
                 {
                     httpRes.StatusCode = 503;
                     httpRes.ContentType = "text/html";
@@ -594,23 +650,34 @@ namespace Emby.Server.Implementations.HttpServer
                 }
                 else
                 {
-                    ErrorHandler(new FileNotFoundException(), httpReq, false);
+                    ErrorHandler(new FileNotFoundException(), httpReq, false, false);
                 }
             }
             catch (OperationCanceledException ex)
             {
-                ErrorHandler(ex, httpReq, false);
+                ErrorHandler(ex, httpReq, false, false);
+            }
+
+            catch (IOException ex)
+            {
+                ErrorHandler(ex, httpReq, false, false);
+            }
+
+            catch (SocketException ex)
+            {
+                ErrorHandler(ex, httpReq, false, false);
+            }
+
+            catch (SecurityException ex)
+            {
+                ErrorHandler(ex, httpReq, false, true);
             }
 
             catch (Exception ex)
             {
                 var logException = !string.Equals(ex.GetType().Name, "SocketException", StringComparison.OrdinalIgnoreCase);
 
-#if DEBUG
-                logException = true;
-#endif
-
-                ErrorHandler(ex, httpReq, logException);
+                ErrorHandler(ex, httpReq, logException, false);
             }
             finally
             {
@@ -664,6 +731,30 @@ namespace Emby.Server.Implementations.HttpServer
             outputStream.Write(bOutput, 0, bOutput.Length);
         }
 
+        private void RedirectToSecureUrl(IHttpRequest httpReq, IResponse httpRes, string url)
+        {
+            int currentPort;
+            Uri uri;
+            if (Uri.TryCreate(url, UriKind.Absolute, out uri))
+            {
+                currentPort = uri.Port;
+                var builder = new UriBuilder(uri);
+                builder.Port = _config.Configuration.PublicHttpsPort;
+                builder.Scheme = "https";
+                url = builder.Uri.ToString();
+
+                RedirectToUrl(httpRes, url);
+            }
+            else
+            {
+                var httpsUrl = url
+                    .Replace("http://", "https://", StringComparison.OrdinalIgnoreCase)
+                    .Replace(":" + _config.Configuration.PublicPort.ToString(CultureInfo.InvariantCulture), ":" + _config.Configuration.PublicHttpsPort.ToString(CultureInfo.InvariantCulture), StringComparison.OrdinalIgnoreCase);
+
+                RedirectToUrl(httpRes, url);
+            }
+        }
+
         public static void RedirectToUrl(IResponse httpRes, string url)
         {
             httpRes.StatusCode = 302;
@@ -687,14 +778,6 @@ namespace Emby.Server.Implementations.HttpServer
             var types = _restServices.Select(r => r.GetType()).ToArray();
 
             ServiceController.Init(this, types);
-
-            var list = new List<Action<IRequest, IResponse, object>>();
-            foreach (var filter in _appHost.GetExports<IRequestFilter>())
-            {
-                list.Add(filter.Filter);
-            }
-
-            RequestFilters = list.ToArray();
 
             ResponseFilters = new Action<IRequest, IResponse, object>[]
             {
@@ -818,7 +901,6 @@ namespace Emby.Server.Implementations.HttpServer
         public void Dispose()
         {
             Dispose(true);
-            GC.SuppressFinalize(this);
         }
 
         public void StartServer(string[] urlPrefixes)

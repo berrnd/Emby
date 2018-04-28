@@ -22,8 +22,6 @@ namespace Emby.Server.Implementations.LiveTv
         private readonly IMediaEncoder _mediaEncoder;
         private readonly ILogger _logger;
 
-        const int ProbeAnalyzeDurationMs = 3000;
-        const int PlaybackAnalyzeDurationMs = 3000;
         private IJsonSerializer _json;
         private IApplicationPaths _appPaths;
 
@@ -35,16 +33,16 @@ namespace Emby.Server.Implementations.LiveTv
             _appPaths = appPaths;
         }
 
-        public async Task AddMediaInfoWithProbe(MediaSourceInfo mediaSource, bool isAudio, string cacheKey, CancellationToken cancellationToken)
+        public async Task AddMediaInfoWithProbe(MediaSourceInfo mediaSource, bool isAudio, string cacheKey, bool addProbeDelay, CancellationToken cancellationToken)
         {
             var originalRuntime = mediaSource.RunTimeTicks;
 
             var now = DateTime.UtcNow;
 
             MediaInfo mediaInfo = null;
-            var cacheFilePath = string.IsNullOrWhiteSpace(cacheKey) ? null : Path.Combine(_appPaths.CachePath, "livetvmediainfo", cacheKey.GetMD5().ToString("N") + ".json");
+            var cacheFilePath = string.IsNullOrEmpty(cacheKey) ? null : Path.Combine(_appPaths.CachePath, "livetvmediainfo", cacheKey.GetMD5().ToString("N") + ".json");
 
-            if (!string.IsNullOrWhiteSpace(cacheKey))
+            if (!string.IsNullOrEmpty(cacheKey))
             {
                 try
                 {
@@ -59,22 +57,20 @@ namespace Emby.Server.Implementations.LiveTv
 
             if (mediaInfo == null)
             {
-                var path = mediaSource.Path;
-                var protocol = mediaSource.Protocol;
-
-                if (!string.IsNullOrWhiteSpace(mediaSource.EncoderPath) && mediaSource.EncoderProtocol.HasValue)
+                if (addProbeDelay)
                 {
-                    path = mediaSource.EncoderPath;
-                    protocol = mediaSource.EncoderProtocol.Value;
+                    var delayMs = mediaSource.AnalyzeDurationMs ?? 0;
+                    delayMs = Math.Max(3000, delayMs);
+                    await Task.Delay(delayMs, cancellationToken).ConfigureAwait(false);
                 }
+
+                mediaSource.AnalyzeDurationMs = 3000;
 
                 mediaInfo = await _mediaEncoder.GetMediaInfo(new MediaInfoRequest
                 {
-                    InputPath = path,
-                    Protocol = protocol,
+                    MediaSource = mediaSource,
                     MediaType = isAudio ? DlnaProfileType.Audio : DlnaProfileType.Video,
-                    ExtractChapters = false,
-                    AnalyzeDurationMs = ProbeAnalyzeDurationMs
+                    ExtractChapters = false
 
                 }, cancellationToken).ConfigureAwait(false);
 
@@ -89,7 +85,7 @@ namespace Emby.Server.Implementations.LiveTv
 
             var mediaStreams = mediaInfo.MediaStreams;
 
-            if (!string.IsNullOrWhiteSpace(cacheKey))
+            if (!string.IsNullOrEmpty(cacheKey))
             {
                 var newList = new List<MediaStream>();
                 newList.AddRange(mediaStreams.Where(i => i.Type == MediaStreamType.Video).Take(1));
@@ -167,15 +163,15 @@ namespace Emby.Server.Implementations.LiveTv
                 videoStream.IsAVC = null;
             }
 
+            mediaSource.AnalyzeDurationMs = 3000;
+
             // Try to estimate this
             mediaSource.InferTotalBitrate(true);
-
-            mediaSource.AnalyzeDurationMs = PlaybackAnalyzeDurationMs;
         }
 
-        public Task AddMediaInfoWithProbe(MediaSourceInfo mediaSource, bool isAudio, CancellationToken cancellationToken)
+        public Task AddMediaInfoWithProbe(MediaSourceInfo mediaSource, bool isAudio, bool addProbeDelay, CancellationToken cancellationToken)
         {
-            return AddMediaInfoWithProbe(mediaSource, isAudio, null, cancellationToken);
+            return AddMediaInfoWithProbe(mediaSource, isAudio, null, addProbeDelay, cancellationToken);
         }
     }
 }

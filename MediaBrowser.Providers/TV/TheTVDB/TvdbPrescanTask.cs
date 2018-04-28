@@ -32,12 +32,12 @@ namespace MediaBrowser.Providers.TV
         /// <summary>
         /// The server time URL
         /// </summary>
-        private const string ServerTimeUrl = TvdbBaseUrl + "Updates.php?type=none";
+        private const string ServerTimeUrl = TvdbBaseUrl + "api/Updates.php?type=none";
 
         /// <summary>
         /// The updates URL
         /// </summary>
-        private const string UpdatesUrl = TvdbBaseUrl + "Updates.php?type=all&time={0}";
+        private const string UpdatesUrl = TvdbBaseUrl + "api/Updates.php?type=all&time={0}";
 
         /// <summary>
         /// The _HTTP client
@@ -81,14 +81,6 @@ namespace MediaBrowser.Providers.TV
         /// <returns>Task.</returns>
         public async Task Run(IProgress<double> progress, CancellationToken cancellationToken)
         {
-            var seriesConfig = _config.Configuration.MetadataOptions.FirstOrDefault(i => string.Equals(i.ItemType, typeof(Series).Name, StringComparison.OrdinalIgnoreCase));
-
-            if (seriesConfig != null && seriesConfig.DisabledMetadataFetchers.Contains(TvdbSeriesProvider.Current.Name, StringComparer.OrdinalIgnoreCase))
-            {
-                progress.Report(100);
-                return;
-            }
-
             var path = TvdbSeriesProvider.GetSeriesDataPath(_config.CommonApplicationPaths);
 
             _fileSystem.CreateDirectory(path);
@@ -133,7 +125,7 @@ namespace MediaBrowser.Providers.TV
             var missingSeries = seriesIdsInLibrary.Except(existingDirectories, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
-            var enableInternetProviders = seriesList.Count == 0 ? false : seriesList[0].IsInternetMetadataEnabled();
+            var enableInternetProviders = seriesList.Count == 0 ? false : seriesList[0].IsMetadataFetcherEnabled(_libraryManager.GetLibraryOptions(seriesList[0]), TvdbSeriesProvider.Current.Name);
             if (!enableInternetProviders)
             {
                 progress.Report(100);

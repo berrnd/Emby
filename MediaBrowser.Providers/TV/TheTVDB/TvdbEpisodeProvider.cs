@@ -119,9 +119,12 @@ namespace MediaBrowser.Providers.TV
             if (TvdbSeriesProvider.IsValidSeries(searchInfo.SeriesProviderIds) &&
                 (searchInfo.IndexNumber.HasValue || searchInfo.PremiereDate.HasValue))
             {
-                await TvdbSeriesProvider.Current.EnsureSeriesInfo(searchInfo.SeriesProviderIds, null, null, searchInfo.MetadataLanguage, cancellationToken).ConfigureAwait(false);
+                var seriesDataPath = await TvdbSeriesProvider.Current.EnsureSeriesInfo(searchInfo.SeriesProviderIds, null, null, searchInfo.MetadataLanguage, cancellationToken).ConfigureAwait(false);
 
-                var seriesDataPath = TvdbSeriesProvider.GetSeriesDataPath(_config.ApplicationPaths, searchInfo.SeriesProviderIds);
+                if (string.IsNullOrEmpty(seriesDataPath))
+                {
+                    return result;
+                }
 
                 var searchNumbers = new EpisodeNumbers();
                 if (searchInfo.IndexNumber.HasValue)
@@ -226,7 +229,7 @@ namespace MediaBrowser.Providers.TV
 
             if (searchInfo.IndexNumber.HasValue)
             {
-                var files = GetEpisodeXmlFiles(searchInfo.ParentIndexNumber, searchInfo.IndexNumber, searchInfo.IndexNumberEnd, _fileSystem.GetDirectoryName(xmlFile));
+                var files = GetEpisodeXmlFiles(searchInfo.SeriesDisplayOrder, searchInfo.ParentIndexNumber, searchInfo.IndexNumber, searchInfo.IndexNumberEnd, _fileSystem.GetDirectoryName(xmlFile));
 
                 list = files.Select(GetXmlReader).ToList();
             }
@@ -239,7 +242,48 @@ namespace MediaBrowser.Providers.TV
             return list;
         }
 
-        private List<FileSystemMetadata> GetEpisodeXmlFiles(int? seasonNumber, int? episodeNumber, int? endingEpisodeNumber, string seriesDataPath)
+        private string GetEpisodeFileName(string seriesDisplayOrder, int? seasonNumber, int? episodeNumber)
+        {
+            if (string.Equals(seriesDisplayOrder, "absolute", StringComparison.OrdinalIgnoreCase))
+            {
+                return string.Format("episode-abs-{0}.xml", episodeNumber);
+            }
+            else if (string.Equals(seriesDisplayOrder, "dvd", StringComparison.OrdinalIgnoreCase))
+            {
+                return string.Format("episode-dvd-{0}-{1}.xml", seasonNumber.Value, episodeNumber);
+            }
+            else
+            {
+                return string.Format("episode-{0}-{1}.xml", seasonNumber.Value, episodeNumber);
+            }
+        }
+
+        private FileSystemMetadata GetEpisodeFileInfoWithFallback(string seriesDataPath, string seriesDisplayOrder, int? seasonNumber, int? episodeNumber)
+        {
+            var file = Path.Combine(seriesDataPath, GetEpisodeFileName(seriesDisplayOrder, seasonNumber, episodeNumber));
+            var fileInfo = _fileSystem.GetFileInfo(file);
+
+            if (fileInfo.Exists)
+            {
+                return fileInfo;
+            }
+
+            if (!seasonNumber.HasValue)
+            {
+                return fileInfo;
+            }
+
+            // revert to aired order
+            if (string.Equals(seriesDisplayOrder, "absolute", StringComparison.OrdinalIgnoreCase) || string.Equals(seriesDisplayOrder, "dvd", StringComparison.OrdinalIgnoreCase))
+            {
+                file = Path.Combine(seriesDataPath, GetEpisodeFileName(null, seasonNumber, episodeNumber));
+                return _fileSystem.GetFileInfo(file);
+            }
+
+            return fileInfo;
+        }
+
+        private List<FileSystemMetadata> GetEpisodeXmlFiles(string seriesDisplayOrder, int? seasonNumber, int? episodeNumber, int? endingEpisodeNumber, string seriesDataPath)
         {
             var files = new List<FileSystemMetadata>();
 
@@ -248,27 +292,16 @@ namespace MediaBrowser.Providers.TV
                 return files;
             }
 
-            var usingAbsoluteData = false;
-
-            if (seasonNumber.HasValue)
+            if (!seasonNumber.HasValue)
             {
-                var file = Path.Combine(seriesDataPath, string.Format("episode-{0}-{1}.xml", seasonNumber.Value, episodeNumber));
-                var fileInfo = _fileSystem.GetFileInfo(file);
-
-                if (fileInfo.Exists)
-                {
-                    files.Add(fileInfo);
-                }
+                seriesDisplayOrder = "absolute";
             }
-            else
+
+            var fileInfo = GetEpisodeFileInfoWithFallback(seriesDataPath, seriesDisplayOrder, seasonNumber, episodeNumber);
+
+            if (fileInfo.Exists)
             {
-                usingAbsoluteData = true;
-                var file = Path.Combine(seriesDataPath, string.Format("episode-abs-{0}.xml", episodeNumber));
-                var fileInfo = _fileSystem.GetFileInfo(file);
-                if (fileInfo.Exists)
-                {
-                    files.Add(fileInfo);
-                }
+                files.Add(fileInfo);
             }
 
             var end = endingEpisodeNumber ?? episodeNumber;
@@ -276,18 +309,8 @@ namespace MediaBrowser.Providers.TV
 
             while (episodeNumber <= end)
             {
-                string file;
+                fileInfo = GetEpisodeFileInfoWithFallback(seriesDataPath, seriesDisplayOrder, seasonNumber, episodeNumber);
 
-                if (usingAbsoluteData)
-                {
-                    file = Path.Combine(seriesDataPath, string.Format("episode-abs-{0}.xml", episodeNumber));
-                }
-                else
-                {
-                    file = Path.Combine(seriesDataPath, string.Format("episode-{0}-{1}.xml", seasonNumber.Value, episodeNumber));
-                }
-
-                var fileInfo = _fileSystem.GetFileInfo(file);
                 if (fileInfo.Exists)
                 {
                     files.Add(fileInfo);
@@ -480,83 +503,7 @@ namespace MediaBrowser.Providers.TV
                                     break;
                                 }
 
-                            case "DVD_episodenumber":
-                                {
-                                    var val = reader.ReadElementContentAsString();
-
-                                    if (!string.IsNullOrWhiteSpace(val))
-                                    {
-                                        float num;
-
-                                        if (float.TryParse(val, NumberStyles.Any, _usCulture, out num))
-                                        {
-                                            item.DvdEpisodeNumber = num;
-                                        }
-                                    }
-
-                                    break;
-                                }
-
-                            case "DVD_season":
-                                {
-                                    var val = reader.ReadElementContentAsString();
-
-                                    if (!string.IsNullOrWhiteSpace(val))
-                                    {
-                                        float num;
-
-                                        if (float.TryParse(val, NumberStyles.Any, _usCulture, out num))
-                                        {
-                                            item.DvdSeasonNumber = Convert.ToInt32(num);
-                                        }
-                                    }
-
-                                    break;
-                                }
-
                             case "EpisodeNumber":
-                                {
-                                    var val = reader.ReadElementContentAsString();
-
-                                    if (!item.IndexNumber.HasValue)
-                                    {
-                                        if (!string.IsNullOrWhiteSpace(val))
-                                        {
-                                            int rval;
-
-                                            // int.TryParse is local aware, so it can be probamatic, force us culture
-                                            if (int.TryParse(val, NumberStyles.Integer, _usCulture, out rval))
-                                            {
-                                                item.IndexNumber = rval;
-                                            }
-                                        }
-                                    }
-
-                                    break;
-                                }
-
-                            case "SeasonNumber":
-                                {
-                                    var val = reader.ReadElementContentAsString();
-
-                                    if (!item.ParentIndexNumber.HasValue)
-                                    {
-                                        if (!string.IsNullOrWhiteSpace(val))
-                                        {
-                                            int rval;
-
-                                            // int.TryParse is local aware, so it can be probamatic, force us culture
-                                            if (int.TryParse(val, NumberStyles.Integer, _usCulture, out rval))
-                                            {
-                                                item.ParentIndexNumber = rval;
-                                            }
-                                        }
-                                    }
-
-                                    break;
-                                }
-
-                            case "absolute_number":
                                 {
                                     var val = reader.ReadElementContentAsString();
 
@@ -567,7 +514,25 @@ namespace MediaBrowser.Providers.TV
                                         // int.TryParse is local aware, so it can be probamatic, force us culture
                                         if (int.TryParse(val, NumberStyles.Integer, _usCulture, out rval))
                                         {
-                                            item.AbsoluteEpisodeNumber = rval;
+                                            item.IndexNumber = rval;
+                                        }
+                                    }
+
+                                    break;
+                                }
+
+                            case "SeasonNumber":
+                                {
+                                    var val = reader.ReadElementContentAsString();
+
+                                    if (!string.IsNullOrWhiteSpace(val))
+                                    {
+                                        int rval;
+
+                                        // int.TryParse is local aware, so it can be probamatic, force us culture
+                                        if (int.TryParse(val, NumberStyles.Integer, _usCulture, out rval))
+                                        {
+                                            item.ParentIndexNumber = rval;
                                         }
                                     }
 
@@ -787,30 +752,32 @@ namespace MediaBrowser.Providers.TV
         private void AddGuestStars<T>(MetadataResult<T> result, string val)
             where T : BaseItem
         {
-            // Sometimes tvdb actors have leading spaces
-            //Regex Info:
-            //The first block are the posible delimitators (open-parentheses should be there cause if dont the next block will fail)
-            //The second block Allow the delimitators to be part of the text if they're inside parentheses
-            var persons = Regex.Matches(val, @"(?<delimitators>([^|,(])|(?<ignoreinParentheses>\([^)]*\)*))+")
-                .Cast<Match>()
-                .Select(m => m.Value)
-                .Where(i => !string.IsNullOrWhiteSpace(i) && !string.IsNullOrEmpty(i));
+            // example:
+            // <GuestStars>|Mark C. Thomas|  Dennis Kiefer|  David Nelson (David)|  Angela Nicholas|  Tzi Ma|  Kevin P. Kearns (Pasco)|</GuestStars>
+            var persons = val.Split('|')
+                .Select(i => i.Trim())
+                .Where(i => !string.IsNullOrWhiteSpace(i))
+                .ToList();
 
-            foreach (var person in persons.Select(str =>
+            foreach (var person in persons)
             {
-                var nameGroup = str.Split(new[] { '(' }, 2, StringSplitOptions.RemoveEmptyEntries);
-                var name = nameGroup[0].Trim();
-                var roles = nameGroup.Count() > 1 ? nameGroup[1].Trim() : null;
-                if (roles != null)
-                    roles = roles.EndsWith(")") ? roles.Substring(0, roles.Length - 1) : roles;
+                var index = person.IndexOf('(');
+                string role = null;
+                var name = person;
 
-                return new PersonInfo { Type = PersonType.GuestStar, Name = name, Role = roles };
-            }))
-            {
-                if (!string.IsNullOrWhiteSpace(person.Name))
+                if (index != -1)
                 {
-                    result.AddPerson(person);
+                    role = person.Substring(index + 1).Trim().TrimEnd(')');
+
+                    name = person.Substring(0, index).Trim();
                 }
+
+                result.AddPerson(new PersonInfo
+                {
+                    Type = PersonType.GuestStar,
+                    Name = name,
+                    Role = role
+                });
             }
         }
 

@@ -169,7 +169,6 @@ namespace MediaBrowser.Controller.Library
         /// <param name="itemComparers">The item comparers.</param>
         /// <param name="postscanTasks">The postscan tasks.</param>
         void AddParts(IEnumerable<IResolverIgnoreRule> rules,
-            IEnumerable<IVirtualFolderCreator> pluginFolders,
             IEnumerable<IItemResolver> resolvers,
             IEnumerable<IIntroProvider> introProviders,
             IEnumerable<IBaseItemComparer> itemComparers,
@@ -195,7 +194,7 @@ namespace MediaBrowser.Controller.Library
         /// <summary>
         /// Creates the item.
         /// </summary>
-        void CreateItem(BaseItem item, CancellationToken cancellationToken);
+        void CreateItem(BaseItem item, BaseItem parent);
 
         /// <summary>
         /// Creates the items.
@@ -205,7 +204,8 @@ namespace MediaBrowser.Controller.Library
         /// <summary>
         /// Updates the item.
         /// </summary>
-        void UpdateItem(BaseItem item, ItemUpdateType updateReason, CancellationToken cancellationToken);
+        void UpdateItems(List<BaseItem> items, BaseItem parent, ItemUpdateType updateReason, CancellationToken cancellationToken);
+        void UpdateItem(BaseItem item, BaseItem parent, ItemUpdateType updateReason, CancellationToken cancellationToken);
 
         /// <summary>
         /// Retrieves the item.
@@ -229,12 +229,7 @@ namespace MediaBrowser.Controller.Library
         /// Occurs when [item removed].
         /// </summary>
         event EventHandler<ItemChangeEventArgs> ItemRemoved;
-
-        /// <summary>
-        /// Reports the item removed.
-        /// </summary>
-        void ReportItemRemoved(BaseItem item, BaseItem parent);
-
+		
 		//myproduction-change-start
 		event EventHandler<PlaybackProgressEventArgs> ItemDownloaded;
 		event EventHandler<PlaybackProgressEventArgs> ItemStreamedInExternalPlayer;
@@ -242,12 +237,12 @@ namespace MediaBrowser.Controller.Library
 		void ReportItemStreamedInExternalPlayer(BaseItem item, User user, String clientName, String deviceName);
 		//myproduction-change-end
 
-		/// <summary>
-		/// Finds the type of the collection.
-		/// </summary>
-		/// <param name="item">The item.</param>
-		/// <returns>System.String.</returns>
-		string GetContentType(BaseItem item);
+        /// <summary>
+        /// Finds the type of the collection.
+        /// </summary>
+        /// <param name="item">The item.</param>
+        /// <returns>System.String.</returns>
+        string GetContentType(BaseItem item);
 
         /// <summary>
         /// Gets the type of the inherited content.
@@ -286,10 +281,17 @@ namespace MediaBrowser.Controller.Library
         /// <summary>
         /// Deletes the item.
         /// </summary>
-        /// <param name="item">The item.</param>
-        /// <param name="options">The options.</param>
-        /// <returns>Task.</returns>
-        Task DeleteItem(BaseItem item, DeleteOptions options);
+        void DeleteItem(BaseItem item, DeleteOptions options);
+
+        /// <summary>
+        /// Deletes the item.
+        /// </summary>
+        void DeleteItem(BaseItem item, DeleteOptions options, bool notifyParentItem);
+
+        /// <summary>
+        /// Deletes the item.
+        /// </summary>
+        void DeleteItem(BaseItem item, DeleteOptions options, BaseItem parent, bool notifyParentItem);
 
         /// <summary>
         /// Gets the named view.
@@ -299,14 +301,11 @@ namespace MediaBrowser.Controller.Library
         /// <param name="parentId">The parent identifier.</param>
         /// <param name="viewType">Type of the view.</param>
         /// <param name="sortName">Name of the sort.</param>
-        /// <param name="cancellationToken">The cancellation token.</param>
-        /// <returns>Task&lt;UserView&gt;.</returns>
         UserView GetNamedView(User user,
             string name,
             string parentId,
             string viewType,
-            string sortName,
-            CancellationToken cancellationToken);
+            string sortNamen);
 
         /// <summary>
         /// Gets the named view.
@@ -315,13 +314,10 @@ namespace MediaBrowser.Controller.Library
         /// <param name="name">The name.</param>
         /// <param name="viewType">Type of the view.</param>
         /// <param name="sortName">Name of the sort.</param>
-        /// <param name="cancellationToken">The cancellation token.</param>
-        /// <returns>Task&lt;UserView&gt;.</returns>
         UserView GetNamedView(User user,
             string name,
             string viewType,
-            string sortName,
-            CancellationToken cancellationToken);
+            string sortName);
 
         /// <summary>
         /// Gets the named view.
@@ -329,11 +325,9 @@ namespace MediaBrowser.Controller.Library
         /// <param name="name">The name.</param>
         /// <param name="viewType">Type of the view.</param>
         /// <param name="sortName">Name of the sort.</param>
-        /// <param name="cancellationToken">The cancellation token.</param>
         UserView GetNamedView(string name,
             string viewType,
-            string sortName,
-            CancellationToken cancellationToken);
+            string sortName);
 
         /// <summary>
         /// Gets the named view.
@@ -343,13 +337,11 @@ namespace MediaBrowser.Controller.Library
         /// <param name="viewType">Type of the view.</param>
         /// <param name="sortName">Name of the sort.</param>
         /// <param name="uniqueId">The unique identifier.</param>
-        /// <param name="cancellationToken">The cancellation token.</param>
         UserView GetNamedView(string name,
             string parentId,
             string viewType,
             string sortName,
-            string uniqueId,
-            CancellationToken cancellationToken);
+            string uniqueId);
 
         /// <summary>
         /// Gets the shadow view.
@@ -357,12 +349,9 @@ namespace MediaBrowser.Controller.Library
         /// <param name="parent">The parent.</param>
         /// <param name="viewType">Type of the view.</param>
         /// <param name="sortName">Name of the sort.</param>
-        /// <param name="cancellationToken">The cancellation token.</param>
-        /// <returns>Task&lt;UserView&gt;.</returns>
         UserView GetShadowView(BaseItem parent,
           string viewType,
-          string sortName,
-          CancellationToken cancellationToken);
+          string sortName);
 
         /// <summary>
         /// Determines whether [is video file] [the specified path].
@@ -391,9 +380,7 @@ namespace MediaBrowser.Controller.Library
         /// <summary>
         /// Fills the missing episode numbers from path.
         /// </summary>
-        /// <param name="episode">The episode.</param>
-        /// <returns><c>true</c> if XXXX, <c>false</c> otherwise.</returns>
-        bool FillMissingEpisodeNumbersFromPath(Episode episode);
+        bool FillMissingEpisodeNumbersFromPath(Episode episode, bool forceRefresh);
 
         /// <summary>
         /// Parses the name.
@@ -508,7 +495,7 @@ namespace MediaBrowser.Controller.Library
         /// <param name="image">The image.</param>
         /// <param name="imageIndex">Index of the image.</param>
         /// <returns>Task.</returns>
-        Task<ItemImageInfo> ConvertImageToLocal(IHasMetadata item, ItemImageInfo image, int imageIndex);
+        Task<ItemImageInfo> ConvertImageToLocal(BaseItem item, ItemImageInfo image, int imageIndex);
 
         /// <summary>
         /// Gets the items.
@@ -547,8 +534,8 @@ namespace MediaBrowser.Controller.Library
 
         Guid GetGameGenreId(string name);
 
-        void AddVirtualFolder(string name, string collectionType, LibraryOptions options, bool refreshLibrary);
-        void RemoveVirtualFolder(string name, bool refreshLibrary);
+        Task AddVirtualFolder(string name, string collectionType, LibraryOptions options, bool refreshLibrary);
+        Task RemoveVirtualFolder(string name, bool refreshLibrary);
         void AddMediaPath(string virtualFolderName, MediaPathInfo path);
         void UpdateMediaPath(string virtualFolderName, MediaPathInfo path);
         void RemoveMediaPath(string virtualFolderName, string path);
@@ -562,10 +549,10 @@ namespace MediaBrowser.Controller.Library
         QueryResult<Tuple<BaseItem, ItemCounts>> GetAllArtists(InternalItemsQuery query);
 
         int GetCount(InternalItemsQuery query);
-
+		
 		//myproduction-change-start
 		//Added LibraryStatistics
 		Model.Library.LibraryStatistics Statistics { get; set; }
 		//myproduction-change-end
-	}
+    }
 }

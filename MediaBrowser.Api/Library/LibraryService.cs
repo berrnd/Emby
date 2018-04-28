@@ -30,6 +30,8 @@ using MediaBrowser.Model.Services;
 using MediaBrowser.Common.Extensions;
 using MediaBrowser.Common.Progress;
 using MediaBrowser.Model.Extensions;
+using MediaBrowser.Controller.Providers;
+using MediaBrowser.Model.Configuration;
 
 namespace MediaBrowser.Api.Library
 {
@@ -50,7 +52,7 @@ namespace MediaBrowser.Api.Library
     /// </summary>
     [Route("/Items/{Id}/CriticReviews", "GET", Summary = "Gets critic reviews for an item")]
     [Authenticated]
-    public class GetCriticReviews : IReturn<QueryResult<ItemReview>>
+    public class GetCriticReviews : IReturn<QueryResult<BaseItemDto>>
     {
         /// <summary>
         /// Gets or sets the id.
@@ -201,21 +203,6 @@ namespace MediaBrowser.Api.Library
         public string Id { get; set; }
     }
 
-    [Route("/Items/YearIndex", "GET", Summary = "Gets a year index based on an item query.")]
-    [Authenticated]
-    public class GetYearIndex : IReturn<List<ItemIndex>>
-    {
-        /// <summary>
-        /// Gets or sets the user id.
-        /// </summary>
-        /// <value>The user id.</value>
-        [ApiMember(Name = "UserId", Description = "Optional. Filter by user id, and attach user data", IsRequired = false, DataType = "string", ParameterType = "query", Verb = "GET")]
-        public string UserId { get; set; }
-
-        [ApiMember(Name = "IncludeItemTypes", Description = "Optional. If specified, results will be filtered based on item type. This allows multiple, comma delimeted.", IsRequired = false, DataType = "string", ParameterType = "query", Verb = "GET", AllowMultiple = true)]
-        public string IncludeItemTypes { get; set; }
-    }
-
     /// <summary>
     /// Class GetPhyscialPaths
     /// </summary>
@@ -253,6 +240,22 @@ namespace MediaBrowser.Api.Library
         public string ImdbId { get; set; }
     }
 
+    public class MediaUpdateInfo
+    {
+        public string Path { get; set; }
+
+        // Created, Modified, Deleted
+        public string UpdateType { get; set; }
+    }
+
+    [Route("/Library/Media/Updated", "POST", Summary = "Reports that new movies have been added by an external source")]
+    [Authenticated]
+    public class PostUpdatedMedia : IReturnVoid
+    {
+        [ApiMember(Name = "Updates", Description = "A list of updated media paths", IsRequired = false, DataType = "string", ParameterType = "body", Verb = "POST")]
+        public List<MediaUpdateInfo> Updates { get; set; }
+    }
+
     [Route("/Items/{Id}/Download", "GET", Summary = "Downloads item media")]
     [Authenticated(Roles = "download")]
     public class GetDownload
@@ -286,6 +289,35 @@ namespace MediaBrowser.Api.Library
     {
     }
 
+    [Route("/Libraries/AvailableOptions", "GET")]
+    [Authenticated]
+    public class GetLibraryOptionsInfo : IReturn<LibraryOptionsResult>
+    {
+        public string LibraryContentType { get; set; }
+        public bool IsNewLibrary { get; set; }
+    }
+
+    public class LibraryOptionInfo
+    {
+        public string Name { get; set; }
+        public bool DefaultEnabled { get; set; }
+    }
+
+    public class LibraryOptionsResult
+    {
+        public LibraryOptionInfo[] MetadataSavers { get; set; }
+        public LibraryOptionInfo[] MetadataReaders { get; set; }
+        public LibraryOptionInfo[] SubtitleFetchers { get; set; }
+        public LibraryTypeOptions[] TypeOptions { get; set; }
+    }
+
+    public class LibraryTypeOptions
+    {
+        public string Type { get; set; }
+        public LibraryOptionInfo[] MetadataFetchers { get; set; }
+        public LibraryOptionInfo[] ImageFetchers { get; set; }
+    }
+
     /// <summary>
     /// Class LibraryService
     /// </summary>
@@ -309,11 +341,12 @@ namespace MediaBrowser.Api.Library
         private readonly ILibraryMonitor _libraryMonitor;
         private readonly IFileSystem _fileSystem;
         private readonly IServerConfigurationManager _config;
+        private readonly IProviderManager _providerManager;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="LibraryService" /> class.
         /// </summary>
-        public LibraryService(IItemRepository itemRepo, ILibraryManager libraryManager, IUserManager userManager,
+        public LibraryService(IProviderManager providerManager, IItemRepository itemRepo, ILibraryManager libraryManager, IUserManager userManager,
                               IDtoService dtoService, IUserDataManager userDataManager, IAuthorizationContext authContext, IActivityManager activityManager, ILocalizationManager localization, ILiveTvManager liveTv, ITVSeriesManager tvManager, ILibraryMonitor libraryMonitor, IFileSystem fileSystem, IServerConfigurationManager config)
         {
             _itemRepo = itemRepo;
@@ -329,6 +362,262 @@ namespace MediaBrowser.Api.Library
             _libraryMonitor = libraryMonitor;
             _fileSystem = fileSystem;
             _config = config;
+            _providerManager = providerManager;
+        }
+
+        private string[] GetRepresentativeItemTypes(string contentType)
+        {
+            switch (contentType)
+            {
+                case CollectionType.Movies:
+                    return new string[] { "Movie" };
+                case CollectionType.TvShows:
+                    return new string[] { "Series", "Season", "Episode" };
+                case CollectionType.Books:
+                    return new string[] { "Book" };
+                case CollectionType.Games:
+                    return new string[] { "Game", "GameSystem" };
+                case CollectionType.Music:
+                    return new string[] { "MusicAlbum", "MusicArtist", "Audio", "MusicVideo" };
+                case CollectionType.HomeVideos:
+                case CollectionType.Photos:
+                    return new string[] { "Video", "Photo" };
+                case CollectionType.MusicVideos:
+                    return new string[] { "MusicVideo" };
+                default:
+                    return new string[] { "Series", "Season", "Episode", "Movie" };
+            }
+        }
+
+        private bool IsSaverEnabledByDefault(string name, string[] itemTypes, bool isNewLibrary)
+        {
+            if (isNewLibrary)
+            {
+                return false;
+            }
+
+            var metadataOptions = _config.Configuration.MetadataOptions
+                .Where(i => itemTypes.Contains(i.ItemType ?? string.Empty, StringComparer.OrdinalIgnoreCase))
+                .ToArray();
+
+            if (metadataOptions.Length == 0)
+            {
+                return true;
+            }
+
+            return metadataOptions.Any(i => !i.DisabledMetadataSavers.Contains(name, StringComparer.OrdinalIgnoreCase));
+        }
+
+        private bool IsMetadataFetcherEnabledByDefault(string name, string type, bool isNewLibrary)
+        {
+            if (isNewLibrary)
+            {
+                if (string.Equals(name, "TheMovieDb", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (string.Equals(type, "Series", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return false;
+                    }
+                    if (string.Equals(type, "Season", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return false;
+                    }
+                    if (string.Equals(type, "Episode", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return false;
+                    }
+                    if (string.Equals(type, "MusicVideo", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return false;
+                    }
+                    return true;
+                }
+                else if (string.Equals(name, "TheTVDB", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+                else if (string.Equals(name, "The Open Movie Database", StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+                else if (string.Equals(name, "TheAudioDB", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+                else if (string.Equals(name, "MusicBrainz", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+
+                return false;
+            }
+
+            var metadataOptions = _config.Configuration.MetadataOptions
+                .Where(i => string.Equals(i.ItemType, type, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+
+            if (metadataOptions.Length == 0)
+            {
+                return true;
+            }
+
+            return metadataOptions.Any(i => !i.DisabledMetadataFetchers.Contains(name, StringComparer.OrdinalIgnoreCase));
+        }
+
+        private bool IsImageFetcherEnabledByDefault(string name, string type, bool isNewLibrary)
+        {
+            if (isNewLibrary)
+            {
+                if (string.Equals(name, "TheMovieDb", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (string.Equals(type, "Series", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return false;
+                    }
+                    if (string.Equals(type, "Season", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return false;
+                    }
+                    if (string.Equals(type, "Episode", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return false;
+                    }
+                    if (string.Equals(type, "MusicVideo", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return false;
+                    }
+                    return true;
+                }
+                else if (string.Equals(name, "TheTVDB", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+                else if (string.Equals(name, "The Open Movie Database", StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+                else if (string.Equals(name, "FanArt", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (string.Equals(type, "Season", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return false;
+                    }
+                    if (string.Equals(type, "MusicVideo", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return false;
+                    }
+                    return true;
+                }
+                else if (string.Equals(name, "TheAudioDB", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+                else if (string.Equals(name, "Emby Designs", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+                else if (string.Equals(name, "Screen Grabber", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+                else if (string.Equals(name, "Image Extractor", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+
+                return false;
+            }
+
+            var metadataOptions = _config.Configuration.MetadataOptions
+                .Where(i => string.Equals(i.ItemType, type, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+
+            if (metadataOptions.Length == 0)
+            {
+                return true;
+            }
+
+            return metadataOptions.Any(i => !i.DisabledImageFetchers.Contains(name, StringComparer.OrdinalIgnoreCase));
+        }
+
+        public object Get(GetLibraryOptionsInfo request)
+        {
+            var result = new LibraryOptionsResult();
+
+            var types = GetRepresentativeItemTypes(request.LibraryContentType);
+            var isNewLibrary = request.IsNewLibrary;
+            var typesList = types.ToList();
+
+            var plugins = _providerManager.GetAllMetadataPlugins()
+                .Where(i => types.Contains(i.ItemType, StringComparer.OrdinalIgnoreCase))
+                .OrderBy(i => typesList.IndexOf(i.ItemType))
+                .ToList();
+
+            result.MetadataSavers = plugins
+                .SelectMany(i => i.Plugins.Where(p => p.Type == MetadataPluginType.MetadataSaver))
+                .Select(i => new LibraryOptionInfo
+                {
+                    Name = i.Name,
+                    DefaultEnabled = IsSaverEnabledByDefault(i.Name, types, isNewLibrary)
+                })
+                .DistinctBy(i => i.Name, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            result.MetadataReaders = plugins
+                .SelectMany(i => i.Plugins.Where(p => p.Type == MetadataPluginType.LocalMetadataProvider))
+                .Select(i => new LibraryOptionInfo
+                {
+                    Name = i.Name,
+                    DefaultEnabled = true
+                })
+                .DistinctBy(i => i.Name, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            result.SubtitleFetchers = plugins
+                .SelectMany(i => i.Plugins.Where(p => p.Type == MetadataPluginType.SubtitleFetcher))
+                .Select(i => new LibraryOptionInfo
+                {
+                    Name = i.Name,
+                    DefaultEnabled = true
+                })
+                .DistinctBy(i => i.Name, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            var typeOptions = new List<LibraryTypeOptions>();
+
+            foreach (var type in types)
+            {
+                typeOptions.Add(new LibraryTypeOptions
+                {
+                    Type = type,
+
+                    MetadataFetchers = plugins
+                    .Where(i => string.Equals(i.ItemType, type, StringComparison.OrdinalIgnoreCase))
+                    .SelectMany(i => i.Plugins.Where(p => p.Type == MetadataPluginType.MetadataFetcher))
+                    .Select(i => new LibraryOptionInfo
+                    {
+                        Name = i.Name,
+                        DefaultEnabled = IsMetadataFetcherEnabledByDefault(i.Name, type, isNewLibrary)
+                    })
+                    .DistinctBy(i => i.Name, StringComparer.OrdinalIgnoreCase)
+                    .ToArray(),
+
+                    ImageFetchers = plugins
+                    .Where(i => string.Equals(i.ItemType, type, StringComparison.OrdinalIgnoreCase))
+                    .SelectMany(i => i.Plugins.Where(p => p.Type == MetadataPluginType.ImageFetcher))
+                    .Select(i => new LibraryOptionInfo
+                    {
+                        Name = i.Name,
+                        DefaultEnabled = IsImageFetcherEnabledByDefault(i.Name, type, isNewLibrary)
+                    })
+                    .DistinctBy(i => i.Name, StringComparer.OrdinalIgnoreCase)
+                    .ToArray()
+                });
+            }
+
+            result.TypeOptions = typeOptions.ToArray();
+
+            return result;
         }
 
         public object Get(GetSimilarItems request)
@@ -336,7 +625,7 @@ namespace MediaBrowser.Api.Library
             var user = !string.IsNullOrWhiteSpace(request.UserId) ? _userManager.GetUserById(request.UserId) : null;
 
             var item = string.IsNullOrEmpty(request.Id) ?
-                (!string.IsNullOrWhiteSpace(request.UserId) ? user.RootFolder :
+                (!string.IsNullOrWhiteSpace(request.UserId) ? _libraryManager.GetUserRootFolder() :
                 _libraryManager.RootFolder) : _libraryManager.GetItemById(request.Id);
 
             if (item is Game)
@@ -443,7 +732,7 @@ namespace MediaBrowser.Api.Library
                 Items = items.Select(i => _dtoService.GetBaseItemDto(i, dtoOptions)).ToArray()
             };
 
-            return ToOptimizedResult(result);
+            return result;
         }
 
         public void Post(PostUpdatedSeries request)
@@ -458,16 +747,20 @@ namespace MediaBrowser.Api.Library
 
             }).Where(i => string.Equals(request.TvdbId, i.GetProviderId(MetadataProviders.Tvdb), StringComparison.OrdinalIgnoreCase)).ToArray();
 
-            if (series.Length > 0)
+            foreach (var item in series)
             {
-                foreach (var item in series)
+                _libraryMonitor.ReportFileSystemChanged(item.Path);
+            }
+        }
+
+        public void Post(PostUpdatedMedia request)
+        {
+            if (request.Updates != null)
+            {
+                foreach (var item in request.Updates)
                 {
                     _libraryMonitor.ReportFileSystemChanged(item.Path);
                 }
-            }
-            else
-            {
-                Task.Run(() => _libraryManager.ValidateMediaLibrary(new SimpleProgress<double>(), CancellationToken.None));
             }
         }
 
@@ -496,16 +789,9 @@ namespace MediaBrowser.Api.Library
                 movies = new List<BaseItem>();
             }
 
-            if (movies.Count > 0)
+            foreach (var item in movies)
             {
-                foreach (var item in movies)
-                {
-                    _libraryMonitor.ReportFileSystemChanged(item.Path);
-                }
-            }
-            else
-            {
-                Task.Run(() => _libraryManager.ValidateMediaLibrary(new SimpleProgress<double>(), CancellationToken.None));
+                _libraryMonitor.ReportFileSystemChanged(item.Path);
             }
         }
 
@@ -635,8 +921,8 @@ namespace MediaBrowser.Api.Library
         public Task<object> Get(GetFile request)
         {
             var item = _libraryManager.GetItemById(request.Id);
-            var locationType = item.LocationType;
-            if (locationType == LocationType.Remote || locationType == LocationType.Virtual)
+
+            if (!item.IsFileProtocol)
             {
                 throw new ArgumentException("This command cannot be used for remote or virtual items.");
             }
@@ -710,7 +996,7 @@ namespace MediaBrowser.Api.Library
         {
             if (item.GetParent() is AggregateFolder)
             {
-                return user.RootFolder.GetChildren(user, true).FirstOrDefault(i => i.PhysicalLocations.Contains(item.Path));
+                return _libraryManager.GetUserRootFolder().GetChildren(user, true).FirstOrDefault(i => i.PhysicalLocations.Contains(item.Path));
             }
 
             return item;
@@ -723,9 +1009,7 @@ namespace MediaBrowser.Api.Library
         /// <returns>System.Object.</returns>
         public object Get(GetCriticReviews request)
         {
-            var result = GetCriticReviews(request);
-
-            return ToOptimizedSerializedResultUsingCache(result);
+            return new QueryResult<BaseItemDto>();
         }
 
         /// <summary>
@@ -803,10 +1087,10 @@ namespace MediaBrowser.Api.Library
         public void Delete(DeleteItems request)
         {
             var ids = string.IsNullOrWhiteSpace(request.Ids)
-             ? new string[] { }
+             ? Array.Empty<string>()
              : request.Ids.Split(',');
 
-            var tasks = ids.Select(i =>
+            foreach (var i in ids)
             {
                 var item = _libraryManager.GetItemById(i);
                 var auth = _authContext.GetAuthorizationInfo(Request);
@@ -819,17 +1103,15 @@ namespace MediaBrowser.Api.Library
                         throw new SecurityException("Unauthorized access");
                     }
 
-                    return Task.FromResult(true);
+                    continue;
                 }
 
-                return item.Delete(new DeleteOptions
+                _libraryManager.DeleteItem(item, new DeleteOptions
                 {
                     DeleteFileLocation = true
-                });
 
-            }).ToArray(ids.Length);
-
-            Task.WaitAll(tasks);
+                }, true);
+            }
         }
 
         /// <summary>
@@ -842,36 +1124,6 @@ namespace MediaBrowser.Api.Library
             {
                 Ids = request.Id
             });
-        }
-
-        /// <summary>
-        /// Gets the critic reviews async.
-        /// </summary>
-        /// <param name="request">The request.</param>
-        /// <returns>Task{ItemReviewsResult}.</returns>
-        private QueryResult<ItemReview> GetCriticReviews(GetCriticReviews request)
-        {
-            var reviews = _itemRepo.GetCriticReviews(new Guid(request.Id));
-
-            var reviewsArray = reviews.ToArray(reviews.Count);
-
-            var result = new QueryResult<ItemReview>
-            {
-                TotalRecordCount = reviewsArray.Length
-            };
-
-            if (request.StartIndex.HasValue)
-            {
-                reviewsArray = reviewsArray.Skip(request.StartIndex.Value).ToArray();
-            }
-            if (request.Limit.HasValue)
-            {
-                reviewsArray = reviewsArray.Take(request.Limit.Value).ToArray();
-            }
-
-            result.Items = reviewsArray;
-
-            return result;
         }
 
         public object Get(GetThemeMedia request)
@@ -919,7 +1171,7 @@ namespace MediaBrowser.Api.Library
 
             var item = string.IsNullOrEmpty(request.Id)
                            ? (!string.IsNullOrWhiteSpace(request.UserId)
-                                  ? user.RootFolder
+                                  ? _libraryManager.GetUserRootFolder()
                                   : (Folder)_libraryManager.RootFolder)
                            : _libraryManager.GetItemById(request.Id);
 
@@ -928,9 +1180,17 @@ namespace MediaBrowser.Api.Library
                 throw new ResourceNotFoundException("Item not found.");
             }
 
-            while (item.ThemeSongIds.Length == 0 && request.InheritFromParent && item.GetParent() != null)
+            if (request.InheritFromParent)
             {
-                item = item.GetParent();
+                while (item.ThemeSongIds.Length == 0)
+                {
+                    var parent = item.GetParent();
+                    if (parent == null)
+                    {
+                        break;
+                    }
+                    item = parent;
+                }
             }
 
             var dtoOptions = GetDtoOptions(_authContext, request);
@@ -968,7 +1228,7 @@ namespace MediaBrowser.Api.Library
 
             var item = string.IsNullOrEmpty(request.Id)
                            ? (!string.IsNullOrWhiteSpace(request.UserId)
-                                  ? user.RootFolder
+                                  ? _libraryManager.GetUserRootFolder()
                                   : (Folder)_libraryManager.RootFolder)
                            : _libraryManager.GetItemById(request.Id);
 
@@ -977,9 +1237,17 @@ namespace MediaBrowser.Api.Library
                 throw new ResourceNotFoundException("Item not found.");
             }
 
-            while (item.ThemeVideoIds.Length == 0 && request.InheritFromParent && item.GetParent() != null)
+            if (request.InheritFromParent)
             {
-                item = item.GetParent();
+                while (item.ThemeVideoIds.Length == 0)
+                {
+                    var parent = item.GetParent();
+                    if (parent == null)
+                    {
+                        break;
+                    }
+                    item = parent;
+                }
             }
 
             var dtoOptions = GetDtoOptions(_authContext, request);
@@ -997,41 +1265,6 @@ namespace MediaBrowser.Api.Library
                 TotalRecordCount = items.Length,
                 OwnerId = _dtoService.GetDtoId(item)
             };
-        }
-
-        private readonly CultureInfo _usCulture = new CultureInfo("en-US");
-
-        public object Get(GetYearIndex request)
-        {
-            var includeTypes = string.IsNullOrWhiteSpace(request.IncludeItemTypes)
-             ? new string[] { }
-             : request.IncludeItemTypes.Split(',');
-
-            var user = !string.IsNullOrWhiteSpace(request.UserId) ? _userManager.GetUserById(request.UserId) : null;
-
-            var query = new InternalItemsQuery(user)
-            {
-                IncludeItemTypes = includeTypes,
-                Recursive = true,
-                DtoOptions = new DtoOptions(false)
-                {
-                    EnableImages = false
-                }
-            };
-
-            var items = _libraryManager.GetItemList(query);
-
-            var lookup = items
-                .ToLookup(i => i.ProductionYear ?? -1)
-                .OrderBy(i => i.Key)
-                .Select(i => new ItemIndex
-                {
-                    ItemCount = i.Count(),
-                    Name = i.Key == -1 ? string.Empty : i.Key.ToString(_usCulture)
-                })
-                .ToList();
-
-            return ToOptimizedSerializedResultUsingCache(lookup);
         }
     }
 }

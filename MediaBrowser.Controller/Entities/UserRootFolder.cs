@@ -70,13 +70,16 @@ namespace MediaBrowser.Controller.Entities
             {
                 UserId = query.User.Id.ToString("N"),
                 PresetViews = query.PresetViews
+            });
 
-            }, CancellationToken.None).Result;
+            var itemsArray = result;
+            var totalCount = itemsArray.Length;
 
-            var user = query.User;
-            Func<BaseItem, bool> filter = i => UserViewBuilder.Filter(i, user, query, UserDataManager, LibraryManager);
-
-            return PostFilterAndSort(result.Where(filter), query, true, true);
+            return new QueryResult<BaseItem>
+            {
+                TotalRecordCount = totalCount,
+                Items = itemsArray
+            };
         }
 
         public override int GetChildCount(User user)
@@ -110,11 +113,10 @@ namespace MediaBrowser.Controller.Entities
             return list;
         }
 
-        public override bool BeforeMetadataRefresh()
+        public override bool BeforeMetadataRefresh(bool replaceAllMetdata)
         {
             ClearCache();
-
-            var hasChanges = base.BeforeMetadataRefresh();
+            var hasChanges = base.BeforeMetadataRefresh(replaceAllMetdata);
 
             if (string.Equals("default", Name, StringComparison.OrdinalIgnoreCase))
             {

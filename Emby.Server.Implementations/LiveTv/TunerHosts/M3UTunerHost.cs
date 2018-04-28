@@ -18,6 +18,7 @@ using MediaBrowser.Controller.MediaEncoding;
 using MediaBrowser.Model.Serialization;
 using MediaBrowser.Model.System;
 using System.IO;
+using MediaBrowser.Controller.Library;
 
 namespace Emby.Server.Implementations.LiveTv.TunerHosts
 {
@@ -27,13 +28,15 @@ namespace Emby.Server.Implementations.LiveTv.TunerHosts
         private readonly IServerApplicationHost _appHost;
         private readonly IEnvironmentInfo _environment;
         private readonly INetworkManager _networkManager;
+        private readonly IMediaSourceManager _mediaSourceManager;
 
-        public M3UTunerHost(IServerConfigurationManager config, ILogger logger, IJsonSerializer jsonSerializer, IMediaEncoder mediaEncoder, IFileSystem fileSystem, IHttpClient httpClient, IServerApplicationHost appHost, IEnvironmentInfo environment, INetworkManager networkManager) : base(config, logger, jsonSerializer, mediaEncoder, fileSystem)
+        public M3UTunerHost(IServerConfigurationManager config, IMediaSourceManager mediaSourceManager, ILogger logger, IJsonSerializer jsonSerializer, IMediaEncoder mediaEncoder, IFileSystem fileSystem, IHttpClient httpClient, IServerApplicationHost appHost, IEnvironmentInfo environment, INetworkManager networkManager) : base(config, logger, jsonSerializer, mediaEncoder, fileSystem)
         {
             _httpClient = httpClient;
             _appHost = appHost;
             _environment = environment;
             _networkManager = networkManager;
+            _mediaSourceManager = mediaSourceManager;
         }
 
         public override string Type
@@ -76,7 +79,7 @@ namespace Emby.Server.Implementations.LiveTv.TunerHosts
             return Task.FromResult(list);
         }
 
-        private string[] _disallowedSharedStreamExtensions = new string[] 
+        private string[] _disallowedSharedStreamExtensions = new string[]
         {
             ".mkv",
             ".mp4",
@@ -84,7 +87,7 @@ namespace Emby.Server.Implementations.LiveTv.TunerHosts
             ".mpd"
         };
 
-        protected override async Task<ILiveStream> GetChannelStream(TunerHostInfo info, string channelId, string streamId, CancellationToken cancellationToken)
+        protected override async Task<ILiveStream> GetChannelStream(TunerHostInfo info, ChannelInfo channelInfo, string streamId, CancellationToken cancellationToken)
         {
             var tunerCount = info.TunerCount;
 
@@ -98,7 +101,7 @@ namespace Emby.Server.Implementations.LiveTv.TunerHosts
                 }
             }
 
-            var sources = await GetChannelStreamMediaSources(info, channelId, cancellationToken).ConfigureAwait(false);
+            var sources = await GetChannelStreamMediaSources(info, channelInfo, cancellationToken).ConfigureAwait(false);
 
             var mediaSource = sources.First();
 
@@ -123,41 +126,19 @@ namespace Emby.Server.Implementations.LiveTv.TunerHosts
             }
         }
 
-        protected override async Task<List<MediaSourceInfo>> GetChannelStreamMediaSources(TunerHostInfo info, string channelId, CancellationToken cancellationToken)
+        protected override Task<List<MediaSourceInfo>> GetChannelStreamMediaSources(TunerHostInfo info, ChannelInfo channelInfo, CancellationToken cancellationToken)
         {
-            var channels = await GetChannels(info, true, cancellationToken).ConfigureAwait(false);
-            var channel = channels.FirstOrDefault(c => string.Equals(c.Id, channelId, StringComparison.OrdinalIgnoreCase));
-            if (channel != null)
-            {
-                return new List<MediaSourceInfo> { CreateMediaSourceInfo(info, channel) };
-            }
-            return new List<MediaSourceInfo>();
+            return Task.FromResult(new List<MediaSourceInfo> { CreateMediaSourceInfo(info, channelInfo) });
         }
 
         protected virtual MediaSourceInfo CreateMediaSourceInfo(TunerHostInfo info, ChannelInfo channel)
         {
             var path = channel.Path;
-            MediaProtocol protocol = MediaProtocol.File;
-            if (path.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-            {
-                protocol = MediaProtocol.Http;
-            }
-            else if (path.StartsWith("rtmp", StringComparison.OrdinalIgnoreCase))
-            {
-                protocol = MediaProtocol.Rtmp;
-            }
-            else if (path.StartsWith("rtsp", StringComparison.OrdinalIgnoreCase))
-            {
-                protocol = MediaProtocol.Rtsp;
-            }
-            else if (path.StartsWith("udp", StringComparison.OrdinalIgnoreCase))
-            {
-                protocol = MediaProtocol.Udp;
-            }
-            else if (path.StartsWith("rtp", StringComparison.OrdinalIgnoreCase))
-            {
-                protocol = MediaProtocol.Rtmp;
-            }
+
+            var supportsDirectPlay = !info.EnableStreamLooping && info.TunerCount == 0;
+            var supportsDirectStream = !info.EnableStreamLooping;
+
+            var protocol = _mediaSourceManager.GetPathProtocol(path);
 
             Uri uri;
             var isRemote = true;
@@ -166,7 +147,15 @@ namespace Emby.Server.Implementations.LiveTv.TunerHosts
                 isRemote = !_networkManager.IsInLocalNetwork(uri.Host);
             }
 
-            var supportsDirectPlay = !info.EnableStreamLooping && info.TunerCount == 0;
+            var httpHeaders = new Dictionary<string, string>();
+
+            if (protocol == MediaProtocol.Http)
+            {
+                // Use user-defined user-agent. If there isn't one, make it look like a browser.
+                httpHeaders["User-Agent"] = string.IsNullOrWhiteSpace(info.UserAgent) ?
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/64.0.3282.85 Safari/537.36" :
+                    info.UserAgent;
+            }
 
             var mediaSource = new MediaSourceInfo
             {
@@ -199,17 +188,15 @@ namespace Emby.Server.Implementations.LiveTv.TunerHosts
                 IsRemote = isRemote,
 
                 IgnoreDts = true,
-                SupportsDirectPlay = supportsDirectPlay
+                SupportsDirectPlay = supportsDirectPlay,
+                SupportsDirectStream = supportsDirectStream,
+
+                RequiredHttpHeaders = httpHeaders
             };
 
             mediaSource.InferTotalBitrate();
 
             return mediaSource;
-        }
-
-        protected override Task<bool> IsAvailableInternal(TunerHostInfo tuner, string channelId, CancellationToken cancellationToken)
-        {
-            return Task.FromResult(true);
         }
 
         public Task<List<TunerHostInfo>> DiscoverDevices(int discoveryDurationMs, CancellationToken cancellationToken)

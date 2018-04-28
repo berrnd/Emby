@@ -26,6 +26,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MediaBrowser.Model.Globalization;
+using MediaBrowser.Model.Dto;
 
 namespace MediaBrowser.Providers.MediaInfo
 {
@@ -45,8 +46,9 @@ namespace MediaBrowser.Providers.MediaInfo
         private readonly ISubtitleManager _subtitleManager;
         private readonly IChapterManager _chapterManager;
         private readonly ILibraryManager _libraryManager;
+        private readonly IMediaSourceManager _mediaSourceManager;
 
-        public FFProbeVideoInfo(ILogger logger, IIsoManager isoManager, IMediaEncoder mediaEncoder, IItemRepository itemRepo, IBlurayExaminer blurayExaminer, ILocalizationManager localization, IApplicationPaths appPaths, IJsonSerializer json, IEncodingManager encodingManager, IFileSystem fileSystem, IServerConfigurationManager config, ISubtitleManager subtitleManager, IChapterManager chapterManager, ILibraryManager libraryManager)
+        public FFProbeVideoInfo(ILogger logger, IMediaSourceManager mediaSourceManager, IIsoManager isoManager, IMediaEncoder mediaEncoder, IItemRepository itemRepo, IBlurayExaminer blurayExaminer, ILocalizationManager localization, IApplicationPaths appPaths, IJsonSerializer json, IEncodingManager encodingManager, IFileSystem fileSystem, IServerConfigurationManager config, ISubtitleManager subtitleManager, IChapterManager chapterManager, ILibraryManager libraryManager)
         {
             _logger = logger;
             _isoManager = isoManager;
@@ -62,6 +64,7 @@ namespace MediaBrowser.Providers.MediaInfo
             _subtitleManager = subtitleManager;
             _chapterManager = chapterManager;
             _libraryManager = libraryManager;
+            _mediaSourceManager = mediaSourceManager;
         }
 
         public async Task<ItemUpdateType> ProbeVideo<T>(T item,
@@ -73,7 +76,7 @@ namespace MediaBrowser.Providers.MediaInfo
 
             Model.MediaInfo.MediaInfo mediaInfoResult = null;
 
-            if (!item.IsShortcut)
+            if (!item.IsShortcut || options.EnableRemoteContentProbe)
             {
                 string[] streamFileNames = null;
 
@@ -105,7 +108,7 @@ namespace MediaBrowser.Providers.MediaInfo
 
                 if (streamFileNames == null)
                 {
-                    streamFileNames = new string[] { };
+                    streamFileNames = Array.Empty<string>();
                 }
 
                 mediaInfoResult = await GetMediaInfo(item, streamFileNames, cancellationToken).ConfigureAwait(false);
@@ -124,18 +127,26 @@ namespace MediaBrowser.Providers.MediaInfo
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var protocol = item.LocationType == LocationType.Remote
-                ? MediaProtocol.Http
-                : MediaProtocol.File;
+            var path = item.Path;
+            var protocol = item.PathProtocol ?? MediaProtocol.File;
+
+            if (item.IsShortcut)
+            {
+                path = item.ShortcutPath;
+                protocol = _mediaSourceManager.GetPathProtocol(path);
+            }
 
             return _mediaEncoder.GetMediaInfo(new MediaInfoRequest
             {
                 PlayableStreamFileNames = streamFileNames,
                 ExtractChapters = true,
-                VideoType = item.VideoType,
                 MediaType = DlnaProfileType.Video,
-                InputPath = item.Path,
-                Protocol = protocol
+                MediaSource = new MediaSourceInfo
+                {
+                    Path = path,
+                    Protocol = protocol,
+                    VideoType = item.VideoType
+                }
 
             }, cancellationToken);
         }
@@ -402,7 +413,7 @@ namespace MediaBrowser.Providers.MediaInfo
                 if (!string.IsNullOrWhiteSpace(data.Name) && libraryOptions.EnableEmbeddedTitles)
                 {
                     // Don't use the embedded name for extras because it will often be the same name as the movie
-                    if (!video.ExtraType.HasValue && !video.IsOwnedItem)
+                    if (!video.ExtraType.HasValue)
                     {
                         video.Name = data.Name;
                     }
@@ -477,19 +488,46 @@ namespace MediaBrowser.Providers.MediaInfo
 
             var subtitleOptions = GetOptions();
 
-            if (enableSubtitleDownloading && (subtitleOptions.DownloadEpisodeSubtitles &&
+            var libraryOptions = _libraryManager.GetLibraryOptions(video);
+
+            string[] subtitleDownloadLanguages;
+            bool SkipIfEmbeddedSubtitlesPresent;
+            bool SkipIfAudioTrackMatches;
+            bool RequirePerfectMatch;
+            bool enabled;
+
+            if (libraryOptions.SubtitleDownloadLanguages == null)
+            {
+                subtitleDownloadLanguages = subtitleOptions.DownloadLanguages;
+                SkipIfEmbeddedSubtitlesPresent = subtitleOptions.SkipIfEmbeddedSubtitlesPresent;
+                SkipIfAudioTrackMatches = subtitleOptions.SkipIfAudioTrackMatches;
+                RequirePerfectMatch = subtitleOptions.RequirePerfectMatch;
+                enabled = (subtitleOptions.DownloadEpisodeSubtitles &&
                 video is Episode) ||
                 (subtitleOptions.DownloadMovieSubtitles &&
-                video is Movie))
+                video is Movie);
+            }
+            else
+            {
+                subtitleDownloadLanguages = libraryOptions.SubtitleDownloadLanguages;
+                SkipIfEmbeddedSubtitlesPresent = libraryOptions.SkipSubtitlesIfEmbeddedSubtitlesPresent;
+                SkipIfAudioTrackMatches = libraryOptions.SkipSubtitlesIfAudioTrackMatches;
+                RequirePerfectMatch = libraryOptions.RequirePerfectSubtitleMatch;
+                enabled = true;
+            }
+
+            if (enableSubtitleDownloading && enabled)
             {
                 var downloadedLanguages = await new SubtitleDownloader(_logger,
                     _subtitleManager)
                     .DownloadSubtitles(video,
                     currentStreams.Concat(externalSubtitleStreams).ToList(),
-                    subtitleOptions.SkipIfEmbeddedSubtitlesPresent,
-                    subtitleOptions.SkipIfAudioTrackMatches,
-                    subtitleOptions.RequirePerfectMatch,
-                    subtitleOptions.DownloadLanguages,
+                    SkipIfEmbeddedSubtitlesPresent,
+                    SkipIfAudioTrackMatches,
+                    RequirePerfectMatch,
+                    subtitleDownloadLanguages,
+                    libraryOptions.DisabledSubtitleFetchers,
+                    libraryOptions.SubtitleFetcherOrder,
                     cancellationToken).ConfigureAwait(false);
 
                 // Rescan
@@ -499,7 +537,7 @@ namespace MediaBrowser.Providers.MediaInfo
                 }
             }
 
-            video.SubtitleFiles = externalSubtitleStreams.Select(i => i.Path).OrderBy(i => i).ToArray();
+            video.SubtitleFiles = externalSubtitleStreams.Select(i => i.Path).ToArray();
 
             currentStreams.AddRange(externalSubtitleStreams);
         }

@@ -17,13 +17,13 @@ namespace MediaBrowser.Model.MediaInfo
 
         public bool EnableDirectPlay { get; set; }
         public bool EnableDirectStream { get; set; }
-        public bool EnableMediaProbe { get; set; }
+        public MediaProtocol[] DirectPlayProtocols { get; set; }
 
         public LiveStreamRequest()
         {
             EnableDirectPlay = true;
             EnableDirectStream = true;
-            EnableMediaProbe = true;
+            DirectPlayProtocols = new MediaProtocol[] { MediaProtocol.Http };
         }
 
         public LiveStreamRequest(AudioOptions options)
@@ -32,6 +32,8 @@ namespace MediaBrowser.Model.MediaInfo
             ItemId = options.ItemId;
             DeviceProfile = options.Profile;
             MaxAudioChannels = options.MaxAudioChannels;
+
+            DirectPlayProtocols = new MediaProtocol[] { MediaProtocol.Http };
 
             VideoOptions videoOptions = options as VideoOptions;
             if (videoOptions != null)

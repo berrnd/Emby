@@ -1,5 +1,6 @@
 ﻿using MediaBrowser.Model.Dto;
 using MediaBrowser.Model.Entities;
+using System;
 
 namespace MediaBrowser.Model.Configuration
 {
@@ -62,6 +63,9 @@ namespace MediaBrowser.Model.Configuration
         public bool IsPortAuthorized { get; set; }
 
         public bool AutoRunWebApp { get; set; }
+        public bool EnableRemoteAccess { get; set; }
+        public bool CameraUploadUpgraded { get; set; }
+        public bool CollectionsUpgraded { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether [enable case sensitive item ids].
@@ -169,35 +173,40 @@ namespace MediaBrowser.Model.Configuration
 
         public int RemoteClientBitrateLimit { get; set; }
 
-        public int SharingExpirationDays { get; set; }
-
         public int SchemaVersion { get; set; }
 
         public bool EnableAnonymousUsageReporting { get; set; }
         public bool EnableFolderView { get; set; }
         public bool EnableGroupingIntoCollections { get; set; }
         public bool DisplaySpecialsWithinSeasons { get; set; }
-        public bool DisplayCollectionsView { get; set; }
+        public string[] LocalNetworkSubnets { get; set; }
         public string[] LocalNetworkAddresses { get; set; }
         public string[] CodecsUsed { get; set; }
-        public bool EnableChannelView { get; set; }
         public bool EnableExternalContentInSuggestions { get; set; }
         public bool RequireHttps { get; set; }
         public bool IsBehindProxy { get; set; }
         public bool EnableNewOmdbSupport { get; set; }
+
+        public string[] RemoteIPFilter { get; set; }
+        public bool IsRemoteIPFilterBlacklist { get; set; }
 
         public int ImageExtractionTimeoutMs { get; set; }
 
         public PathSubstitution[] PathSubstitutions { get; set; }
         public bool EnableSimpleArtistDetection { get; set; }
 
+        public string[] UninstalledPlugins { get; set; }
+
         /// <summary>
         /// Initializes a new instance of the <see cref="ServerConfiguration" /> class.
         /// </summary>
         public ServerConfiguration()
         {
-            LocalNetworkAddresses = new string[] { };
-            CodecsUsed = new string[] { };
+            UninstalledPlugins = new string[] {};
+            RemoteIPFilter = new string[] {};
+            LocalNetworkSubnets = new string[] {};
+            LocalNetworkAddresses = new string[] {};
+            CodecsUsed = new string[] {};
             ImageExtractionTimeoutMs = 0;
             PathSubstitutions = new PathSubstitution[] { };
             EnableSimpleArtistDetection = true;
@@ -210,15 +219,16 @@ namespace MediaBrowser.Model.Configuration
             PublicHttpsPort = DefaultHttpsPort;
             HttpServerPortNumber = DefaultHttpPort;
             HttpsPortNumber = DefaultHttpsPort;
-            EnableHttps = false;
+            EnableHttps = true;
             EnableDashboardResponseCaching = true;
             EnableAnonymousUsageReporting = true;
             EnableCaseSensitiveItemIds = true;
 
             EnableAutomaticRestart = true;
+            AutoRunWebApp = true;
+            EnableRemoteAccess = true;
 
             EnableUPnP = true;
-            SharingExpirationDays = 30;
             MinResumePct = 5;
             MaxResumePct = 90;
 

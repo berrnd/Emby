@@ -23,10 +23,10 @@ namespace MediaBrowser.Controller.Entities.Movies
 
         public Movie()
         {
-            SpecialFeatureIds = EmptyGuidArray;
+            SpecialFeatureIds = new Guid[] {};
             RemoteTrailers = EmptyMediaUrlArray;
-            LocalTrailerIds = EmptyGuidArray;
-            RemoteTrailerIds = EmptyGuidArray;
+            LocalTrailerIds = new Guid[] {};
+            RemoteTrailerIds = new Guid[] {};
         }
 
         public Guid[] LocalTrailerIds { get; set; }
@@ -49,6 +49,12 @@ namespace MediaBrowser.Controller.Entities.Movies
 
         public override double? GetDefaultPrimaryImageAspectRatio()
         {
+            // hack for tv plugins
+            if (SourceType == SourceType.Channel)
+            {
+                return null;
+            }
+
             double value = 2;
             value /= 3;
 
@@ -61,7 +67,7 @@ namespace MediaBrowser.Controller.Entities.Movies
 
             // Must have a parent to have special features
             // In other words, it must be part of the Parent/Child tree
-            if (LocationType == LocationType.FileSystem && GetParent() != null && !IsInMixedFolder)
+            if (IsFileProtocol && SupportsOwnedItems && !IsInMixedFolder)
             {
                 var specialFeaturesChanged = await RefreshSpecialFeatures(options, fileSystemChildren, cancellationToken).ConfigureAwait(false);
 
@@ -131,9 +137,9 @@ namespace MediaBrowser.Controller.Entities.Movies
             return info;
         }
 
-        public override bool BeforeMetadataRefresh()
+        public override bool BeforeMetadataRefresh(bool replaceAllMetdata)
         {
-            var hasChanges = base.BeforeMetadataRefresh();
+            var hasChanges = base.BeforeMetadataRefresh(replaceAllMetdata);
 
             if (!ProductionYear.HasValue)
             {
@@ -172,7 +178,7 @@ namespace MediaBrowser.Controller.Entities.Movies
             var list = base.GetRelatedUrls();
 
             var imdbId = this.GetProviderId(MetadataProviders.Imdb);
-            if (!string.IsNullOrWhiteSpace(imdbId))
+            if (!string.IsNullOrEmpty(imdbId))
             {
                 list.Add(new ExternalUrl
                 {

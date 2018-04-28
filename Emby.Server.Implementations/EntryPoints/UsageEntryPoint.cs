@@ -1,5 +1,4 @@
-﻿using MediaBrowser.Common;
-using MediaBrowser.Common.Extensions;
+﻿using MediaBrowser.Common.Extensions;
 using MediaBrowser.Common.Net;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Plugins;
@@ -46,14 +45,14 @@ namespace Emby.Server.Implementations.EntryPoints
         {
             var session = e.SessionInfo;
 
-            if (!string.IsNullOrEmpty(session.Client) &&
+            if (!string.IsNullOrEmpty(session.AppName) &&
                 !string.IsNullOrEmpty(session.DeviceName) &&
                 !string.IsNullOrEmpty(session.DeviceId) &&
                 !string.IsNullOrEmpty(session.ApplicationVersion))
             {
                 var keys = new List<string>
                 {
-                    session.Client,
+                    session.AppName,
                     session.DeviceName,
                     session.DeviceId,
                     session.ApplicationVersion
@@ -61,17 +60,29 @@ namespace Emby.Server.Implementations.EntryPoints
 
                 var key = string.Join("_", keys.ToArray(keys.Count)).GetMD5();
 
-                _apps.GetOrAdd(key, guid => GetNewClientInfo(session));
+                ClientInfo info;
+                if (!_apps.TryGetValue(key, out info))
+                {
+                    info = new ClientInfo
+                    {
+                        AppName = session.AppName,
+                        AppVersion = session.ApplicationVersion,
+                        DeviceName = session.DeviceName,
+                        DeviceId = session.DeviceId
+                    };
+
+                    _apps[key] = info;
+
+                    if (_config.Configuration.EnableAnonymousUsageReporting)
+                    {
+                        Task.Run(() => ReportNewSession(info));
+                    }
+                }
             }
         }
 
-        private async void ReportNewSession(ClientInfo client)
+        private async Task ReportNewSession(ClientInfo client)
         {
-            if (!_config.Configuration.EnableAnonymousUsageReporting)
-            {
-                return;
-            }
-
             try
             {
                 await new UsageReporter(_applicationHost, _httpClient, _logger)
@@ -80,23 +91,8 @@ namespace Emby.Server.Implementations.EntryPoints
             }
             catch (Exception ex)
             {
-                _logger.ErrorException("Error sending anonymous usage statistics.", ex);
+                //_logger.ErrorException("Error sending anonymous usage statistics.", ex);
             }
-        }
-
-        private ClientInfo GetNewClientInfo(SessionInfo session)
-        {
-            var info = new ClientInfo
-            {
-                AppName = session.Client,
-                AppVersion = session.ApplicationVersion,
-                DeviceName = session.DeviceName,
-                DeviceId = session.DeviceId
-            };
-
-            ReportNewSession(info);
-
-            return info;
         }
 
         public async void Run()
@@ -123,14 +119,13 @@ namespace Emby.Server.Implementations.EntryPoints
             }
             catch (Exception ex)
             {
-                _logger.ErrorException("Error sending anonymous usage statistics.", ex);
+                //_logger.ErrorException("Error sending anonymous usage statistics.", ex);
             }
         }
 
         public void Dispose()
         {
             _sessionManager.SessionStarted -= _sessionManager_SessionStarted;
-            GC.SuppressFinalize(this);
         }
     }
 }

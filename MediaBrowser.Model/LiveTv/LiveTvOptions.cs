@@ -1,5 +1,5 @@
-﻿using System.Collections.Generic;
-using MediaBrowser.Model.Dto;
+﻿using MediaBrowser.Model.Dto;
+using System;
 
 namespace MediaBrowser.Model.LiveTv
 {
@@ -9,8 +9,6 @@ namespace MediaBrowser.Model.LiveTv
         public string RecordingPath { get; set; }
         public string MovieRecordingPath { get; set; }
         public string SeriesRecordingPath { get; set; }
-        public bool EnableRecordingEncoding { get; set; }
-        public string RecordingEncodingFormat { get; set; }
         public bool EnableRecordingSubfolders { get; set; }
         public bool EnableOriginalAudioWithEncodedRecordings { get; set; }
 
@@ -30,7 +28,6 @@ namespace MediaBrowser.Model.LiveTv
             TunerHosts = new TunerHostInfo[] { };
             ListingProviders = new ListingsProviderInfo[] { };
             MediaLocationsCreated = new string[] { };
-            RecordingEncodingFormat = "mkv";
             RecordingPostProcessorArguments = "\"{path}\"";
         }
     }
@@ -48,6 +45,7 @@ namespace MediaBrowser.Model.LiveTv
         public bool EnableNewHdhrChannelIds { get; set; }
         public string Source { get; set; }
         public int TunerCount { get; set; }
+        public string UserAgent { get; set; }
 
         public TunerHostInfo()
         {
@@ -76,6 +74,7 @@ namespace MediaBrowser.Model.LiveTv
         public string MoviePrefix { get; set; }
         public bool EnableNewProgramIds { get; set; }
         public string PreferredLanguage { get; set; }
+        public string UserAgent { get; set; }
 
         public ListingsProviderInfo()
         {

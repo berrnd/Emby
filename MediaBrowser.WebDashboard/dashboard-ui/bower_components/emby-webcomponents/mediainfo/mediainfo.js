@@ -15,8 +15,8 @@ define(["datetime", "globalize", "appRouter", "itemHelper", "indicators", "mater
     function getProgramInfoHtml(item, options) {
         var text, date, html = "",
             miscInfo = [];
-        if (item.StartDate && options.programTime !== !1) try {
-            text = "", date = datetime.parseISO8601Date(item.StartDate), options.startDate !== !1 && (text += datetime.toLocaleDateString(date, {
+        if (item.StartDate && !1 !== options.programTime) try {
+            text = "", date = datetime.parseISO8601Date(item.StartDate), !1 !== options.startDate && (text += datetime.toLocaleDateString(date, {
                 weekday: "short",
                 month: "short",
                 day: "numeric"
@@ -31,7 +31,7 @@ define(["datetime", "globalize", "appRouter", "itemHelper", "indicators", "mater
                     Name: item.ChannelName,
                     Id: item.ChannelId
                 }) + '">' + item.ChannelName + "</a>"
-            }) : miscInfo.push(item.ChannelName)), options.timerIndicator !== !1) {
+            }) : miscInfo.push(item.ChannelName)), !1 !== options.timerIndicator) {
             var timerHtml = getTimerIndicator(item);
             timerHtml && miscInfo.push({
                 html: timerHtml
@@ -47,7 +47,7 @@ define(["datetime", "globalize", "appRouter", "itemHelper", "indicators", "mater
             miscInfo = [];
         options = options || {};
         var text, date, minutes, count, showFolderRuntime = "MusicAlbum" === item.Type || "MusicArtist" === item.MediaType || "Playlist" === item.MediaType || "MusicGenre" === item.MediaType;
-        if (showFolderRuntime ? (count = item.SongCount || item.ChildCount, count && miscInfo.push(globalize.translate("sharedcomponents#TrackCount", count)), item.RunTimeTicks && miscInfo.push(datetime.getDisplayRunningTime(item.RunTimeTicks))) : "PhotoAlbum" !== item.Type && "BoxSet" !== item.Type || (count = item.ChildCount, count && miscInfo.push(globalize.translate("sharedcomponents#ItemCount", count))), ("Episode" === item.Type || "Photo" === item.MediaType) && options.originalAirDate !== !1 && item.PremiereDate) try {
+        if (showFolderRuntime ? (count = item.SongCount || item.ChildCount, count && miscInfo.push(globalize.translate("sharedcomponents#TrackCount", count)), item.RunTimeTicks && miscInfo.push(datetime.getDisplayRunningTime(item.RunTimeTicks))) : "PhotoAlbum" !== item.Type && "BoxSet" !== item.Type || (count = item.ChildCount) && miscInfo.push(globalize.translate("sharedcomponents#ItemCount", count)), ("Episode" === item.Type || "Photo" === item.MediaType) && !1 !== options.originalAirDate && item.PremiereDate) try {
             date = datetime.parseISO8601Date(item.PremiereDate), text = datetime.toLocaleDateString(date), miscInfo.push(text)
         } catch (e) {
             console.log("Error parsing date: " + item.PremiereDate)
@@ -57,7 +57,7 @@ define(["datetime", "globalize", "appRouter", "itemHelper", "indicators", "mater
         } catch (e) {
             console.log("Error parsing date: " + item.StartDate)
         }
-        if (options.year !== !1 && item.ProductionYear && "Series" === item.Type)
+        if (!1 !== options.year && item.ProductionYear && "Series" === item.Type)
             if ("Continuing" === item.Status) miscInfo.push(globalize.translate("sharedcomponents#SeriesYearToPresent", item.ProductionYear));
             else if (item.ProductionYear) {
             if (text = item.ProductionYear, item.EndDate) try {
@@ -69,7 +69,7 @@ define(["datetime", "globalize", "appRouter", "itemHelper", "indicators", "mater
             miscInfo.push(text)
         }
         if ("Program" === item.Type)
-            if (options.programIndicator !== !1 && (item.IsLive ? miscInfo.push({
+            if (!1 !== options.programIndicator && (item.IsLive ? miscInfo.push({
                     html: '<div class="mediaInfoProgramAttribute mediaInfoItem liveTvProgram">' + globalize.translate("sharedcomponents#Live") + "</div>"
                 }) : item.IsPremiere ? miscInfo.push({
                     html: '<div class="mediaInfoProgramAttribute mediaInfoItem premiereTvProgram">' + globalize.translate("sharedcomponents#Premiere") + "</div>"
@@ -77,16 +77,16 @@ define(["datetime", "globalize", "appRouter", "itemHelper", "indicators", "mater
                     html: '<div class="mediaInfoProgramAttribute mediaInfoItem newTvProgram">' + globalize.translate("sharedcomponents#AttributeNew") + "</div>"
                 }) : item.IsSeries && item.IsRepeat && miscInfo.push({
                     html: '<div class="mediaInfoProgramAttribute mediaInfoItem repeatTvProgram">' + globalize.translate("sharedcomponents#Repeat") + "</div>"
-                })), (item.IsSeries || item.EpisodeTitle) && options.episodeTitle !== !1) text = itemHelper.getDisplayName(item, {
+                })), (item.IsSeries || item.EpisodeTitle) && !1 !== options.episodeTitle)(text = itemHelper.getDisplayName(item, {
                 includeIndexNumber: options.episodeTitleIndexNumber
-            }), text && miscInfo.push(text);
-            else if (item.IsMovie && item.ProductionYear && options.originalAirDate !== !1) miscInfo.push(item.ProductionYear);
-        else if (item.PremiereDate && options.originalAirDate !== !1) try {
+            })) && miscInfo.push(text);
+            else if (item.IsMovie && item.ProductionYear && !1 !== options.originalAirDate) miscInfo.push(item.ProductionYear);
+        else if (item.PremiereDate && !1 !== options.originalAirDate) try {
             date = datetime.parseISO8601Date(item.PremiereDate), text = globalize.translate("sharedcomponents#OriginalAirDateValue", datetime.toLocaleDateString(date)), miscInfo.push(text)
         } catch (e) {
             console.log("Error parsing date: " + item.PremiereDate)
         } else item.ProductionYear && miscInfo.push(item.ProductionYear);
-        if (options.year !== !1 && "Series" !== item.Type && "Episode" !== item.Type && "Person" !== item.Type && "Photo" !== item.MediaType && "Program" !== item.Type && "Season" !== item.Type)
+        if (!1 !== options.year && "Series" !== item.Type && "Episode" !== item.Type && "Person" !== item.Type && "Photo" !== item.MediaType && "Program" !== item.Type && "Season" !== item.Type)
             if (item.ProductionYear) miscInfo.push(item.ProductionYear);
             else if (item.PremiereDate) try {
             text = datetime.parseISO8601Date(item.PremiereDate).getFullYear(), miscInfo.push(text)
@@ -102,12 +102,12 @@ define(["datetime", "globalize", "appRouter", "itemHelper", "indicators", "mater
 		}
 		//myproduction-change-end
 		
-        if (item.RunTimeTicks && "Series" !== item.Type && "Program" !== item.Type && !showFolderRuntime && options.runtime !== !1 && ("Audio" === item.Type ? miscInfo.push(datetime.getDisplayRunningTime(item.RunTimeTicks)) : (minutes = item.RunTimeTicks / 6e8, minutes = minutes || 1, miscInfo.push(Math.round(minutes) + " mins"))), item.OfficialRating && "Season" !== item.Type && "Episode" !== item.Type && miscInfo.push({
+        if (item.RunTimeTicks && "Series" !== item.Type && "Program" !== item.Type && !showFolderRuntime && !1 !== options.runtime && ("Audio" === item.Type ? miscInfo.push(datetime.getDisplayRunningTime(item.RunTimeTicks)) : (minutes = item.RunTimeTicks / 6e8, minutes = minutes || 1, miscInfo.push(Math.round(minutes) + " mins"))), item.OfficialRating && "Season" !== item.Type && "Episode" !== item.Type && miscInfo.push({
                 text: item.OfficialRating,
                 cssClass: "mediaInfoOfficialRating"
-            }), item.Video3DFormat && miscInfo.push("3D"), "Photo" === item.MediaType && item.Width && item.Height && miscInfo.push(item.Width + "x" + item.Height), options.container !== !1 && "Audio" === item.Type && item.Container && miscInfo.push(item.Container), html += miscInfo.map(function(m) {
+            }), item.Video3DFormat && miscInfo.push("3D"), "Photo" === item.MediaType && item.Width && item.Height && miscInfo.push(item.Width + "x" + item.Height), !1 !== options.container && "Audio" === item.Type && item.Container && miscInfo.push(item.Container), html += miscInfo.map(function(m) {
                 return getMediaInfoItem(m)
-            }).join(""), html += getStarIconsHtml(item), item.HasSubtitles && options.subtitles !== !1 && (html += '<div class="mediaInfoItem mediaInfoText closedCaptionMediaInfoText">CC</div>'), item.CriticRating && options.criticRating !== !1 && (html += item.CriticRating >= 60 ? '<div class="mediaInfoItem mediaInfoCriticRating mediaInfoCriticRatingFresh">' + item.CriticRating + "</div>" : '<div class="mediaInfoItem mediaInfoCriticRating mediaInfoCriticRatingRotten">' + item.CriticRating + "</div>"), options.endsAt !== !1) {
+            }).join(""), html += getStarIconsHtml(item), item.HasSubtitles && !1 !== options.subtitles && (html += '<div class="mediaInfoItem mediaInfoText closedCaptionMediaInfoText">CC</div>'), item.CriticRating && !1 !== options.criticRating && (item.CriticRating >= 60 ? html += '<div class="mediaInfoItem mediaInfoCriticRating mediaInfoCriticRatingFresh">' + item.CriticRating + "</div>" : html += '<div class="mediaInfoItem mediaInfoCriticRating mediaInfoCriticRatingRotten">' + item.CriticRating + "</div>"), !1 !== options.endsAt) {
             var endsAt = getEndsAt(item);
             endsAt && (html += getMediaInfoItem(endsAt, "endsAt"))
         }
@@ -115,6 +115,7 @@ define(["datetime", "globalize", "appRouter", "itemHelper", "indicators", "mater
     }
 	
 	//myproduction-change-start
+	//Added function
 	function humanFileSize(size)
 	{
 		var i = Math.floor(Math.log(size) / Math.log(1024));
@@ -137,7 +138,7 @@ define(["datetime", "globalize", "appRouter", "itemHelper", "indicators", "mater
         var endDate = (new Date).getTime() + (runtimeTicks - (positionTicks || 0)) / 1e4;
         endDate = new Date(endDate);
         var displayTime = datetime.getDisplayTime(endDate);
-        return includeText === !1 ? displayTime : globalize.translate("sharedcomponents#EndsAtValue", displayTime)
+        return !1 === includeText ? displayTime : globalize.translate("sharedcomponents#EndsAtValue", displayTime)
     }
 
     function getMediaInfoItem(m, cssClass) {
@@ -158,7 +159,8 @@ define(["datetime", "globalize", "appRouter", "itemHelper", "indicators", "mater
 
     function dynamicEndTime(elem, item) {
         var interval = setInterval(function() {
-            return document.body.contains(elem) ? void(elem.innerHTML = getEndsAt(item)) : void clearInterval(interval)
+            if (!document.body.contains(elem)) return void clearInterval(interval);
+            elem.innerHTML = getEndsAt(item)
         }, 6e4)
     }
 
@@ -173,7 +175,7 @@ define(["datetime", "globalize", "appRouter", "itemHelper", "indicators", "mater
     }
 
     function afterFill(elem, item, options) {
-        if (options.endsAt !== !1) {
+        if (!1 !== options.endsAt) {
             var endsAtElem = elem.querySelector(".endsAt");
             endsAtElem && dynamicEndTime(endsAtElem, item)
         }
@@ -196,12 +198,14 @@ define(["datetime", "globalize", "appRouter", "itemHelper", "indicators", "mater
     }
 
     function getResolutionText(i) {
-        if (i.Width) {
-            if (i.Width >= 3800) return "4K";
-            if (i.Width >= 2500) return i.IsInterlaced ? "1440i" : "1440P";
-            if (i.Width >= 1900) return i.IsInterlaced ? "1080i" : "1080P";
-            if (i.Width >= 1260) return i.IsInterlaced ? "720i" : "720P";
-            if (i.Width >= 700) return i.IsInterlaced ? "480i" : "480P"
+        var width = i.Width,
+            height = i.Height;
+        if (width && height) {
+            if (width >= 3800 || height >= 2e3) return "4K";
+            if (width >= 2500 || height >= 1400) return i.IsInterlaced ? "1440i" : "1440P";
+            if (width >= 1880 || height >= 1e3) return i.IsInterlaced ? "1080i" : "1080P";
+            if (width >= 1200 || height >= 700) return i.IsInterlaced ? "720i" : "720P";
+            if (width >= 700 || height >= 400) return i.IsInterlaced ? "480i" : "480P"
         }
         return null
     }

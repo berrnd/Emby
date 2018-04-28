@@ -18,12 +18,12 @@ namespace MediaBrowser.Controller.Entities.Audio
     /// <summary>
     /// Class MusicArtist
     /// </summary>
-    public class MusicArtist : Folder, IMetadataContainer, IItemByName, IHasMusicGenres, IHasDualAccess, IHasLookupInfo<ArtistInfo>
+    public class MusicArtist : Folder, IItemByName, IHasMusicGenres, IHasDualAccess, IHasLookupInfo<ArtistInfo>
     {
         [IgnoreDataMember]
         public bool IsAccessedByName
         {
-            get { return ParentId == Guid.Empty; }
+            get { return ParentId.Equals(Guid.Empty); }
         }
 
         [IgnoreDataMember]
@@ -87,12 +87,12 @@ namespace MediaBrowser.Controller.Entities.Audio
             return !IsAccessedByName;
         }
 
-        public IEnumerable<BaseItem> GetTaggedItems(InternalItemsQuery query)
+        public IList<BaseItem> GetTaggedItems(InternalItemsQuery query)
         {
             if (query.IncludeItemTypes.Length == 0)
             {
                 query.IncludeItemTypes = new[] { typeof(Audio).Name, typeof(MusicVideo).Name, typeof(MusicAlbum).Name };
-                query.ArtistIds = new[] { Id.ToString("N") };
+                query.ArtistIds = new[] { Id };
             }
 
             return LibraryManager.GetItemList(query);
@@ -166,19 +166,6 @@ namespace MediaBrowser.Controller.Entities.Audio
         }
 
         /// <summary>
-        /// Gets a value indicating whether this instance is owned item.
-        /// </summary>
-        /// <value><c>true</c> if this instance is owned item; otherwise, <c>false</c>.</value>
-        [IgnoreDataMember]
-        public override bool IsOwnedItem
-        {
-            get
-            {
-                return false;
-            }
-        }
-
-        /// <summary>
         /// Gets the user data key.
         /// </summary>
         /// <param name="item">The item.</param>
@@ -208,63 +195,6 @@ namespace MediaBrowser.Controller.Entities.Audio
         public override UnratedItem GetBlockUnratedType()
         {
             return UnratedItem.Music;
-        }
-
-        public async Task RefreshAllMetadata(MetadataRefreshOptions refreshOptions, IProgress<double> progress, CancellationToken cancellationToken)
-        {
-            var items = GetRecursiveChildren();
-
-            var totalItems = items.Count;
-            var numComplete = 0;
-
-            var childUpdateType = ItemUpdateType.None;
-
-            // Refresh songs
-            foreach (var item in items)
-            {
-                if (!(item is Audio))
-                {
-                    continue;
-                }
-
-                cancellationToken.ThrowIfCancellationRequested();
-
-                var updateType = await item.RefreshMetadata(refreshOptions, cancellationToken).ConfigureAwait(false);
-                childUpdateType = childUpdateType | updateType;
-
-                numComplete++;
-                double percent = numComplete;
-                percent /= totalItems;
-                progress.Report(percent * 100);
-            }
-
-            var parentRefreshOptions = refreshOptions;
-            if (childUpdateType > ItemUpdateType.None)
-            {
-                parentRefreshOptions = new MetadataRefreshOptions(refreshOptions);
-                parentRefreshOptions.MetadataRefreshMode = MetadataRefreshMode.FullRefresh;
-            }
-
-            // Refresh current item
-            await RefreshMetadata(parentRefreshOptions, cancellationToken).ConfigureAwait(false);
-
-            // Refresh all non-songs
-            foreach (var item in items)
-            {
-                if (item is Audio)
-                {
-                    continue;
-                }
-
-                cancellationToken.ThrowIfCancellationRequested();
-
-                var updateType = await item.RefreshMetadata(parentRefreshOptions, cancellationToken).ConfigureAwait(false);
-
-                numComplete++;
-                double percent = numComplete;
-                percent /= totalItems;
-                progress.Report(percent * 100);
-            }
         }
 
         public ArtistInfo GetLookupInfo()
@@ -325,9 +255,9 @@ namespace MediaBrowser.Controller.Entities.Audio
         /// <summary>
         /// This is called before any metadata refresh and returns true or false indicating if changes were made
         /// </summary>
-        public override bool BeforeMetadataRefresh()
+        public override bool BeforeMetadataRefresh(bool replaceAllMetdata)
         {
-            var hasChanges = base.BeforeMetadataRefresh();
+            var hasChanges = base.BeforeMetadataRefresh(replaceAllMetdata);
 
             if (IsAccessedByName)
             {

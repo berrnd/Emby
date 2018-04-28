@@ -37,48 +37,50 @@ namespace Emby.Server.Implementations.TV
             }
 
             string presentationUniqueKey = null;
-            int? limit = null;
-            if (!string.IsNullOrWhiteSpace(request.SeriesId))
+            if (!string.IsNullOrEmpty(request.SeriesId))
             {
                 var series = _libraryManager.GetItemById(request.SeriesId) as Series;
 
                 if (series != null)
                 {
                     presentationUniqueKey = GetUniqueSeriesKey(series);
-                    limit = 1;
                 }
             }
 
-            if (!string.IsNullOrWhiteSpace(presentationUniqueKey))
+            if (!string.IsNullOrEmpty(presentationUniqueKey))
             {
                 return GetResult(GetNextUpEpisodes(request, user, new[] { presentationUniqueKey }, dtoOptions), request);
             }
 
-            var parentIdGuid = string.IsNullOrWhiteSpace(request.ParentId) ? (Guid?)null : new Guid(request.ParentId);
+            var parentIdGuid = string.IsNullOrEmpty(request.ParentId) ? (Guid?)null : new Guid(request.ParentId);
 
-            List<BaseItem> parents;
+            BaseItem[] parents;
 
             if (parentIdGuid.HasValue)
             {
                 var parent = _libraryManager.GetItemById(parentIdGuid.Value);
-                parents = new List<BaseItem>();
+
                 if (parent != null)
                 {
-                    parents.Add(parent);
+                    parents = new[] { parent };
+                }
+                else
+                {
+                    parents = Array.Empty<BaseItem>();
                 }
             }
             else
             {
-                parents = user.RootFolder.GetChildren(user, true)
+                parents = _libraryManager.GetUserRootFolder().GetChildren(user, true)
                    .Where(i => i is Folder)
                    .Where(i => !user.Configuration.LatestItemsExcludes.Contains(i.Id.ToString("N")))
-                   .ToList();
+                   .ToArray();
             }
 
             return GetNextUp(request, parents, dtoOptions);
         }
 
-        public QueryResult<BaseItem> GetNextUp(NextUpQuery request, List<BaseItem> parentsFolders, DtoOptions dtoOptions)
+        public QueryResult<BaseItem> GetNextUp(NextUpQuery request, BaseItem[] parentsFolders, DtoOptions dtoOptions)
         {
             var user = _userManager.GetUserById(request.UserId);
 
@@ -89,7 +91,7 @@ namespace Emby.Server.Implementations.TV
 
             string presentationUniqueKey = null;
             int? limit = null;
-            if (!string.IsNullOrWhiteSpace(request.SeriesId))
+            if (!string.IsNullOrEmpty(request.SeriesId))
             {
                 var series = _libraryManager.GetItemById(request.SeriesId) as Series;
 
@@ -100,7 +102,7 @@ namespace Emby.Server.Implementations.TV
                 }
             }
 
-            if (!string.IsNullOrWhiteSpace(presentationUniqueKey))
+            if (!string.IsNullOrEmpty(presentationUniqueKey))
             {
                 return GetResult(GetNextUpEpisodes(request, user, new[] { presentationUniqueKey }, dtoOptions), request);
             }
@@ -126,7 +128,7 @@ namespace Emby.Server.Implementations.TV
                 },
                 GroupBySeriesPresentationUniqueKey = true
 
-            }, parentsFolders).Cast<Episode>().Select(GetUniqueSeriesKey);
+            }, parentsFolders.ToList()).Cast<Episode>().Select(GetUniqueSeriesKey);
 
             // Avoid implicitly captured closure
             var episodes = GetNextUpEpisodes(request, user, items, dtoOptions);
@@ -146,7 +148,7 @@ namespace Emby.Server.Implementations.TV
 
             // If viewing all next up for all series, remove first episodes
             // But if that returns empty, keep those first episodes (avoid completely empty view)
-            var alwaysEnableFirstEpisode = !string.IsNullOrWhiteSpace(request.SeriesId);
+            var alwaysEnableFirstEpisode = !string.IsNullOrEmpty(request.SeriesId);
             var anyFound = false;
 
             return allNextUp
