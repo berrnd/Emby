@@ -365,6 +365,12 @@ namespace MediaBrowser.ServerApplication
                     task = InstallVcredist2015IfNeeded(appHost.HttpClient, _logger);
                     Task.WaitAll(task);
                 }
+				
+				//myproduction-change-start
+				//Fixes for NullReferenceException during start (don't know how it should work when task and appHost.HttpClient is null below here...)
+				appHost.Init();
+				task = Task.Factory.StartNew(() => { Thread.Sleep(1); });
+				//myproduction-change-end
 
                 // set image encoder here
                 appHost.ImageProcessor.ImageEncoder = ImageEncoderHelper.GetImageEncoder(_logger, logManager, fileSystem, options, () => appHost.HttpClient, appPaths, appHost.LocalizationManager);
