@@ -13,9 +13,9 @@ button.emby-tab-button:nth-child(3)
     <div class="tabContent pageTabContent" id="homeTab" data-index="0">
 		<!--myproduction-change-start-->
         <!--Added statistics overview-->
-        <div class="homePageSection verticalSection" style="padding-left: 16px">
-          <h1 class="listHeader" style="padding-left: 2.4vw;">Statistik</h1>
-          <div style="padding-left: 2.4vw;">
+        <div class="homePageSection verticalSection padded-bottom" style="padding-left: 16px">
+          <h2 class="listHeader" style="padding-left: 2.6vw; margin-bottom: -15px;">Statistik</h2>
+          <div style="padding-left: 2.6vw;">
 			<h2>
 				<span id="statisticsMovieCount" style="color: #F16834;">...</span> Filme, <span id="statisticsSeriesCount" style="color: #F16834;">...</span> Serien mit insgesamt <span id="statisticsEpisodesCount" style="color: #F16834;">...</span> Episoden, <span id="statisticsTotalFileSize" style="color: #F16834;">...</span> Daten (<span id="statisticsTotalFileSizeWithRedundancy" style="color: #F16834;">...</span> inkl. Redundanz), <span id="statisticsTotalRunTime" style="color: #F16834;">...</span> Spieldauer
 			</h2>
@@ -28,12 +28,12 @@ button.emby-tab-button:nth-child(3)
 		<!--myproduction-change-start-->
         <!--Added DownloadPreconfiguredKodi button-->
         <div class="homePageSection verticalSection" style="padding-left: 16px">
-          <h1 class="listHeader" style="padding-left: 2.4vw;">Direkt streamen</h1>
-		  <div style="padding-left: 2.4vw;">
+		  <h2 class="listHeader" style="padding-left: 2.6vw; margin-bottom: -15px;">Direkt streamen</h2>
+		  <div style="padding-left: 2.6vw;">
 			<h3>Das hier alles kannst du auch direkt abspielen, ohne Downloadumweg - komfortabel mit einer vorkonfigurierten <a class="button-link textlink" style="text-decoration: inherit;" href="https://kodi.tv/" target="_blank">Kodi</a>-Instanz (ein Open Source Mediacenter).<br />
 			Funktioniert auf jedem Windows-PC, einfach runterladen, doppelklicken und du hast eine entsprechende Verknüpfung auf deinem Desktop.</h3>
 		  </div>
-		  <div style="display:flex;flex-wrap:wrap;padding-left: 2.4vw;">
+		  <div style="display:flex;flex-wrap:wrap;padding-left: 2.6vw;">
 			<button is="emby-button" type="button" class="raised subdued emby-button emby-button-noflex" onclick="DownloadPreconfiguredKodi();"><i class="md-icon">file_download</i><span>Kodi herunterladen</span></button>
 		  </div>
 		</div>
@@ -77,11 +77,11 @@ button.emby-tab-button:nth-child(3)
         <!--myproduction-change-start-->
         <!--Added wish button-->
         <div class="homePageSection verticalSection" style="padding-left: 16px">
-          <h1 class="listHeader" style="padding-left: 2.4vw;">Wunschecke</h1>
-		  <div style="padding-left: 2.4vw;">
+		  <h2 class="listHeader" style="padding-left: 2.6vw; margin-bottom: -15px;">Wunschfee</h2>
+		  <div style="padding-left: 2.6vw;">
 			<h3>Eine Serie ist unvollständig, du hättest gerne was Neues oder irgendwas geht nicht?</h3>
 		  </div>
-		  <div style="display:flex;flex-wrap:wrap;padding-left: 2.4vw;">
+		  <div style="display:flex;flex-wrap:wrap;padding-left: 2.6vw;">
 			<button is="emby-button" type="button" class="raised subdued emby-button emby-button-noflex" onclick="WuenschDirWas();"><i class="md-icon">add_shopping_cart</i><span>Ich wünsch mir was</span></button>
 		  </div>
 		</div>

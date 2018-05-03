@@ -6,11 +6,11 @@ define(["connectionManager", "cardBuilder", "registrationServices", "appSettings
 		//Changed default sections
 		switch (index) {
 			case 0:
-				return "smalllibrarytiles";
-			case 1:
-				return "none";
-			case 2:
 				return "latestmedia";
+			case 1:
+				return "smalllibrarytiles";
+			case 2:
+				return "none";
 			case 3:
 				return "none";
 			case 4:
@@ -117,8 +117,8 @@ define(["connectionManager", "cardBuilder", "registrationServices", "appSettings
     function getLibraryButtonsHtml(items) {
         var html = "";
 		//myproduction-change-start
-		//Changed "Meine Medien" to "Medien"
-        html += '<div class="verticalSection verticalSection-extrabottompadding">', html += '<div class="sectionTitleContainer">', html += '<h2 class="sectionTitle sectionTitle-cards padded-left">' + globalize.translate("Medien") + "</h2>", layoutManager.tv || (html += '<button type="button" is="paper-icon-button-light" class="sectionTitleIconButton btnHomeScreenSettings"><i class="md-icon">&#xE8B8;</i></button>'), html += "</div>", html += '<div is="emby-itemscontainer" class="itemsContainer padded-left padded-right vertical-wrap focuscontainer-x" data-multiselect="false">';
+		//Changed "Meine Medien" to "Alle Medien"
+        html += '<div class="verticalSection verticalSection-extrabottompadding">', html += '<div class="sectionTitleContainer">', html += '<h2 class="sectionTitle sectionTitle-cards padded-left">' + globalize.translate("Alle Medien") + "</h2>", layoutManager.tv || (html += '<button type="button" is="paper-icon-button-light" class="sectionTitleIconButton btnHomeScreenSettings"><i class="md-icon">&#xE8B8;</i></button>'), html += "</div>", html += '<div is="emby-itemscontainer" class="itemsContainer padded-left padded-right vertical-wrap focuscontainer-x" data-multiselect="false">';
 		//myproduction-change-end
         for (var i = 0, length = items.length; i < length; i++) {
             var icon, item = items[i];
@@ -329,8 +329,8 @@ define(["connectionManager", "cardBuilder", "registrationServices", "appSettings
         var html = "",
             scrollX = !layoutManager.desktop;
 		//myproduction-change-start
-		//Changed "Meine Medien" to "Medien"
-        return userViews.length && (html += '<div class="verticalSection">', html += '<div class="sectionTitleContainer">', html += '<h2 class="sectionTitle sectionTitle-cards padded-left">' + globalize.translate("Medien") + "</h2>", layoutManager.tv || (html += '<button type="button" is="paper-icon-button-light" class="sectionTitleIconButton btnHomeScreenSettings"><i class="md-icon">&#xE8B8;</i></button>'), html += "</div>", html += scrollX ? '<div is="emby-scroller" class="padded-top-focusscale padded-bottom-focusscale" data-mousewheel="false" data-centerfocus="true"><div is="emby-itemscontainer" class="scrollSlider focuscontainer-x padded-left padded-right">' : '<div is="emby-itemscontainer" class="itemsContainer padded-left padded-right vertical-wrap focuscontainer-x">', html += cardBuilder.getCardsHtml({
+		//Changed "Meine Medien" to "Alle Medien"
+        return userViews.length && (html += '<div class="verticalSection">', html += '<div class="sectionTitleContainer">', html += '<h2 class="sectionTitle sectionTitle-cards padded-left">' + globalize.translate("Alle Medien") + "</h2>", layoutManager.tv || (html += '<button type="button" is="paper-icon-button-light" class="sectionTitleIconButton btnHomeScreenSettings"><i class="md-icon">&#xE8B8;</i></button>'), html += "</div>", html += scrollX ? '<div is="emby-scroller" class="padded-top-focusscale padded-bottom-focusscale" data-mousewheel="false" data-centerfocus="true"><div is="emby-itemscontainer" class="scrollSlider focuscontainer-x padded-left padded-right">' : '<div is="emby-itemscontainer" class="itemsContainer padded-left padded-right vertical-wrap focuscontainer-x">', html += cardBuilder.getCardsHtml({
 		//myproduction-change-end
             items: userViews,
             shape: scrollX ? "overflowSmallBackdrop" : shape,
