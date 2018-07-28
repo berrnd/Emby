@@ -11,7 +11,7 @@ button.emby-tab-button:nth-child(4)
 <!--myproduction-change-end-->
 
     <div class="pageTabContent" id="seriesTab" data-index="0">
-        <div style="text-align: center; display: flex; flex-wrap: wrap; align-items: center; justify-content: center;padding:0 .5em 1em;">
+        <div class="flex align-items-center justify-content-center flex-wrap-wrap padded-top padded-left padded-right padded-bottom">
             <div class="paging"></div>
             <button is="paper-icon-button-light" class="btnSelectView autoSize" title="${ButtonSelectView}"><i class="md-icon">view_comfy</i></button>
             <button is="paper-icon-button-light" class="btnSort autoSize" title="${ButtonSort}"><i class="md-icon">sort_by_alpha</i></button>
@@ -23,13 +23,13 @@ button.emby-tab-button:nth-child(4)
         <div class="alphaPicker alphaPicker-fixed alphaPicker-fixed-right alphaPicker-vertical">
         </div>
 
-        <div style="text-align: center; display: flex; flex-wrap: wrap; align-items: center; justify-content: center;padding:.7em .5em;">
+        <div class="flex align-items-center justify-content-center flex-wrap-wrap padded-top padded-left padded-right padded-bottom">
             <div class="paging"></div>
         </div>
     </div>
     <div class="pageTabContent" id="suggestionsTab" data-index="1">
         <div id="resumableSection" class="verticalSection">
-            <div class="sectionTitleContainer">
+            <div class="sectionTitleContainer sectionTitleContainer-cards">
                 <h2 class="sectionTitle sectionTitle-cards padded-left">${HeaderContinueWatching}</h2>
             </div>
 
@@ -38,7 +38,7 @@ button.emby-tab-button:nth-child(4)
         </div>
 
         <div class="verticalSection">
-            <div class="sectionTitleContainer">
+            <div class="sectionTitleContainer sectionTitleContainer-cards">
                 <h2 class="sectionTitle sectionTitle-cards padded-left nextUpHeader">${HeaderNextUp}</h2>
                 <button is="emby-button" type="button" class="fab submit categorySyncButton button-submit sectionTitleButton" data-category="NextUp" title="${ButtonDownload}">
                     <i class="md-icon">&#xE2C4;</i>
@@ -51,7 +51,7 @@ button.emby-tab-button:nth-child(4)
     </div>
     <div class="pageTabContent" id="latestTab" data-index="2">
         <div class="verticalSection">
-            <div class="sectionTitleContainer">
+            <div class="sectionTitleContainer sectionTitleContainer-cards">
                 <h2 class="sectionTitle sectionTitle-cards padded-left">${HeaderLatestEpisodes}</h2>
                 <button is="emby-button" type="button" class="fab submit categorySyncButton button-submit sectionTitleButton" data-category="Latest" title="${ButtonDownload}">
                     <i class="md-icon">&#xE2C4;</i>
@@ -75,10 +75,10 @@ button.emby-tab-button:nth-child(4)
         <div id="items"></div>
     </div>
     <div class="pageTabContent" id="studiosTab" data-index="5">
-        <div is="emby-itemscontainer" id="items" class="itemsContainer padded-left padded-right vertical-wrap" style="text-align: center;"></div>
+        <div is="emby-itemscontainer" id="items" class="itemsContainer padded-left padded-right padded-top vertical-wrap" style="text-align: center;"></div>
     </div>
     <div class="pageTabContent" data-index="6">
-        <div style="text-align: center; display: flex; flex-wrap: wrap; align-items: center; justify-content: center;padding:0 .5em 1em;">
+        <div class="flex align-items-center justify-content-center flex-wrap-wrap padded-top padded-left padded-right padded-bottom">
             <div class="paging"></div>
             <button is="paper-icon-button-light" class="btnSelectView autoSize" title="${ButtonSelectView}"><i class="md-icon">view_comfy</i></button>
             <button is="paper-icon-button-light" class="btnSort autoSize" title="${ButtonSort}"><i class="md-icon">sort_by_alpha</i></button>
@@ -86,7 +86,7 @@ button.emby-tab-button:nth-child(4)
         </div>
         <div is="emby-itemscontainer" class="itemsContainer vertical-wrap padded-left padded-right">
         </div>
-        <div style="text-align: center; display: flex; flex-wrap: wrap; align-items: center; justify-content: center;padding:.7em .5em;">
+        <div class="flex align-items-center justify-content-center flex-wrap-wrap padded-top padded-left padded-right padded-bottom">
             <div class="paging"></div>
         </div>
     </div>

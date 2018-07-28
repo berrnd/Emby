@@ -40,8 +40,12 @@ define(["itemHelper", "mediaInfo", "indicators", "connectionManager", "layoutMan
         return html
     }
 
+    function getId(item) {
+        return item.Id
+    }
+
     function getListViewHtml(options) {
-        for (var items = options.items, groupTitle = "", action = options.action || "link", isLargeStyle = "large" === options.imageSize, enableOverview = options.enableOverview, clickEntireItem = !!layoutManager.tv, outerTagName = clickEntireItem ? "button" : "div", enableSideMediaInfo = null == options.enableSideMediaInfo || options.enableSideMediaInfo, outerHtml = "", enableContentWrapper = options.enableOverview && !layoutManager.tv, containerAlbumArtists = options.containerAlbumArtists || [], i = 0, length = items.length; i < length; i++) {
+        for (var items = options.items, groupTitle = "", action = options.action || "link", isLargeStyle = "large" === options.imageSize, enableOverview = options.enableOverview, clickEntireItem = !!layoutManager.tv, outerTagName = clickEntireItem ? "button" : "div", enableSideMediaInfo = null == options.enableSideMediaInfo || options.enableSideMediaInfo, outerHtml = "", enableContentWrapper = options.enableOverview && !layoutManager.tv, containerAlbumArtistIds = (options.containerAlbumArtists || []).map(getId), i = 0, length = items.length; i < length; i++) {
             var item = items[i],
                 html = "";
             if (options.showIndex) {
@@ -49,7 +53,7 @@ define(["itemHelper", "mediaInfo", "indicators", "connectionManager", "layoutMan
                 itemGroupTitle !== groupTitle && (html && (html += "</div>"), html += 0 === i ? '<h2 class="listGroupHeader listGroupHeader-first">' : '<h2 class="listGroupHeader">', html += itemGroupTitle, html += "</h2>", html += "<div>", groupTitle = itemGroupTitle)
             }
             var cssClass = "listItem";
-            !1 !== options.highlight && (cssClass += " listItem-shaded"), options.border && (cssClass += " listItem-border"), clickEntireItem && (cssClass += " itemAction listItem-button"), layoutManager.tv && (cssClass += " listItem-focusscale");
+            (options.border || !1 !== options.highlight && !layoutManager.tv) && (cssClass += " listItem-border"), clickEntireItem && (cssClass += " itemAction listItem-button"), layoutManager.tv && (cssClass += " listItem-focusscale");
             var downloadWidth = 80;
             isLargeStyle && (cssClass += " listItem-largeImage", downloadWidth = 500);
             var playlistItemId = item.PlaylistItemId ? ' data-playlistitemid="' + item.PlaylistItemId + '"' : "",
@@ -81,6 +85,7 @@ define(["itemHelper", "mediaInfo", "indicators", "connectionManager", "layoutMan
                 });
                 progressHtml && (html += progressHtml), html += "</div>"
             }
+            options.showIndexNumberLeft && (html += '<div class="listItem-indexnumberleft">', html += item.IndexNumber || "&nbsp;", html += "</div>");
             var textlines = [];
             options.showProgramDateTime && textlines.push(datetime.toLocaleString(datetime.parseISO8601Date(item.StartDate), {
                 weekday: "long",
@@ -96,12 +101,13 @@ define(["itemHelper", "mediaInfo", "indicators", "connectionManager", "layoutMan
             });
             if (options.showIndexNumber && null != item.IndexNumber && (displayName = item.IndexNumber + ". " + displayName), options.showParentTitle && options.parentTitleWithTitle ? (displayName && (parentTitle && (parentTitle += " - "), parentTitle = (parentTitle || "") + displayName), textlines.push(parentTitle || "")) : options.showParentTitle && textlines.push(parentTitle || ""), displayName && !options.parentTitleWithTitle && textlines.push(displayName), item.IsFolder) !1 !== options.artist && item.AlbumArtist && "MusicAlbum" === item.Type && textlines.push(item.AlbumArtist);
             else {
-                var showArtist = !0 === options.artist;
-                showArtist || !1 === options.artist || (showArtist = containerAlbumArtists.length > 1 || (item.Artists || [])[0] !== containerAlbumArtists[0]), showArtist && item.ArtistItems && "MusicAlbum" !== item.Type && textlines.push(item.ArtistItems.map(function(a) {
+                var showArtist = !0 === options.artist,
+                    artistItems = item.ArtistItems;
+                showArtist || !1 === options.artist || (artistItems && artistItems.length ? (artistItems.length > 1 || -1 === containerAlbumArtistIds.indexOf(artistItems[0].Id)) && (showArtist = !0) : showArtist = !0), showArtist && artistItems && "MusicAlbum" !== item.Type && textlines.push(artistItems.map(function(a) {
                     return a.Name
                 }).join(", "))
             }
-            "Game" === item.Type && textlines.push(item.GameSystem), "TvChannel" === item.Type && item.CurrentProgram && textlines.push(itemHelper.getDisplayName(item.CurrentProgram)), cssClass = "listItemBody", clickEntireItem || (cssClass += " itemAction"), !1 === options.image && (cssClass += " itemAction listItemBody-noleftpadding"), html += '<div class="' + cssClass + '">';
+            "Game" === item.Type && textlines.push(item.GameSystem), "TvChannel" === item.Type && item.CurrentProgram && textlines.push(itemHelper.getDisplayName(item.CurrentProgram)), cssClass = "listItemBody", clickEntireItem || (cssClass += " itemAction"), !1 === options.image && (cssClass += " listItemBody-noleftpadding"), html += '<div class="' + cssClass + '">';
             if (html += getTextLinesHtml(textlines, isLargeStyle), !1 !== options.mediaInfo && !enableSideMediaInfo) {
                 html += '<div class="secondary listItemMediaInfo listItemBodyText">' + mediaInfo.getPrimaryMediaInfoHtml(item, {
                     episodeTitle: !1,

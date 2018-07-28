@@ -28,7 +28,7 @@ namespace Emby.Server.Implementations.Security
 
         public async Task<bool> IsSupporter()
         {
-            var result = await GetRegistrationStatus("MBSupporter", _appHost.ApplicationVersion.ToString()).ConfigureAwait(false);
+            var result = await GetRegistrationStatusInternal("MBSupporter", false, _appHost.ApplicationVersion.ToString(), CancellationToken.None).ConfigureAwait(false);
 
             return result.IsRegistered;
         }
@@ -73,25 +73,7 @@ namespace Emby.Server.Implementations.Security
         /// </summary>
         public Task<MBRegistrationRecord> GetRegistrationStatus(string feature)
         {
-            return GetRegistrationStatus(feature, null);
-        }
-
-        private SemaphoreSlim _regCheckLock = new SemaphoreSlim(1, 1);
-        /// <summary>
-        /// Gets the registration status.
-        /// </summary>
-        public async Task<MBRegistrationRecord> GetRegistrationStatus(string feature, string version)
-        {
-            await _regCheckLock.WaitAsync(CancellationToken.None).ConfigureAwait(false);
-
-            try
-            {
-                return await GetRegistrationStatusInternal(feature, version).ConfigureAwait(false);
-            }
-            finally
-            {
-                _regCheckLock.Release();
-            }
+            return GetRegistrationStatusInternal(feature, false, null, CancellationToken.None);
         }
 
         /// <summary>
@@ -123,7 +105,7 @@ namespace Emby.Server.Implementations.Security
                 LicenseFile.Save();
 
                 // Reset this
-                await IsSupporter().ConfigureAwait(false);
+                await GetRegistrationStatusInternal("MBSupporter", true, _appHost.ApplicationVersion.ToString(), CancellationToken.None).ConfigureAwait(false);
             }
         }
 
@@ -148,12 +130,13 @@ namespace Emby.Server.Implementations.Security
             {
                 using (var response = await _httpClient.Post(options).ConfigureAwait(false))
                 {
-                    var reg = _jsonSerializer.DeserializeFromStream<RegRecord>(response.Content);
+                    var reg = await _jsonSerializer.DeserializeFromStreamAsync<RegRecord>(response.Content).ConfigureAwait(false);
 
                     if (reg == null)
                     {
                         var msg = "Result from appstore registration was null.";
                         _logger.Error(msg);
+                        throw new ArgumentException(msg);
                     }
                     if (!String.IsNullOrEmpty(reg.key))
                     {
@@ -165,16 +148,24 @@ namespace Emby.Server.Implementations.Security
             catch (ArgumentException)
             {
                 SaveAppStoreInfo(parameters);
+                throw;
             }
             catch (HttpException e)
             {
                 _logger.ErrorException("Error registering appstore purchase {0}", e, parameters ?? "NO PARMS SENT");
+
+                if (e.StatusCode.HasValue && e.StatusCode.Value == HttpStatusCode.PaymentRequired)
+                {
+                    throw new PaymentRequiredException();
+                }
+                throw new Exception("Error registering store sale");
             }
             catch (Exception e)
             {
                 _logger.ErrorException("Error registering appstore purchase {0}", e, parameters ?? "NO PARMS SENT");
                 SaveAppStoreInfo(parameters);
                 //TODO - could create a re-try routine on start-up if this file is there.  For now we can handle manually.
+                throw new Exception("Error registering store sale");
             }
 
         }
@@ -193,19 +184,18 @@ namespace Emby.Server.Implementations.Security
             }
         }
 
-        private async Task<MBRegistrationRecord> GetRegistrationStatusInternal(string feature,
-            string version = null)
+        private SemaphoreSlim _regCheckLock = new SemaphoreSlim(1, 1);
+
+        private async Task<MBRegistrationRecord> GetRegistrationStatusInternal(string feature, bool forceCallToServer, string version, CancellationToken cancellationToken)
         {
-            var record = new MBRegistrationRecord
+            return new MBRegistrationRecord
             {
                 IsRegistered = true,
                 RegChecked = true,
+                RegError = false,
                 TrialVersion = false,
-                IsValid = true,
-                RegError = false
+                IsValid = true
             };
-
-            return record;
         }
 
         private bool IsInTrial(DateTime expirationDate, bool regChecked, bool isRegistered)

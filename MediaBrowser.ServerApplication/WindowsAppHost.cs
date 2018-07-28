@@ -9,7 +9,6 @@ using Emby.Server.Implementations;
 using Emby.Server.Implementations.EntryPoints;
 using Emby.Server.Implementations.FFMpeg;
 using Emby.Server.Implementations.IO;
-using Emby.Server.Sync;
 using MediaBrowser.Controller.Connect;
 using MediaBrowser.Controller.Sync;
 using MediaBrowser.Model.IO;
@@ -18,6 +17,7 @@ using MediaBrowser.Model.System;
 using MediaBrowser.Model.Updates;
 using MediaBrowser.Server.Startup.Common;
 using MediaBrowser.ServerApplication.Native;
+using Emby.Server.Implementations.HttpServer;
 
 namespace MediaBrowser.ServerApplication
 {
@@ -32,11 +32,6 @@ namespace MediaBrowser.ServerApplication
         protected override IConnectManager CreateConnectManager()
         {
             return new ConnectManager();
-        }
-
-        protected override ISyncManager CreateSyncManager()
-        {
-            return new SyncManager();
         }
 
         protected override void RestartInternal()
@@ -54,7 +49,6 @@ namespace MediaBrowser.ServerApplication
             var list = new List<Assembly>();
 
             list.Add(typeof(ConnectManager).Assembly);
-            list.Add(typeof(SyncManager).Assembly);
             list.Add(GetType().Assembly);
 
             return list;
@@ -101,6 +95,20 @@ namespace MediaBrowser.ServerApplication
                 //Remove our shortcut from the startup folder for this user
                 FileSystemManager.DeleteFile(Path.Combine(startupPath, "Emby Server.lnk"));
             }
+        }
+
+        protected override IHttpListener CreateHttpListener()
+        {
+            return new EmbyServer.SocketSharp.WebSocketSharpListener(LogManager.GetLogger("HttpServer"),
+                Certificate,
+                StreamHelper,
+                TextEncoding,
+                NetworkManager,
+                SocketFactory,
+                CryptographyProvider,
+                SupportsDualModeSockets,
+                FileSystemManager,
+                EnvironmentInfo);
         }
 
         public override bool CanSelfRestart

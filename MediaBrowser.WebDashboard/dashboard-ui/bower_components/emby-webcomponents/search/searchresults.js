@@ -2,7 +2,7 @@ define(["layoutManager", "globalize", "require", "events", "connectionManager", 
     "use strict";
     function loadSuggestions(instance, context, apiClient) {
         var options= {
-            SortBy: "IsFavoriteOrLiked,Random", IncludeItemTypes: "Movie,Series,MusicArtist", Limit: 20, Recursive: !0, ImageTypeLimit: 0, EnableImages: !1, ParentId: instance.options.parentId
+            SortBy: "IsFavoriteOrLiked,Random", IncludeItemTypes: "Movie,Series,MusicArtist", Limit: 20, Recursive: !0, ImageTypeLimit: 0, EnableImages: !1, ParentId: instance.options.parentId, EnableTotalRecordCount: !1
         }
         ;
         apiClient.getItems(apiClient.getCurrentUserId(), options).then(function(result) {
@@ -22,10 +22,16 @@ define(["layoutManager", "globalize", "require", "events", "connectionManager", 
         }
         );
         var allowSearch=!0, queryIncludeItemTypes=query.IncludeItemTypes;
-        return"tvshows"===instance.options.collectionType?query.IncludeArtists?allowSearch=!1:"Movie"!==queryIncludeItemTypes&&"LiveTvProgram"!==queryIncludeItemTypes&&"MusicAlbum"!==queryIncludeItemTypes&&"Audio"!==queryIncludeItemTypes&&"Book"!==queryIncludeItemTypes&&"AudioBook"!==queryIncludeItemTypes&&"PhotoAlbum"!==queryIncludeItemTypes&&"Video"!==query.MediaTypes&&"Photo"!==query.MediaTypes||(allowSearch=!1):"movies"===instance.options.collectionType?query.IncludeArtists?allowSearch=!1:"Series"!==queryIncludeItemTypes&&"Episode"!==queryIncludeItemTypes&&"LiveTvProgram"!==queryIncludeItemTypes&&"MusicAlbum"!==queryIncludeItemTypes&&"Audio"!==queryIncludeItemTypes&&"Book"!==queryIncludeItemTypes&&"AudioBook"!==queryIncludeItemTypes&&"PhotoAlbum"!==queryIncludeItemTypes&&"Video"!==query.MediaTypes&&"Photo"!==query.MediaTypes||(allowSearch=!1):"music"===instance.options.collectionType?query.People?allowSearch=!1:"Series"!==queryIncludeItemTypes&&"Episode"!==queryIncludeItemTypes&&"LiveTvProgram"!==queryIncludeItemTypes&&"Movie"!==queryIncludeItemTypes||(allowSearch=!1):"livetv"===instance.options.collectionType&&(query.IncludeArtists||query.IncludePeople?allowSearch=!1:"Series"!==queryIncludeItemTypes&&"Episode"!==queryIncludeItemTypes&&"MusicAlbum"!==queryIncludeItemTypes&&"Audio"!==queryIncludeItemTypes&&"Book"!==queryIncludeItemTypes&&"AudioBook"!==queryIncludeItemTypes&&"PhotoAlbum"!==queryIncludeItemTypes&&"Movie"!==queryIncludeItemTypes&&"Video"!==query.MediaTypes&&"Photo"!==query.MediaTypes||(allowSearch=!1)), "NullType"===queryIncludeItemTypes&&(allowSearch=!1), allowSearch?apiClient.getSearchHints(query):Promise.resolve( {
+        if("tvshows"===instance.options.collectionType?query.IncludeArtists?allowSearch=!1:"Movie"!==queryIncludeItemTypes&&"LiveTvProgram"!==queryIncludeItemTypes&&"MusicAlbum"!==queryIncludeItemTypes&&"Audio"!==queryIncludeItemTypes&&"Book"!==queryIncludeItemTypes&&"AudioBook"!==queryIncludeItemTypes&&"Playlist"!==queryIncludeItemTypes&&"PhotoAlbum"!==queryIncludeItemTypes&&"Video"!==query.MediaTypes&&"Photo"!==query.MediaTypes||(allowSearch=!1):"movies"===instance.options.collectionType?query.IncludeArtists?allowSearch=!1:"Series"!==queryIncludeItemTypes&&"Episode"!==queryIncludeItemTypes&&"LiveTvProgram"!==queryIncludeItemTypes&&"MusicAlbum"!==queryIncludeItemTypes&&"Audio"!==queryIncludeItemTypes&&"Book"!==queryIncludeItemTypes&&"AudioBook"!==queryIncludeItemTypes&&"Playlist"!==queryIncludeItemTypes&&"PhotoAlbum"!==queryIncludeItemTypes&&"Video"!==query.MediaTypes&&"Photo"!==query.MediaTypes||(allowSearch=!1):"music"===instance.options.collectionType?query.People?allowSearch=!1:"Series"!==queryIncludeItemTypes&&"Episode"!==queryIncludeItemTypes&&"LiveTvProgram"!==queryIncludeItemTypes&&"Movie"!==queryIncludeItemTypes||(allowSearch=!1):"livetv"===instance.options.collectionType&&(query.IncludeArtists||query.IncludePeople?allowSearch=!1:"Series"!==queryIncludeItemTypes&&"Episode"!==queryIncludeItemTypes&&"MusicAlbum"!==queryIncludeItemTypes&&"Audio"!==queryIncludeItemTypes&&"Book"!==queryIncludeItemTypes&&"AudioBook"!==queryIncludeItemTypes&&"PhotoAlbum"!==queryIncludeItemTypes&&"Movie"!==queryIncludeItemTypes&&"Video"!==query.MediaTypes&&"Photo"!==query.MediaTypes||(allowSearch=!1)), "NullType"===queryIncludeItemTypes&&(allowSearch=!1), !allowSearch)return Promise.resolve( {
             SearchHints: []
         }
-        )
+        );
+        if(apiClient.isMinServerVersion("3.4.1.31")) {
+            query.Fields="PrimaryImageAspectRatio,CanDelete,BasicSyncInfo,MediaSourceCount", query.Recursive=!0, query.EnableTotalRecordCount=!1, query.ImageTypeLimit=1;
+            var methodName="getItems";
+            return query.IncludeMedia||(query.IncludePeople?methodName="getPeople": query.IncludeArtists&&(methodName="getArtists")), apiClient[methodName](apiClient.getCurrentUserId(), query)
+        }
+        return query.UserId=apiClient.getCurrentUserId(), apiClient.getSearchHints(query)
     }
     function search(instance, apiClient, context, value) {
         value||layoutManager.tv?(instance.mode="search", context.querySelector(".searchSuggestions").classList.add("hide")):(instance.mode="suggestions", loadSuggestions(instance, context, apiClient)), "livetv"===instance.options.collectionType?searchType(instance, apiClient, {
@@ -136,6 +142,12 @@ define(["layoutManager", "globalize", "require", "events", "connectionManager", 
         , context, ".audioBookResults", {
             showTitle: !0, overlayText: !1, centerText: !0
         }
+        ), searchType(instance, apiClient, {
+            searchTerm: value, IncludePeople: !1, IncludeMedia: !0, IncludeGenres: !1, IncludeStudios: !1, IncludeArtists: !1, IncludeItemTypes: "Playlist"
+        }
+        , context, ".playlistResults", {
+            showTitle: !0, overlayText: !1, centerText: !0
+        }
         );
 		
 		//myproduction-change-start
@@ -145,14 +157,14 @@ define(["layoutManager", "globalize", "require", "events", "connectionManager", 
 		//myproduction-change-end
     }
     function searchType(instance, apiClient, query, context, section, cardOptions) {
-        query.UserId=apiClient.getCurrentUserId(), query.Limit=enableScrollX()?24:16, query.ParentId=instance.options.parentId, getSearchHints(instance, apiClient, query).then(function(result) {
+        query.Limit=enableScrollX()?24:16, query.ParentId=instance.options.parentId, getSearchHints(instance, apiClient, query).then(function(result) {
             populateResults(result, context, section, cardOptions)
         }
         )
     }
     function populateResults(result, context, section, cardOptions) {
         section=context.querySelector(section);
-        var items=result.SearchHints, itemsContainer=section.querySelector(".itemsContainer");
+        var items=result.Items||result.SearchHints, itemsContainer=section.querySelector(".itemsContainer");
         cardBuilder.buildCards(items, Object.assign( {
             itemsContainer: itemsContainer, parentContainer: section, shape: enableScrollX()?"autooverflow": "auto", scalable: !0, overlayText: !1, centerText: !0, allowBottomPadding: !enableScrollX()
         }

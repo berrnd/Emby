@@ -1,12 +1,9 @@
 //myproduction-change-start
 //Added jQuery
-define(["appSettings", "userSettings", "dom", "browser", "datetime", "appRouter", "events", "scrollStyles", "jQuery"], function(appSettings, userSettings, dom, browser, datetime, appRouter, events, scrollStyles, jQuery) {
+define(["userSettings", "jQuery"], function(userSettings, jQuery) {
 //myproduction-change-end
     "use strict";
     var libraryBrowser = {
-        getDefaultPageSize: function(key, defaultValue) {
-            return 100
-        },
         getSavedQueryKey: function(modifier) {
             return window.location.href.split("#")[0] + (modifier || "")
         },
@@ -23,11 +20,6 @@ define(["appSettings", "userSettings", "dom", "browser", "datetime", "appRouter"
         },
         getSavedView: function(key) {
             return userSettings.get(key + "-_view")
-        },
-        getSavedViewSetting: function(key) {
-            return new Promise(function(resolve, reject) {
-                resolve(libraryBrowser.getSavedView(key))
-            })
         },
         showLayoutMenu: function(button, currentLayout, views) {
             var dispatchEvent = !0;
@@ -106,82 +98,6 @@ define(["appSettings", "userSettings", "dom", "browser", "datetime", "appRouter"
                 var sortOrders = dlg.querySelectorAll(".menuSortOrder");
                 for (i = 0, length = sortOrders.length; i < length; i++) sortOrders[i].addEventListener("change", onSortOrderChange)
             })
-        },
-        renderDetailImage: function(page, elem, item, apiClient, editable, imageLoader, indicators) {
-            "SeriesTimer" !== item.Type && "Program" !== item.Type || (editable = !1), "Person" !== item.Type ? (elem.classList.add("detailimg-hidemobile"), page.querySelector(".detailPageContent").classList.add("detailPageContent-nodetailimg")) : page.querySelector(".detailPageContent").classList.remove("detailPageContent-nodetailimg");
-            var imageTags = item.ImageTags || {};
-            item.PrimaryImageTag && (imageTags.Primary = item.PrimaryImageTag);
-            var url, html = "",
-                shape = "portrait",
-                detectRatio = !1;
-            imageTags.Primary ? (url = apiClient.getScaledImageUrl(item.Id, {
-                type: "Primary",
-                maxHeight: 360,
-                tag: item.ImageTags.Primary
-            }), detectRatio = !0) : item.BackdropImageTags && item.BackdropImageTags.length ? (url = apiClient.getScaledImageUrl(item.Id, {
-                type: "Backdrop",
-                maxHeight: 360,
-                tag: item.BackdropImageTags[0]
-            }), shape = "thumb") : imageTags.Thumb ? (url = apiClient.getScaledImageUrl(item.Id, {
-                type: "Thumb",
-                maxHeight: 360,
-                tag: item.ImageTags.Thumb
-            }), shape = "thumb") : imageTags.Disc ? (url = apiClient.getScaledImageUrl(item.Id, {
-                type: "Disc",
-                maxHeight: 360,
-                tag: item.ImageTags.Disc
-            }), shape = "square") : item.AlbumId && item.AlbumPrimaryImageTag ? (url = apiClient.getScaledImageUrl(item.AlbumId, {
-                type: "Primary",
-                maxHeight: 360,
-                tag: item.AlbumPrimaryImageTag
-            }), shape = "square") : item.SeriesId && item.SeriesPrimaryImageTag ? url = apiClient.getScaledImageUrl(item.SeriesId, {
-                type: "Primary",
-                maxHeight: 360,
-                tag: item.SeriesPrimaryImageTag
-            }) : item.ParentPrimaryImageItemId && item.ParentPrimaryImageTag && (url = apiClient.getScaledImageUrl(item.ParentPrimaryImageItemId, {
-                type: "Primary",
-                maxHeight: 360,
-                tag: item.ParentPrimaryImageTag
-            })), html += '<div style="position:relative;">', editable && (html += "<a class='itemDetailGalleryLink' is='emby-linkbutton' style='display:block;padding:2px;margin:0;' href='#'>"), detectRatio && item.PrimaryImageAspectRatio && (item.PrimaryImageAspectRatio >= 1.48 ? shape = "thumb" : item.PrimaryImageAspectRatio >= .85 && item.PrimaryImageAspectRatio <= 1.34 && (shape = "square")), html += "<img class='itemDetailImage lazy' src='css/images/empty.png' />", editable && (html += "</a>");
-            var progressHtml = item.IsFolder || !item.UserData ? "" : indicators.getProgressBarHtml(item);
-            if (html += '<div class="detailImageProgressContainer">', progressHtml && (html += progressHtml), html += "</div>", html += "</div>", elem.innerHTML = html, "thumb" == shape ? (elem.classList.add("thumbDetailImageContainer"), elem.classList.remove("portraitDetailImageContainer"), elem.classList.remove("squareDetailImageContainer")) : "square" == shape ? (elem.classList.remove("thumbDetailImageContainer"), elem.classList.remove("portraitDetailImageContainer"), elem.classList.add("squareDetailImageContainer")) : (elem.classList.remove("thumbDetailImageContainer"), elem.classList.add("portraitDetailImageContainer"), elem.classList.remove("squareDetailImageContainer")), url) {
-                var img = elem.querySelector("img");
-                img.onload = function() {
-                    -1 == img.src.indexOf("empty.png") && img.classList.add("loaded")
-                }, imageLoader.lazyImage(img, url)
-            }
-        },
-        renderDetailPageBackdrop: function(page, item, apiClient, imageLoader, indicators) {
-            var imgUrl, screenWidth = screen.availWidth,
-                hasbackdrop = !1,
-                itemBackdropElement = page.querySelector("#itemBackdrop"),
-                usePrimaryImage = "Video" === item.MediaType && "Movie" !== item.Type && "Trailer" !== item.Type || item.MediaType && "Video" !== item.MediaType;
-            return "Program" === item.Type && item.ImageTags && item.ImageTags.Thumb ? (imgUrl = apiClient.getScaledImageUrl(item.Id, {
-                type: "Thumb",
-                index: 0,
-                maxWidth: screenWidth,
-                tag: item.ImageTags.Thumb
-            }), itemBackdropElement.classList.remove("noBackdrop"), imageLoader.lazyImage(itemBackdropElement, imgUrl, !1), hasbackdrop = !0) : usePrimaryImage && item.ImageTags && item.ImageTags.Primary ? (imgUrl = apiClient.getScaledImageUrl(item.Id, {
-                type: "Primary",
-                index: 0,
-                maxWidth: screenWidth,
-                tag: item.ImageTags.Primary
-            }), itemBackdropElement.classList.remove("noBackdrop"), imageLoader.lazyImage(itemBackdropElement, imgUrl, !1), hasbackdrop = !0) : item.BackdropImageTags && item.BackdropImageTags.length ? (imgUrl = apiClient.getScaledImageUrl(item.Id, {
-                type: "Backdrop",
-                index: 0,
-                maxWidth: screenWidth,
-                tag: item.BackdropImageTags[0]
-            }), itemBackdropElement.classList.remove("noBackdrop"), imageLoader.lazyImage(itemBackdropElement, imgUrl, !1), hasbackdrop = !0) : item.ParentBackdropItemId && item.ParentBackdropImageTags && item.ParentBackdropImageTags.length ? (imgUrl = apiClient.getScaledImageUrl(item.ParentBackdropItemId, {
-                type: "Backdrop",
-                index: 0,
-                tag: item.ParentBackdropImageTags[0],
-                maxWidth: screenWidth
-            }), itemBackdropElement.classList.remove("noBackdrop"), imageLoader.lazyImage(itemBackdropElement, imgUrl, !1), hasbackdrop = !0) : item.ImageTags && item.ImageTags.Thumb ? (imgUrl = apiClient.getScaledImageUrl(item.Id, {
-                type: "Thumb",
-                index: 0,
-                maxWidth: screenWidth,
-                tag: item.ImageTags.Thumb
-            }), itemBackdropElement.classList.remove("noBackdrop"), imageLoader.lazyImage(itemBackdropElement, imgUrl, !1), hasbackdrop = !0) : (itemBackdropElement.classList.add("noBackdrop"), itemBackdropElement.style.backgroundImage = ""), hasbackdrop
         },
 		//myproduction-change-start
 		//Added functions

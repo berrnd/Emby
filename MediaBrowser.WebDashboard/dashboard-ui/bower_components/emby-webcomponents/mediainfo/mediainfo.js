@@ -203,7 +203,7 @@ define(["datetime", "globalize", "appRouter", "itemHelper", "indicators", "mater
         if (width && height) {
             if (width >= 3800 || height >= 2e3) return "4K";
             if (width >= 2500 || height >= 1400) return i.IsInterlaced ? "1440i" : "1440P";
-            if (width >= 1880 || height >= 1e3) return i.IsInterlaced ? "1080i" : "1080P";
+            if (width >= 1800 || height >= 1e3) return i.IsInterlaced ? "1080i" : "1080P";
             if (width >= 1200 || height >= 700) return i.IsInterlaced ? "720i" : "720P";
             if (width >= 700 || height >= 400) return i.IsInterlaced ? "480i" : "480P"
         }

@@ -1,0 +1,3 @@
+[submodule "Emby.Common"]
+	path = Emby.Common
+	url = https://github.com/berrnd/Emby.Common.git

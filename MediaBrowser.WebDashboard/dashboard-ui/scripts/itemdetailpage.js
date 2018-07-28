@@ -90,7 +90,7 @@ define(["loading", "appRouter", "layoutManager", "connectionManager", "cardBuild
         }), page.querySelector(".seriesTimerScheduleSection").classList.remove("hide"), hideAll(page, "btnCancelSeriesTimer", !0), void renderSeriesTimerSchedule(page, apiClient, item.Id)) : (page.querySelector(".seriesTimerScheduleSection").classList.add("hide"), void hideAll(page, "btnCancelSeriesTimer"))
     }
 
-    function renderTrackSelections(page, instance, item) {
+    function renderTrackSelections(page, instance, item, forceReload) {
         var select = page.querySelector(".selectSource");
         if (!item.MediaSources || !itemHelper.supportsMediaSourceSelection(item) || -1 === playbackManager.getSupportedCommands().indexOf("PlayMediaSource") || !playbackManager.canPlay(item)) return page.querySelector(".trackSelections").classList.add("hide"), select.innerHTML = "", page.querySelector(".selectVideo").innerHTML = "", page.querySelector(".selectAudio").innerHTML = "", void(page.querySelector(".selectSubtitles").innerHTML = "");
         playbackManager.getPlaybackMediaSources(item).then(function(mediaSources) {
@@ -100,7 +100,7 @@ define(["loading", "appRouter", "layoutManager", "connectionManager", "cardBuild
             select.innerHTML = mediaSources.map(function(v) {
                 var selected = v.Id === selectedId ? " selected" : "";
                 return '<option value="' + v.Id + '"' + selected + ">" + v.Name + "</option>"
-            }).join(""), mediaSources.length > 1 ? page.querySelector(".selectSourceContainer").classList.remove("hide") : page.querySelector(".selectSourceContainer").classList.add("hide"), select.value !== currentValue && (renderVideoSelections(page, mediaSources), renderAudioSelections(page, mediaSources), renderSubtitleSelections(page, mediaSources))
+            }).join(""), mediaSources.length > 1 ? page.querySelector(".selectSourceContainer").classList.remove("hide") : page.querySelector(".selectSourceContainer").classList.add("hide"), (select.value !== currentValue || forceReload) && (renderVideoSelections(page, mediaSources), renderAudioSelections(page, mediaSources), renderSubtitleSelections(page, mediaSources))
         })
     }
 
@@ -227,16 +227,8 @@ define(["loading", "appRouter", "layoutManager", "connectionManager", "cardBuild
             ServerId: item.ServerId
         }, {
             context: context
-        }), parentNameHtml.push('<a style="color:inherit;" class="button-link" is="emby-linkbutton" href="' + parentRoute + '">' + item.SeasonName + "</a>")) : null != item.ParentIndexNumber && item.IsSeries ? parentNameHtml.push(item.SeasonName || "S" + item.ParentIndexNumber) : item.Album && "Audio" === item.Type && (item.AlbumId || item.ParentId) ? (parentRoute = appRouter.getRouteUrl({
-            Id: item.AlbumId || item.ParentId,
-            Name: item.Album,
-            Type: "MusicAlbum",
-            IsFolder: !0,
-            ServerId: item.ServerId
-        }, {
-            context: context
-        }), parentNameHtml.push('<a style="color:inherit;" class="button-link" is="emby-linkbutton" href="' + parentRoute + '">' + item.Album + "</a>")) : item.Album && "MusicVideo" === item.Type && item.AlbumId ? (parentRoute = appRouter.getRouteUrl({
-            Id: item.Albumid,
+        }), parentNameHtml.push('<a style="color:inherit;" class="button-link" is="emby-linkbutton" href="' + parentRoute + '">' + item.SeasonName + "</a>")) : null != item.ParentIndexNumber && item.IsSeries ? parentNameHtml.push(item.SeasonName || "S" + item.ParentIndexNumber) : item.Album && item.AlbumId && ("MusicVideo" === item.Type || "Audio" === item.Type) ? (parentRoute = appRouter.getRouteUrl({
+            Id: item.AlbumId,
             Name: item.Album,
             Type: "MusicAlbum",
             IsFolder: !0,
@@ -252,14 +244,50 @@ define(["loading", "appRouter", "layoutManager", "connectionManager", "cardBuild
         html && !parentNameLast ? html += '<h3 class="itemName" style="margin: .25em 0 .5em;">' + name + "</h3>" : html = parentNameLast ? '<h1 class="itemName" style="margin: .1em 0 .25em;">' + name + "</h1>" + html : '<h1 class="itemName" style="margin: .1em 0 .5em;">' + name + "</h1>" + html, container.innerHTML = html, html.length ? container.classList.remove("hide") : container.classList.add("hide")
     }
 
+    function setTrailerButtonVisibility(page, item) {
+        (item.LocalTrailerCount || item.RemoteTrailers && item.RemoteTrailers.length) && -1 !== playbackManager.getSupportedCommands().indexOf("PlayTrailers") ? hideAll(page, "btnPlayTrailer", !0) : hideAll(page, "btnPlayTrailer")
+    }
+
+    function renderDetailPageBackdrop(page, item, apiClient) {
+        var imgUrl, screenWidth = screen.availWidth,
+            hasbackdrop = !1,
+            itemBackdropElement = page.querySelector("#itemBackdrop"),
+            usePrimaryImage = "Video" === item.MediaType && "Movie" !== item.Type && "Trailer" !== item.Type || item.MediaType && "Video" !== item.MediaType;
+        return "Program" === item.Type && item.ImageTags && item.ImageTags.Thumb ? (imgUrl = apiClient.getScaledImageUrl(item.Id, {
+            type: "Thumb",
+            index: 0,
+            maxWidth: screenWidth,
+            tag: item.ImageTags.Thumb
+        }), itemBackdropElement.classList.remove("noBackdrop"), imageLoader.lazyImage(itemBackdropElement, imgUrl, !1), hasbackdrop = !0) : usePrimaryImage && item.ImageTags && item.ImageTags.Primary ? (imgUrl = apiClient.getScaledImageUrl(item.Id, {
+            type: "Primary",
+            index: 0,
+            maxWidth: screenWidth,
+            tag: item.ImageTags.Primary
+        }), itemBackdropElement.classList.remove("noBackdrop"), imageLoader.lazyImage(itemBackdropElement, imgUrl, !1), hasbackdrop = !0) : item.BackdropImageTags && item.BackdropImageTags.length ? (imgUrl = apiClient.getScaledImageUrl(item.Id, {
+            type: "Backdrop",
+            index: 0,
+            maxWidth: screenWidth,
+            tag: item.BackdropImageTags[0]
+        }), itemBackdropElement.classList.remove("noBackdrop"), imageLoader.lazyImage(itemBackdropElement, imgUrl, !1), hasbackdrop = !0) : item.ParentBackdropItemId && item.ParentBackdropImageTags && item.ParentBackdropImageTags.length ? (imgUrl = apiClient.getScaledImageUrl(item.ParentBackdropItemId, {
+            type: "Backdrop",
+            index: 0,
+            tag: item.ParentBackdropImageTags[0],
+            maxWidth: screenWidth
+        }), itemBackdropElement.classList.remove("noBackdrop"), imageLoader.lazyImage(itemBackdropElement, imgUrl, !1), hasbackdrop = !0) : item.ImageTags && item.ImageTags.Thumb ? (imgUrl = apiClient.getScaledImageUrl(item.Id, {
+            type: "Thumb",
+            index: 0,
+            maxWidth: screenWidth,
+            tag: item.ImageTags.Thumb
+        }), itemBackdropElement.classList.remove("noBackdrop"), imageLoader.lazyImage(itemBackdropElement, imgUrl, !1), hasbackdrop = !0) : (itemBackdropElement.classList.add("noBackdrop"), itemBackdropElement.style.backgroundImage = ""), hasbackdrop
+    }
+
     function reloadFromItem(instance, page, params, item, user) {
         var context = params.context;
         renderName(item, page.querySelector(".nameContainer"), !1, context);
         var apiClient = connectionManager.getApiClient(item.ServerId);
-        renderSeriesTimerEditor(page, item, apiClient, user), renderTimerEditor(page, item, apiClient, user), renderImage(page, item, apiClient, user), renderLogo(page, item, apiClient), setTitle(item, apiClient), setInitialCollapsibleState(page, item, apiClient, context, user), renderDetails(page, item, apiClient, context), renderTrackSelections(page, instance, item), dom.getWindowSize().innerWidth >= 1e3 ? backdrop.setBackdrops([item]) : backdrop.clear(), libraryBrowser.renderDetailPageBackdrop(page, item, apiClient, imageLoader, indicators);
-        var canPlay = reloadPlayButtons(page, item),
-            hasAnyButton = canPlay;
-        item.LocalTrailerCount || item.RemoteTrailers && item.RemoteTrailers.length ? (hideAll(page, "btnPlayTrailer", !0), hasAnyButton = !0) : hideAll(page, "btnPlayTrailer"), item.CanDelete && !item.IsFolder ? (hideAll(page, "btnDeleteItem", !0), hasAnyButton = !0) : hideAll(page, "btnDeleteItem"), renderSyncLocalContainer(page, params, user, item), hasAnyButton || "Program" !== item.Type ? hideAll(page, "mainDetailButtons", !0) : hideAll(page, "mainDetailButtons"), showRecordingFields(instance, page, item, user);
+        renderSeriesTimerEditor(page, item, apiClient, user), renderTimerEditor(page, item, apiClient, user), renderImage(page, item, apiClient, user), renderLogo(page, item, apiClient), setTitle(item, apiClient), setInitialCollapsibleState(page, item, apiClient, context, user), renderDetails(page, item, apiClient, context), renderTrackSelections(page, instance, item), dom.getWindowSize().innerWidth >= 1e3 ? backdrop.setBackdrops([item]) : backdrop.clear(), renderDetailPageBackdrop(page, item, apiClient);
+        var canPlay = reloadPlayButtons(page, item);
+        (item.LocalTrailerCount || item.RemoteTrailers && item.RemoteTrailers.length) && -1 !== playbackManager.getSupportedCommands().indexOf("PlayTrailers") ? hideAll(page, "btnPlayTrailer", !0) : hideAll(page, "btnPlayTrailer"), setTrailerButtonVisibility(page, item), item.CanDelete && !item.IsFolder ? hideAll(page, "btnDeleteItem", !0) : hideAll(page, "btnDeleteItem"), renderSyncLocalContainer(page, params, user, item), "Program" !== item.Type || canPlay ? hideAll(page, "mainDetailButtons", !0) : hideAll(page, "mainDetailButtons"), showRecordingFields(instance, page, item, user);
 		
 		//myproduction-change-start
 		//Added download and stream in external player button
@@ -349,9 +377,48 @@ define(["loading", "appRouter", "layoutManager", "connectionManager", "cardBuild
         links.length && html.push(globalize.translate("sharedcomponents#LinksValue", links.join(", "))), linksElem.innerHTML = html.join(", "), html.length ? linksElem.classList.remove("hide") : linksElem.classList.add("hide")
     }
 
+    function renderDetailImage(page, elem, item, apiClient, editable, imageLoader, indicators) {
+        "SeriesTimer" !== item.Type && "Program" !== item.Type || (editable = !1), "Person" !== item.Type ? (elem.classList.add("detailimg-hidemobile"), page.querySelector(".detailPageContent").classList.add("detailPageContent-nodetailimg")) : page.querySelector(".detailPageContent").classList.remove("detailPageContent-nodetailimg");
+        var imageTags = item.ImageTags || {};
+        item.PrimaryImageTag && (imageTags.Primary = item.PrimaryImageTag);
+        var url, html = "",
+            shape = "portrait",
+            detectRatio = !1;
+        imageTags.Primary ? (url = apiClient.getScaledImageUrl(item.Id, {
+            type: "Primary",
+            maxHeight: 360,
+            tag: item.ImageTags.Primary
+        }), detectRatio = !0) : item.BackdropImageTags && item.BackdropImageTags.length ? (url = apiClient.getScaledImageUrl(item.Id, {
+            type: "Backdrop",
+            maxHeight: 360,
+            tag: item.BackdropImageTags[0]
+        }), shape = "thumb") : imageTags.Thumb ? (url = apiClient.getScaledImageUrl(item.Id, {
+            type: "Thumb",
+            maxHeight: 360,
+            tag: item.ImageTags.Thumb
+        }), shape = "thumb") : imageTags.Disc ? (url = apiClient.getScaledImageUrl(item.Id, {
+            type: "Disc",
+            maxHeight: 360,
+            tag: item.ImageTags.Disc
+        }), shape = "square") : item.AlbumId && item.AlbumPrimaryImageTag ? (url = apiClient.getScaledImageUrl(item.AlbumId, {
+            type: "Primary",
+            maxHeight: 360,
+            tag: item.AlbumPrimaryImageTag
+        }), shape = "square") : item.SeriesId && item.SeriesPrimaryImageTag ? url = apiClient.getScaledImageUrl(item.SeriesId, {
+            type: "Primary",
+            maxHeight: 360,
+            tag: item.SeriesPrimaryImageTag
+        }) : item.ParentPrimaryImageItemId && item.ParentPrimaryImageTag && (url = apiClient.getScaledImageUrl(item.ParentPrimaryImageItemId, {
+            type: "Primary",
+            maxHeight: 360,
+            tag: item.ParentPrimaryImageTag
+        })), html += '<div style="position:relative;">', editable && (html += "<a class='itemDetailGalleryLink' is='emby-linkbutton' style='display:block;padding:2px;margin:0;' href='#'>"), detectRatio && item.PrimaryImageAspectRatio && (item.PrimaryImageAspectRatio >= 1.48 ? shape = "thumb" : item.PrimaryImageAspectRatio >= .85 && item.PrimaryImageAspectRatio <= 1.34 && (shape = "square")), html += "<img class='itemDetailImage lazy' src='data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=' />", editable && (html += "</a>");
+        var progressHtml = item.IsFolder || !item.UserData ? "" : indicators.getProgressBarHtml(item);
+        html += '<div class="detailImageProgressContainer">', progressHtml && (html += progressHtml), html += "</div>", html += "</div>", elem.innerHTML = html, "thumb" == shape ? (elem.classList.add("thumbDetailImageContainer"), elem.classList.remove("portraitDetailImageContainer"), elem.classList.remove("squareDetailImageContainer")) : "square" == shape ? (elem.classList.remove("thumbDetailImageContainer"), elem.classList.remove("portraitDetailImageContainer"), elem.classList.add("squareDetailImageContainer")) : (elem.classList.remove("thumbDetailImageContainer"), elem.classList.add("portraitDetailImageContainer"), elem.classList.remove("squareDetailImageContainer")), url && imageLoader.lazyImage(elem.querySelector("img"), url)
+    }
+
     function renderImage(page, item, apiClient, user) {
-        var container = page.querySelector(".detailImageContainer");
-        libraryBrowser.renderDetailImage(page, container, item, apiClient, user.Policy.IsAdministrator && "Photo" != item.MediaType, imageLoader, indicators)
+        renderDetailImage(page, page.querySelector(".detailImageContainer"), item, apiClient, user.Policy.IsAdministrator && "Photo" != item.MediaType, imageLoader, indicators)
     }
 
     function refreshDetailImageUserData(elem, item) {
@@ -389,7 +456,7 @@ define(["loading", "appRouter", "layoutManager", "connectionManager", "cardBuild
     }
 
     function setInitialCollapsibleState(page, item, apiClient, context, user) {
-        page.querySelector(".collectionItems").innerHTML = "", "Playlist" == item.Type ? (page.querySelector("#childrenCollapsible").classList.remove("hide"), renderPlaylistItems(page, item, user)) : "Studio" == item.Type || "Person" == item.Type || "Genre" == item.Type || "MusicGenre" == item.Type || "GameGenre" == item.Type || "MusicArtist" == item.Type ? (page.querySelector("#childrenCollapsible").classList.remove("hide"), renderItemsByName(page, item, user)) : item.IsFolder ? ("BoxSet" == item.Type && page.querySelector("#childrenCollapsible").classList.add("hide"), renderChildren(page, item)) : page.querySelector("#childrenCollapsible").classList.add("hide"), item.Type, "Series" == item.Type ? renderNextUp(page, item, user) : page.querySelector(".nextUpSection").classList.add("hide"), item.MediaSources && item.MediaSources.length && (null == item.EnableMediaSourceDisplay ? "Channel" !== item.SourceType : item.EnableMediaSourceDisplay) ? renderMediaSources(page, user, item) : page.querySelector(".audioVideoMediaInfo").classList.add("hide"), renderScenes(page, item), item.SpecialFeatureCount && 0 != item.SpecialFeatureCount && "Series" != item.Type ? (page.querySelector("#specialsCollapsible").classList.remove("hide"), renderSpecials(page, item, user, 6)) : page.querySelector("#specialsCollapsible").classList.add("hide"), renderCast(page, item, context, enableScrollX() ? null : 12), item.PartCount && item.PartCount > 1 ? (page.querySelector("#additionalPartsCollapsible").classList.remove("hide"), renderAdditionalParts(page, item, user)) : page.querySelector("#additionalPartsCollapsible").classList.add("hide"), page.querySelector("#themeSongsCollapsible").classList.add("hide"), page.querySelector("#themeVideosCollapsible").classList.add("hide"), "MusicAlbum" == item.Type ? renderMusicVideos(page, item, user) : page.querySelector("#musicVideosCollapsible").classList.add("hide"), renderThemeMedia(page, item)
+        page.querySelector(".collectionItems").innerHTML = "", "Playlist" == item.Type ? (page.querySelector("#childrenCollapsible").classList.remove("hide"), renderPlaylistItems(page, item, user)) : "Studio" == item.Type || "Person" == item.Type || "Genre" == item.Type || "MusicGenre" == item.Type || "GameGenre" == item.Type || "MusicArtist" == item.Type ? (page.querySelector("#childrenCollapsible").classList.remove("hide"), renderItemsByName(page, item, user)) : item.IsFolder ? ("BoxSet" == item.Type && page.querySelector("#childrenCollapsible").classList.add("hide"), renderChildren(page, item)) : page.querySelector("#childrenCollapsible").classList.add("hide"), "Series" == item.Type && renderSeriesSchedule(page, item, user), "Series" == item.Type ? renderNextUp(page, item, user) : page.querySelector(".nextUpSection").classList.add("hide"), item.MediaSources && item.MediaSources.length && (null == item.EnableMediaSourceDisplay ? "Channel" !== item.SourceType : item.EnableMediaSourceDisplay) ? renderMediaSources(page, user, item) : page.querySelector(".audioVideoMediaInfo").classList.add("hide"), renderScenes(page, item), item.SpecialFeatureCount && 0 != item.SpecialFeatureCount && "Series" != item.Type ? (page.querySelector("#specialsCollapsible").classList.remove("hide"), renderSpecials(page, item, user, 6)) : page.querySelector("#specialsCollapsible").classList.add("hide"), renderCast(page, item, context, enableScrollX() ? null : 12), item.PartCount && item.PartCount > 1 ? (page.querySelector("#additionalPartsCollapsible").classList.remove("hide"), renderAdditionalParts(page, item, user)) : page.querySelector("#additionalPartsCollapsible").classList.add("hide"), "MusicAlbum" == item.Type ? renderMusicVideos(page, item, user) : page.querySelector("#musicVideosCollapsible").classList.add("hide")
     }
 
     function renderOverview(elems, item) {
@@ -464,21 +531,11 @@ define(["loading", "appRouter", "layoutManager", "connectionManager", "cardBuild
         for (itemMiscInfo = page.querySelectorAll(".itemMiscInfo-secondary"), i = 0, length = itemMiscInfo.length; i < length; i++) mediaInfo.fillSecondaryMediaInfo(itemMiscInfo[i], item, {
             interactive: !0
         }), itemMiscInfo[i].innerHTML ? itemMiscInfo[i].classList.remove("hide") : itemMiscInfo[i].classList.add("hide");
-        reloadUserDataButtons(page, item), renderLinks(externalLinksElem, item), renderTags(page, item), renderSeriesAirTime(page, item, isStatic), "Photo" == item.MediaType ? (page.querySelector(".photoInfo").classList.remove("hide"), renderPhotoInfo(page, item)) : page.querySelector(".photoInfo").classList.add("hide")
-    }
-
-    function renderPhotoInfo(page, item) {
-        var html = "",
-            attributes = [];
-        if (item.CameraMake && attributes.push(createAttribute(globalize.translate("MediaInfoCameraMake"), item.CameraMake)), item.CameraModel && attributes.push(createAttribute(globalize.translate("MediaInfoCameraModel"), item.CameraModel)), item.Altitude && attributes.push(createAttribute(globalize.translate("MediaInfoAltitude"), item.Altitude.toFixed(1))), item.Aperture && attributes.push(createAttribute(globalize.translate("MediaInfoAperture"), "F" + item.Aperture.toFixed(1))), item.ExposureTime) {
-            var val = 1 / item.ExposureTime;
-            attributes.push(createAttribute(globalize.translate("MediaInfoExposureTime"), "1/" + val + " s"))
-        }
-        item.FocalLength && attributes.push(createAttribute(globalize.translate("MediaInfoFocalLength"), item.FocalLength.toFixed(1) + " mm")), item.ImageOrientation && attributes.push(createAttribute(globalize.translate("MediaInfoOrientation"), item.ImageOrientation)), item.IsoSpeedRating && attributes.push(createAttribute(globalize.translate("MediaInfoIsoSpeedRating"), item.IsoSpeedRating)), item.Latitude && attributes.push(createAttribute(globalize.translate("MediaInfoLatitude"), item.Latitude.toFixed(1))), item.Longitude && attributes.push(createAttribute(globalize.translate("MediaInfoLongitude"), item.Longitude.toFixed(1))), item.ShutterSpeed && attributes.push(createAttribute(globalize.translate("MediaInfoShutterSpeed"), item.ShutterSpeed)), item.Software && attributes.push(createAttribute(globalize.translate("MediaInfoSoftware"), item.Software)), html += attributes.join("<br/>"), page.querySelector(".photoInfoContent").innerHTML = html
+        reloadUserDataButtons(page, item), renderLinks(externalLinksElem, item), renderTags(page, item), renderSeriesAirTime(page, item, isStatic)
     }
 
     function enableScrollX() {
-        return browserInfo.mobile && screen.availWidth <= 1e3
+        return browser.mobile && screen.availWidth <= 1e3
     }
 
     function getPortraitShape(scrollX) {
@@ -501,7 +558,7 @@ define(["loading", "appRouter", "layoutManager", "connectionManager", "cardBuild
             apiClient.getEpisodes(item.SeriesId, {
                 SeasonId: item.SeasonId,
                 UserId: userId,
-                Fields: "ItemCounts,PrimaryImageAspectRatio,BasicSyncInfo,CanDelete"
+                Fields: "ItemCounts,PrimaryImageAspectRatio,BasicSyncInfo,CanDelete,MediaSourceCount"
             }).then(function(result) {
                 if (result.Items.length < 2) return void section.classList.add("hide");
                 section.classList.remove("hide"), section.querySelector("h2").innerHTML = globalize.translate("MoreFromValue", item.SeasonName);
@@ -509,7 +566,7 @@ define(["loading", "appRouter", "layoutManager", "connectionManager", "cardBuild
                 cardBuilder.buildCards(result.Items, {
                     parentContainer: section,
                     itemsContainer: itemsContainer,
-                    shape: "autoVertical",
+                    shape: "autooverflow",
                     sectionTitleTagName: "h2",
                     scalable: !0,
                     showTitle: !0,
@@ -528,64 +585,66 @@ define(["loading", "appRouter", "layoutManager", "connectionManager", "cardBuild
 
     function renderMoreFromArtist(view, item, apiClient) {
         var section = view.querySelector(".moreFromArtistSection");
-        if (section) return "MusicAlbum" === item.Type && item.AlbumArtists && item.AlbumArtists.length ? void apiClient.getItems(apiClient.getCurrentUserId(), {
-            IncludeItemTypes: "MusicAlbum",
-            ArtistIds: item.AlbumArtists[0].Id,
-            Recursive: !0,
-            ExcludeItemIds: item.Id,
-            SortBy: "ProductionYear,SortName",
-            SortOrder: "Descending"
-        }).then(function(result) {
-            if (!result.Items.length) return void section.classList.add("hide");
-            section.classList.remove("hide"), section.querySelector("h2").innerHTML = globalize.translate("MoreFromValue", item.AlbumArtists[0].Name), cardBuilder.buildCards(result.Items, {
-                parentContainer: section,
-                itemsContainer: section.querySelector(".itemsContainer"),
-                shape: "autoVertical",
-                sectionTitleTagName: "h2",
-                scalable: !0,
-                coverImage: "MusicArtist" === item.Type || "MusicAlbum" === item.Type,
-                showTitle: !0,
-                showParentTitle: !1,
-                centerText: !0,
-                overlayText: !1,
-                overlayPlayButton: !0
+        if (section) {
+            if ("MusicArtist" === item.Type) {
+                if (!apiClient.isMinServerVersion("3.4.1.19")) return void section.classList.add("hide")
+            } else if ("MusicAlbum" !== item.Type || !item.AlbumArtists || !item.AlbumArtists.length) return void section.classList.add("hide");
+            var query = {
+                IncludeItemTypes: "MusicAlbum",
+                Recursive: !0,
+                ExcludeItemIds: item.Id,
+                SortBy: "ProductionYear,SortName",
+                SortOrder: "Descending"
+            };
+            "MusicArtist" === item.Type ? query.ContributingArtistIds = item.Id : apiClient.isMinServerVersion("3.4.1.18") ? query.AlbumArtistIds = item.AlbumArtists[0].Id : query.ArtistIds = item.AlbumArtists[0].Id, apiClient.getItems(apiClient.getCurrentUserId(), query).then(function(result) {
+                if (!result.Items.length) return void section.classList.add("hide");
+                section.classList.remove("hide"), "MusicArtist" === item.Type ? section.querySelector("h2").innerHTML = globalize.translate("sharedcomponents#HeaderAppearsOn") : section.querySelector("h2").innerHTML = globalize.translate("MoreFromValue", item.AlbumArtists[0].Name), cardBuilder.buildCards(result.Items, {
+                    parentContainer: section,
+                    itemsContainer: section.querySelector(".itemsContainer"),
+                    shape: "autooverflow",
+                    sectionTitleTagName: "h2",
+                    scalable: !0,
+                    coverImage: "MusicArtist" === item.Type || "MusicAlbum" === item.Type,
+                    showTitle: !0,
+                    showParentTitle: !1,
+                    centerText: !0,
+                    overlayText: !1,
+                    overlayPlayButton: !0,
+                    showYear: !0
+                })
             })
-        }) : void section.classList.add("hide")
+        }
     }
 
     function renderSimilarItems(page, item, context) {
         var similarCollapsible = page.querySelector("#similarCollapsible");
         if (similarCollapsible) {
-            if ("Movie" != item.Type && "Trailer" != item.Type && "Series" != item.Type && "Program" != item.Type && "Recording" != item.Type && "Game" != item.Type && "MusicAlbum" != item.Type && "MusicArtist" != item.Type && "ChannelVideoItem" != item.Type) return void similarCollapsible.classList.add("hide");
+            if ("Movie" != item.Type && "Trailer" != item.Type && "Series" != item.Type && "Program" != item.Type && "Recording" != item.Type && "Game" != item.Type && "MusicAlbum" != item.Type && "MusicArtist" != item.Type && "Playlist" != item.Type) return void similarCollapsible.classList.add("hide");
             similarCollapsible.classList.remove("hide");
-            var shape = "MusicAlbum" == item.Type || "MusicArtist" == item.Type ? "square" : "portrait",
-                apiClient = connectionManager.getApiClient(item.ServerId),
+            var apiClient = connectionManager.getApiClient(item.ServerId),
                 options = {
                     userId: apiClient.getCurrentUserId(),
-                    limit: "MusicAlbum" == item.Type || "MusicArtist" == item.Type ? 8 : 10,
+                    limit: 12,
                     fields: "PrimaryImageAspectRatio,UserData,CanDelete"
                 };
             "MusicAlbum" == item.Type && item.AlbumArtists && item.AlbumArtists.length && (options.ExcludeArtistIds = item.AlbumArtists[0].Id), apiClient.getSimilarItems(item.Id, options).then(function(result) {
                 if (!result.Items.length) return void similarCollapsible.classList.add("hide");
                 similarCollapsible.classList.remove("hide");
                 var html = "";
-                html += '<div is="emby-itemscontainer" class="itemsContainer vertical-wrap padded-left padded-right">';
-                var supportsImageAnalysis = appHost.supports("imageanalysis"),
-                    cardLayout = supportsImageAnalysis && ("MusicAlbum" == item.Type || "Game" == item.Type || "MusicArtist" == item.Type);
-                cardLayout = !1, html += cardBuilder.getCardsHtml({
+                html += cardBuilder.getCardsHtml({
                     items: result.Items,
-                    shape: shape,
+                    shape: "autooverflow",
                     showParentTitle: "MusicAlbum" == item.Type,
-                    centerText: !cardLayout,
-                    showTitle: "MusicAlbum" == item.Type || "Game" == item.Type || "MusicArtist" == item.Type,
+                    centerText: !0,
+                    showTitle: !0,
                     context: context,
                     lazy: !0,
                     showDetailsMenu: !0,
                     coverImage: "MusicAlbum" == item.Type || "MusicArtist" == item.Type,
                     overlayPlayButton: !0,
-                    cardLayout: cardLayout,
-                    vibrant: cardLayout && supportsImageAnalysis
-                }), html += "</div>";
+                    overlayText: !1,
+                    showYear: "Movie" === item.Type || "Trailer" === item.Type
+                });
                 var similarContent = similarCollapsible.querySelector(".similarContent");
                 similarContent.innerHTML = html, imageLoader.lazyChildren(similarContent)
             })
@@ -609,17 +668,20 @@ define(["loading", "appRouter", "layoutManager", "connectionManager", "cardBuild
                     });
                 html += ' on <a class="textlink button-link" is="emby-linkbutton" href="' + href + '">' + item.Studios[0].Name + "</a>"
             }
-        html ? (html = ("Ended" == item.Status ? "Aired " : "Airs ") + html,
-            seriesAirTime.innerHTML = html, seriesAirTime.classList.remove("hide")) : seriesAirTime.classList.add("hide")
+        html ? (html = ("Ended" == item.Status ? "Aired " : "Airs ") + html, seriesAirTime.innerHTML = html, seriesAirTime.classList.remove("hide")) : seriesAirTime.classList.add("hide")
     }
 
     function renderTags(page, item) {
-        for (var itemTags = page.querySelector(".itemTags"), tagElements = [], tags = item.Tags || [], i = 0, length = tags.length; i < length; i++) tagElements.push(tags[i]);
+        var itemTags = page.querySelector(".itemTags"),
+            tagElements = [],
+            tags = item.Tags || [];
+        "Program" === item.Type && (tags = []);
+        for (var i = 0, length = tags.length; i < length; i++) tagElements.push(tags[i]);
         tagElements.length ? (itemTags.innerHTML = globalize.translate("sharedcomponents#TagsValue", tagElements.join(", ")), itemTags.classList.remove("hide")) : (itemTags.innerHTML = "", itemTags.classList.add("hide"))
     }
 
     function renderChildren(page, item) {
-        var fields = "ItemCounts,PrimaryImageAspectRatio,BasicSyncInfo,CanDelete",
+        var fields = "ItemCounts,PrimaryImageAspectRatio,BasicSyncInfo,CanDelete,MediaSourceCount",
             query = {
                 ParentId: item.Id,
                 Fields: fields
@@ -644,7 +706,7 @@ define(["loading", "appRouter", "layoutManager", "connectionManager", "cardBuild
                 smallIcon: !0,
                 showIndex: !0,
                 index: "disc",
-                showIndexNumber: !0,
+                showIndexNumberLeft: !0,
                 playFromHere: !0,
                 action: "playallfromhere",
                 image: !1,
@@ -714,7 +776,7 @@ define(["loading", "appRouter", "layoutManager", "connectionManager", "cardBuild
                 }];
                 renderCollectionItems(page, item, collectionItemTypes, result.Items)
             }
-        }), "Season" == item.Type ? page.querySelector("#childrenTitle").innerHTML = globalize.translate("HeaderEpisodes") : "Series" == item.Type ? page.querySelector("#childrenTitle").innerHTML = globalize.translate("HeaderSeasons") : "MusicAlbum" == item.Type ? page.querySelector("#childrenTitle").innerHTML = globalize.translate("HeaderTracks") : "GameSystem" == item.Type ? page.querySelector("#childrenTitle").innerHTML = globalize.translate("HeaderGames") : page.querySelector("#childrenTitle").innerHTML = globalize.translate("HeaderItems"), "MusicAlbum" == item.Type || "Season" == item.Type ? page.querySelector(".childrenSectionHeader", page).classList.add("hide") : page.querySelector(".childrenSectionHeader", page).classList.remove("hide")
+        }), "Season" == item.Type ? page.querySelector("#childrenTitle").innerHTML = globalize.translate("HeaderEpisodes") : "Series" == item.Type ? page.querySelector("#childrenTitle").innerHTML = globalize.translate("HeaderSeasons") : "MusicAlbum" == item.Type ? page.querySelector("#childrenTitle").innerHTML = globalize.translate("HeaderTracks") : "GameSystem" == item.Type ? page.querySelector("#childrenTitle").innerHTML = globalize.translate("HeaderGames") : page.querySelector("#childrenTitle").innerHTML = globalize.translate("HeaderItems"), "MusicAlbum" == item.Type || "Season" == item.Type ? (page.querySelector(".childrenSectionHeader").classList.add("hide"), page.querySelector("#childrenCollapsible").classList.add("verticalSection-extrabottompadding")) : page.querySelector(".childrenSectionHeader").classList.remove("hide")
     }
 
     function renderItemsByName(page, item, user) {
@@ -777,8 +839,35 @@ define(["loading", "appRouter", "layoutManager", "connectionManager", "cardBuild
         }))
     }
 
+    function renderSeriesSchedule(page, item, user) {
+        var apiClient = connectionManager.getApiClient(item.ServerId);
+        apiClient.getLiveTvPrograms({
+            UserId: apiClient.getCurrentUserId(),
+            HasAired: !1,
+            SortBy: "StartDate",
+            EnableTotalRecordCount: !1,
+            EnableImages: !1,
+            ImageTypeLimit: 0,
+            Limit: 50,
+            EnableUserData: !1,
+            LibrarySeriesId: item.Id
+        }).then(function(result) {
+            result.Items.length ? page.querySelector("#seriesScheduleSection").classList.remove("hide") : page.querySelector("#seriesScheduleSection").classList.add("hide"), page.querySelector("#seriesScheduleList").innerHTML = listView.getListViewHtml({
+                items: result.Items,
+                enableUserDataButtons: !1,
+                showParentTitle: !1,
+                image: !1,
+                showProgramDateTime: !0,
+                mediaInfo: !1,
+                showTitle: !0,
+                moreButton: !1,
+                action: "programdialog"
+            }), loading.hide()
+        })
+    }
+
     function inferContext(item) {
-        return "Movie" === item.Type || "BoxSet" === item.Type ? "movies" : "Series" === item.Type || "Season" === item.Type || "Episode" === item.Type ? "tvshows" : "Game" === item.Type || "GameSystem" === item.Type ? "games" : "Game" === item.Type || "GameSystem" === item.Type ? "games" : "MusicArtist" === item.Type || "MusicAlbum" === item.Type ? "music" : null
+        return "Movie" === item.Type || "BoxSet" === item.Type ? "movies" : "Series" === item.Type || "Season" === item.Type || "Episode" === item.Type ? "tvshows" : "Game" === item.Type || "GameSystem" === item.Type ? "games" : "Game" === item.Type || "GameSystem" === item.Type ? "games" : "MusicArtist" === item.Type || "MusicAlbum" === item.Type || "Audio" === item.Type || "AudioBook" === item.Type ? "music" : "Program" === item.Type ? "livetv" : null
     }
 
     function filterItemsByCollectionItemType(items, typeInfo) {
@@ -805,12 +894,17 @@ define(["loading", "appRouter", "layoutManager", "connectionManager", "cardBuild
             });
         otherTypeItems.length && renderCollectionItemType(page, parentItem, otherType, otherTypeItems), items.length || renderCollectionItemType(page, parentItem, {
             name: globalize.translate("HeaderItems")
-        }, items)
+        }, items);
+        var containers = page.querySelectorAll(".collectionItemsContainer"),
+            notifyRefreshNeeded = function() {
+                renderChildren(page, parentItem)
+            };
+        for (i = 0, length = containers.length; i < length; i++) containers[i].notifyRefreshNeeded = notifyRefreshNeeded
     }
 
     function renderCollectionItemType(page, parentItem, type, items) {
         var html = "";
-        html += '<div class="verticalSection">', html += '<div class="sectionTitleContainer padded-left">', html += '<h2 class="sectionTitle sectionTitle-cards">', html += "<span>" + type.name + "</span>", html += "</h2>", html += '<button class="btnAddToCollection sectionTitleButton" type="button" is="paper-icon-button-light" style="margin-left:1em;"><i class="md-icon" icon="add">&#xE145;</i></button>', html += "</div>", html += '<div is="emby-itemscontainer" class="itemsContainer vertical-wrap padded-left padded-right">';
+        html += '<div class="verticalSection">', html += '<div class="sectionTitleContainer sectionTitleContainer-cards padded-left">', html += '<h2 class="sectionTitle sectionTitle-cards">', html += "<span>" + type.name + "</span>", html += "</h2>", html += '<button class="btnAddToCollection sectionTitleButton" type="button" is="paper-icon-button-light" style="margin-left:1em;"><i class="md-icon" icon="add">&#xE145;</i></button>', html += "</div>", html += '<div is="emby-itemscontainer" class="itemsContainer collectionItemsContainer vertical-wrap padded-left padded-right">';
         var shape = "MusicAlbum" == type.type ? getSquareShape(!1) : getPortraitShape(!1);
         html += cardBuilder.getCardsHtml({
             items: items,
@@ -835,42 +929,13 @@ define(["loading", "appRouter", "layoutManager", "connectionManager", "cardBuild
         })
     }
 
-    function renderThemeMedia(page, item) {
-        if ("SeriesTimer" !== item.Type && "Timer" !== item.Type && "Genre" !== item.Type && "MusicGenre" !== item.Type && "GameGenre" !== item.Type && "Studio" !== item.Type && "Person" !== item.Type) {
-            var apiClient = connectionManager.getApiClient(item.ServerId);
-            apiClient.getThemeMedia(apiClient.getCurrentUserId(), item.Id, !0).then(function(result) {
-                var themeSongs = result.ThemeSongsResult.OwnerId == item.Id ? result.ThemeSongsResult.Items : [],
-                    themeVideos = result.ThemeVideosResult.OwnerId == item.Id ? result.ThemeVideosResult.Items : [];
-                renderThemeSongs(page, themeSongs), renderThemeVideos(page, themeVideos)
-            })
-        }
-    }
-
-    function renderThemeSongs(page, items) {
-        if (items.length) {
-            page.querySelector("#themeSongsCollapsible").classList.remove("hide");
-            var html = listView.getListViewHtml({
-                items: items
-            });
-            page.querySelector("#themeSongsContent").innerHTML = html
-        } else page.querySelector("#themeSongsCollapsible").classList.add("hide")
-    }
-
-    function renderThemeVideos(page, items, user) {
-        if (items.length) {
-            page.querySelector("#themeVideosCollapsible").classList.remove("hide");
-            var themeVideosContent = page.querySelector("#themeVideosContent");
-            themeVideosContent.innerHTML = getVideosHtml(items, user), imageLoader.lazyChildren(themeVideosContent)
-        } else page.querySelector("#themeVideosCollapsible").classList.add("hide")
-    }
-
     function renderMusicVideos(page, item, user) {
         connectionManager.getApiClient(item.ServerId).getItems(user.Id, {
             SortBy: "SortName",
             SortOrder: "Ascending",
             IncludeItemTypes: "MusicVideo",
             Recursive: !0,
-            Fields: "DateCreated,CanDelete",
+            Fields: "PrimaryImageAspectRatio,BasicSyncInfo,CanDelete,MediaSourceCount",
             AlbumIds: item.Id
         }).then(function(result) {
             if (result.Items.length) {
@@ -896,12 +961,12 @@ define(["loading", "appRouter", "layoutManager", "connectionManager", "cardBuild
         if (chapters.length && !chapters[0].ImageTag && (chapters = []), chapters.length) {
             page.querySelector("#scenesCollapsible").classList.remove("hide");
             var scenesContent = page.querySelector("#scenesContent");
-            enableScrollX() ? scenesContent.classList.add("scrollX") : scenesContent.classList.add("vertical-wrap"), require(["chaptercardbuilder"], function(chaptercardbuilder) {
+            require(["chaptercardbuilder"], function(chaptercardbuilder) {
                 chaptercardbuilder.buildChapterCards(item, chapters, {
                     itemsContainer: scenesContent,
                     width: 400,
-                    backdropShape: getThumbShape(),
-                    squareShape: getSquareShape()
+                    backdropShape: "overflowBackdrop",
+                    squareShape: "overflowSquare"
                 })
             })
         } else page.querySelector("#scenesCollapsible").classList.add("hide")
@@ -1088,12 +1153,12 @@ define(["loading", "appRouter", "layoutManager", "connectionManager", "cardBuild
             }
 
             function onPlayTrailerClick() {
-                //myproduction-change-start
+				//myproduction-change-start
 				//Added piwik tracking
 				var piwikTracker = Piwik.getAsyncTracker();
 				piwikTracker.trackEvent("MediaAccess", "PlayedTrailer", currentItem.Name);
 				//myproduction-change-end
-				playTrailer(view)
+                playTrailer(view)
             }
 
             function onDownloadChange() {
@@ -1110,7 +1175,7 @@ define(["loading", "appRouter", "layoutManager", "connectionManager", "cardBuild
             }
 
             function onPlayerChange() {
-                renderTrackSelections(view, self, currentItem)
+                renderTrackSelections(view, self, currentItem), setTrailerButtonVisibility(view, currentItem)
             }
 
             function editImages() {
@@ -1155,7 +1220,7 @@ define(["loading", "appRouter", "layoutManager", "connectionManager", "cardBuild
                 })
             }), view.addEventListener("viewshow", function(e) {
                 var page = this;
-                libraryMenu.setTransparentMenu(!0), e.detail.isRestored ? currentItem && setTitle(currentItem, connectionManager.getApiClient(currentItem.ServerId)) : reload(self, page, params), events.on(apiClient, "message", onWebSocketMessage), events.on(playbackManager, "playerchange", onPlayerChange)
+                libraryMenu.setTransparentMenu(!0), e.detail.isRestored ? currentItem && (setTitle(currentItem, connectionManager.getApiClient(currentItem.ServerId)), renderTrackSelections(page, self, currentItem, !0)) : reload(self, page, params), events.on(apiClient, "message", onWebSocketMessage), events.on(playbackManager, "playerchange", onPlayerChange)
             }), view.addEventListener("viewbeforehide", function() {
                 events.off(apiClient, "message", onWebSocketMessage), events.off(playbackManager, "playerchange", onPlayerChange), libraryMenu.setTransparentMenu(!1)
             }), view.addEventListener("viewdestroy", function() {

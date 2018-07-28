@@ -41,7 +41,7 @@ define(["appSettings", "dom", "connectionManager", "loading", "cardStyle", "emby
     function loadUserList(context, apiClient, users) {
         for (var html = "", i = 0, length = users.length; i < length; i++) {
             var user = users[i];
-            html += '<button type="button" class="card squareCard scalableCard squareCard-scalable"><div class="cardBox cardBox-bottompadded visualCardBox">', html += '<div class="cardScalable visualCardBox-cardScalable">', html += '<div class="cardPadder cardPadder-square"></div>', html += '<div class="cardContent" data-haspw="' + user.HasPassword + '" data-username="' + user.Name + '" data-userid="' + user.Id + '">';
+            html += '<button type="button" class="card squareCard scalableCard squareCard-scalable"><div class="cardBox cardBox-bottompadded">', html += '<div class="cardScalable">', html += '<div class="cardPadder cardPadder-square"></div>', html += '<div class="cardContent" data-haspw="' + user.HasPassword + '" data-username="' + user.Name + '" data-userid="' + user.Id + '">';
             var imgUrl;
             if (user.PrimaryImageTag) imgUrl = apiClient.getUserImageUrl(user.Id, {
                 width: 300,
@@ -90,7 +90,7 @@ define(["appSettings", "dom", "connectionManager", "loading", "cardStyle", "emby
             apiClient.getPublicUsers().then(function(users) {
                 users.length ? users.length && users[0].EnableAutoLogin ? authenticateUserByName(view, apiClient, users[0].Name, "") : (showVisualForm(), loadUserList(view, apiClient, users)) : (view.querySelector("#txtManualName").value = "", showManualForm(view, !1, !1)), loading.hide()
             }), apiClient.getJSON(apiClient.getUrl("Branding/Configuration")).then(function(options) {
-                //myproduction-change-start
+				//myproduction-change-start
 				//Allow HTML in disclainer (innerHTML instead of innerTxt)
                 view.querySelector(".disclaimer").innerHTML = options.LoginDisclaimer || ""
 				//myproduction-change-start
