@@ -315,7 +315,7 @@ namespace Emby.Server.Implementations.Library.Resolvers.Movies
 			//ForeignMedia movies handling
 			if (args.Path.Contains("ForeignMedia"))
 			{
-				item.Tags.Add("ForeignMedia");
+				//item.Tags.Add("ForeignMedia");
 			}
 			//myproduction-change-end
 

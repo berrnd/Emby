@@ -58,7 +58,7 @@ namespace Emby.Server.Implementations.Library
 				_logger.Info("Recalculating library statistics newest item date");
 				var newestItemQuery = new InternalItemsQuery()
 				{
-					OrderBy = new[] { new Tuple<string, SortOrder>(ItemSortBy.DateCreated, SortOrder.Descending) },
+					OrderBy = new ValueTuple<string, SortOrder>[] { new ValueTuple<string, SortOrder>(ItemSortBy.DateCreated, SortOrder.Descending) },
 					Recursive = true,
 					IsMissing = false,
 					Limit = 1,
