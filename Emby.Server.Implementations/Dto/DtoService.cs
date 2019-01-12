@@ -711,7 +711,7 @@ namespace Emby.Server.Implementations.Dto
         {
 			//myproduction-change-start
 			//Include file size (don't know why this is always empty in item, so load the file...)
-			if (this.FileSizeCache.ContainsKey(item.Path))
+			if (!String.IsNullOrEmpty(item.Path) && this.FileSizeCache.ContainsKey(item.Path))
 			{
 				item.Size = this.FileSizeCache[item.Path];
 			}
