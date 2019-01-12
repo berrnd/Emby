@@ -696,20 +696,32 @@ namespace Emby.Server.Implementations.Dto
             return _libraryManager.GetGenreId(name);
         }
 
-        /// <summary>
-        /// Sets simple property values on a DTOBaseItem
-        /// </summary>
-        /// <param name="dto">The dto.</param>
-        /// <param name="item">The item.</param>
-        /// <param name="owner">The owner.</param>
-        /// <param name="options">The options.</param>
-        private void AttachBasicFields(BaseItemDto dto, BaseItem item, BaseItem owner, DtoOptions options)
+		//myproduction-change-start
+		private Dictionary<string, long?> FileSizeCache = new Dictionary<string, long?>();
+		//myproduction-change-end
+
+		/// <summary>
+		/// Sets simple property values on a DTOBaseItem
+		/// </summary>
+		/// <param name="dto">The dto.</param>
+		/// <param name="item">The item.</param>
+		/// <param name="owner">The owner.</param>
+		/// <param name="options">The options.</param>
+		private void AttachBasicFields(BaseItemDto dto, BaseItem item, BaseItem owner, DtoOptions options)
         {
 			//myproduction-change-start
 			//Include file size (don't know why this is always empty in item, so load the file...)
-			if ((item.Size == null || item.Size == 0) && !String.IsNullOrEmpty(item.Path) && _fileSystem.FileExists(item.Path))
+			if (this.FileSizeCache.ContainsKey(item.Path))
 			{
-				item.Size = _fileSystem.GetFileInfo(item.Path).Length;
+				item.Size = this.FileSizeCache[item.Path];
+			}
+			else
+			{
+				if ((item.Size == null || item.Size == 0) && !String.IsNullOrEmpty(item.Path) && _fileSystem.FileExists(item.Path))
+				{
+					item.Size = _fileSystem.GetFileInfo(item.Path).Length;
+					this.FileSizeCache.Add(item.Path, item.Size);
+				}
 			}
 			dto.Size = item.Size;
 			//myproduction-change-start

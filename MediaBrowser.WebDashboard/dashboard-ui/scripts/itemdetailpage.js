@@ -1116,6 +1116,11 @@ define(["loading", "appRouter", "layoutManager", "connectionManager", "cardBuild
             }
 
             function onPlayClick() {
+				//myproduction-change-start
+				//Added piwik tracking
+				var piwikTracker = Piwik.getAsyncTracker();
+				piwikTracker.trackEvent("MediaAccess", "StartedDirectStream", currentItem.Name);
+				//myproduction-change-end
                 playCurrentItem(this, this.getAttribute("data-mode"))
             }
 

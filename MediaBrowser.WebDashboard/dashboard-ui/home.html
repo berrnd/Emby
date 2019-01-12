@@ -30,47 +30,13 @@ button.emby-tab-button:nth-child(3)
         <div class="homePageSection verticalSection" style="padding-left: 16px">
 		  <h2 class="listHeader" style="padding-left: 2.6vw; margin-bottom: -15px;">Direkt streamen</h2>
 		  <div style="padding-left: 2.6vw;">
-			<h3>Das hier alles kannst du auch direkt abspielen, ohne Downloadumweg - komfortabel mit einer vorkonfigurierten <a class="button-link textlink" style="text-decoration: inherit;" href="https://kodi.tv/" target="_blank">Kodi</a>-Instanz (ein Open Source Mediacenter).<br />
-			Funktioniert auf jedem Windows-PC, einfach runterladen, doppelklicken und du hast eine entsprechende Verknüpfung auf deinem Desktop.</h3>
-		  </div>
-		  <div style="display:flex;flex-wrap:wrap;padding-left: 2.6vw;">
-			<button is="emby-button" type="button" class="raised subdued emby-button emby-button-noflex" onclick="DownloadPreconfiguredKodi();"><i class="md-icon">file_download</i><span>Kodi herunterladen</span></button>
+			<h3>
+				Kodi ist für direktes Streaming nicht mehr zwingend notwendig.<br>
+				Du kannst ab jetzt, sofern vom Browser unterstützt (Firefox oder Chrome in der aktuellen Version passt), direkt hier die Wiedergabe starten.<br>
+				Falls du doch das Mediencenter <a class="button-link textlink" style="text-decoration: inherit;" href="https://kodi.tv/" target="_blank">Kodi</a>, das für viele Plattformen zur Verfügung steht, verwenden willst, suche nach dem <a class="button-link textlink" style="text-decoration: inherit;" href="https://emby.media/emby-for-kodi.html" target="_blank">AddOn "EmbyCon"</a> und benutze dort die bekannten Zugangsdaten.
+			</h3>
 		  </div>
 		</div>
-        <script>
-          function DownloadPreconfiguredKodi()
-          {
-            var piwikTracker = Piwik.getAsyncTracker();
-			
-			var accessToken = ApiClient.accessToken();
-			var downloadCheckUrl = ApiClient.getUrl("/Users/" + ApiClient._currentUser.Id + "/DownloadPreconfiguredKodiCheck?api_key=" + accessToken);
-			var downloadUrl = ApiClient.getUrl("/Users/" + ApiClient._currentUser.Id + "/DownloadPreconfiguredKodi?api_key=" + accessToken);
-			
-			ApiClient.ajax(
-			{
-			  url: downloadCheckUrl,
-			  type: 'GET'
-			}).then(function(result)
-			{
-			  if (result.indexOf("true") > -1)
-			  {
-				piwikTracker.trackEvent("Misc", "DownloadedPreconfiguredKodi", "success");
-				
-				setTimeout(function () {
-					window.location.href = downloadUrl;
-				}, 500);
-			  }
-			  else
-			  {
-				piwikTracker.trackEvent("Misc", "DownloadedPreconfiguredKodi", "error");
-				
-				Dashboard.alert({
-				  title: "Da ging leider etwas schief",
-				  message: "Anscheinend ist für dich noch keine vorkonfigurierte Kodi-Instanz bereitgestellt oder etwas anderes passt nicht - sag mir doch bitte kurz Bescheid, falls du Kodi ausprobieren willst."
-				});
-			  }
-			});
-          }
         </script>
         <!--myproduction-change-end-->
           
