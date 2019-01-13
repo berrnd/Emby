@@ -106,7 +106,7 @@ define(["userSettings", "jQuery"], function(userSettings, jQuery) {
 
 			if (itemId != null) {
 				var piwikTracker = Piwik.getAsyncTracker();
-				piwikTracker.trackEvent("MediaAccess", "DownloadedItem", document.title);
+				piwikTracker.trackEvent("MediaAccess", "DownloadedItem", document.getElementsByClassName("itemName")[0].innerHTML);
 
 				var accessToken = ApiClient.accessToken();
 				var downloadUrl = ApiClient.getUrl("Items/" + itemId + "/Download?api_key=" + accessToken);
@@ -131,7 +131,7 @@ define(["userSettings", "jQuery"], function(userSettings, jQuery) {
 					});
 
 				var piwikTracker = Piwik.getAsyncTracker();
-				piwikTracker.trackEvent("MediaAccess", "StreamedItemInExternalPlayer", document.title);
+				piwikTracker.trackEvent("MediaAccess", "StreamedItemInExternalPlayer", document.getElementsByClassName("itemName")[0].innerHTML);
 
 				var downloadUrl = ApiClient.getUrl("Videos/" + itemId + "/stream?static=true&mediaSourceId=" + itemId + "&deviceId=" + deviceId + "&api_key=" + accessToken);
 				setTimeout(function () {
