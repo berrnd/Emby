@@ -68,8 +68,21 @@
                         </button>
 
                         <button is="emby-button" type="button" class="raised btnPlay hide detailButton" data-mode="play">
-                            <span>${ButtonPlay}</span>
+							<!--myproduction-change-start-->
+							<!--Added icon-->
+                            <span><i class="md-icon">&#xE037;</i> ${ButtonPlay}</span>
+							<!--myproduction-change-end-->
                         </button>
+						
+						<!--myproduction-change-start-->
+						<!--Added mobile play button-->
+						<button is="emby-button" type="button" class="button-flat btnPlay hide detailButton-mobile" data-mode="play">
+                            <div class="detailButton-mobile-content">
+                                <i class="md-icon detailButton-mobile-icon">&#xE037;</i>
+                                <div class="detailButton-mobile-text">Abspielen</div>
+                            </div>
+                        </button>
+						<!--myproduction-change-end-->
 
                         <button is="emby-button" type="button" class="button-flat btnPlayTrailer hide detailButton-mobile">
                             <div class="detailButton-mobile-content">
@@ -82,13 +95,13 @@
 						<!--Added download and stream in external player button-->
 						<button is="emby-button" type="button" class="raised btnDownload hide detailButton" onclick="window.LibraryBrowser.ExecuteItemDetailsPageDownload();">
                             <div class="detailButton-mobile-content">
-                                <span>Download</span>
+                                <span><i class="md-icon">&#xE2C4;</i> Herunterladen</span>
                             </div>
                         </button>
 						<button is="emby-button" type="button" class="button-flat btnDownload hide detailButton-mobile" onclick="window.LibraryBrowser.ExecuteItemDetailsPageDownload();">
                             <div class="detailButton-mobile-content">
                                 <i class="md-icon detailButton-mobile-icon">&#xE2C4;</i>
-                                <div class="detailButton-mobile-text">Download</div>
+                                <div class="detailButton-mobile-text">Herunterladen</div>
                             </div>
                         </button>
 						<button is="emby-button" type="button" class="raised btnStreamExternal hide detailButton" onclick="window.LibraryBrowser.ExecuteItemDetailsPageExternalStream();">
@@ -100,7 +113,10 @@
 						<!--myproduction-change-end-->
 
                         <button is="emby-button" type="button" class="raised btnPlayTrailer hide detailButton">
-                            <span>${ButtonTrailer}</span>
+							<!--myproduction-change-start-->
+							<!--Added icon-->
+                            <span><i class="md-icon">&#xE8DA;</i> ${ButtonTrailer}</span>
+							<!--myproduction-change-end-->
                         </button>
 
                         <button is="emby-button" type="button" class="button-flat btnInstantMix hide detailButton-mobile">
