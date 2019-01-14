@@ -291,10 +291,13 @@ define(["loading", "appRouter", "layoutManager", "connectionManager", "cardBuild
 		
 		//myproduction-change-start
 		//Added download and stream in external player button
-		if (item.CanDownload) {
+		if (item.CanDownload)
+		{
 			$('.btnDownload', page).removeClass('hide');
 			$('.btnStreamExternal', page).removeClass('hide');
-		} else {
+		}
+		else
+		{
 			$('.btnDownload', page).addClass('hide');
 			$('.btnStreamExternal', page).addClass('hide');
 		}
@@ -1161,7 +1164,7 @@ define(["loading", "appRouter", "layoutManager", "connectionManager", "cardBuild
 				//myproduction-change-start
 				//Added piwik tracking
 				var piwikTracker = Piwik.getAsyncTracker();
-				piwikTracker.trackEvent("MediaAccess", "PlayedTrailer", currentItem.Name);
+				piwikTracker.trackEvent("MediaAccess", "PlayedTrailer", window.EMBY_CURRENT_ITEM_TITLE);
 				//myproduction-change-end
                 playTrailer(view)
             }

@@ -21,6 +21,8 @@ pageClassOn("pageshow", "page", function(e)
 			title = item.SeriesName + " > " + item.Name;
 		}
 		
+		window.EMBY_CURRENT_ITEM_TITLE = title;
+		
 		var piwikTracker = Piwik.getAsyncTracker();
 		piwikTracker.setUserId(userName);
 		piwikTracker.trackPageView(title);

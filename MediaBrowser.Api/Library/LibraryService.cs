@@ -267,21 +267,6 @@ namespace MediaBrowser.Api.Library
         [ApiMember(Name = "Id", Description = "Item Id", IsRequired = true, DataType = "string", ParameterType = "path", Verb = "GET")]
         public string Id { get; set; }
     }
-	
-	//myproduction-change-start
-	//Added activity logging of external player streaming actions
-	[Route("/Items/{Id}/NotifyStreamedExternalInPlayer", "GET", Summary = "Just logs an activity entry that the given media element was streamed in an external player")]
-	[Authenticated(Roles = "download")]
-	public class NotifyStreamedExternalInPlayer
-	{
-		/// <summary>
-		/// Gets or sets the id.
-		/// </summary>
-		/// <value>The id.</value>
-		[ApiMember(Name = "Id", Description = "Item Id", IsRequired = true, DataType = "string", ParameterType = "path", Verb = "GET")]
-		public string Id { get; set; }
-	}
-	//myproduction-change-end
 
     [Route("/Games/{Id}/Similar", "GET", Summary = "Finds games similar to a given game.")]
     [Route("/Artists/{Id}/Similar", "GET", Summary = "Finds albums similar to a given album.")]
@@ -852,60 +837,6 @@ namespace MediaBrowser.Api.Library
                 ResponseHeaders = headers
             });
         }
-		
-		//myproduction-change-start
-		//Added activity logging of external player streaming actions
-		public object Get(NotifyStreamedExternalInPlayer request)
-		{
-			var item = _libraryManager.GetItemById(request.Id);
-			var auth = _authContext.GetAuthorizationInfo(Request);
-
-			var user = _userManager.GetUserById(auth.UserId);
-
-			if (user != null)
-			{
-				if (!item.CanDownload(user))
-				{
-					throw new ArgumentException("Item does not support downloading");
-				}
-			}
-			else
-			{
-				if (!item.CanDownload())
-				{
-					throw new ArgumentException("Item does not support downloading");
-				}
-			}
-
-			if (user != null)
-			{
-				LogNotifyStreamedExternalInPlayer(item, user, auth);
-			}
-
-			return null;
-		}
-
-		private async void LogNotifyStreamedExternalInPlayer(BaseItem item, User user, AuthorizationInfo auth)
-		{
-			try
-			{
-				_activityManager.Create(new ActivityLogEntry
-				{
-					Name = string.Format(_localization.GetLocalizedString("{0} is streaming {1} in an external player"), user.Name, item.Name),
-					Type = "UserStreamingContentExternalPlayer",
-					ShortOverview = string.Format(_localization.GetLocalizedString("AppDeviceValues"), auth.Client, auth.Device),
-					UserId = auth.UserId
-
-				});
-
-				this._libraryManager.ReportItemStreamedInExternalPlayer(item, user, auth.Client, auth.Device);
-			}
-			catch
-			{
-				// Logged at lower levels
-			}
-		}
-		//myproduction-change-end
 
         private void LogDownload(BaseItem item, User user, AuthorizationInfo auth)
         {

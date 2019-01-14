@@ -106,7 +106,10 @@ define(["userSettings", "jQuery"], function(userSettings, jQuery) {
 
 			if (itemId != null) {
 				var piwikTracker = Piwik.getAsyncTracker();
-				piwikTracker.trackEvent("MediaAccess", "DownloadedItem", document.getElementsByClassName("itemName")[0].innerHTML);
+				piwikTracker.trackEvent("MediaAccess", "DownloadedItem", window.EMBY_CURRENT_ITEM_TITLE);
+				
+				// Mark item as watched
+				jQuery(".btnPlaystate").not(".playstatebutton-played").click();
 
 				var accessToken = ApiClient.accessToken();
 				var downloadUrl = ApiClient.getUrl("Items/" + itemId + "/Download?api_key=" + accessToken);
@@ -123,20 +126,17 @@ define(["userSettings", "jQuery"], function(userSettings, jQuery) {
 				var accessToken = ApiClient.accessToken();
 				var deviceId = ApiClient.deviceId();
 
-				var logActivityUrl = ApiClient.getUrl("Items/" + itemId + "/NotifyStreamedExternalInPlayer?api_key=" + accessToken);
-				jQuery.ajax(
-					{
-						url: logActivityUrl,
-						type: 'GET'
-					});
-
 				var piwikTracker = Piwik.getAsyncTracker();
-				piwikTracker.trackEvent("MediaAccess", "StreamedItemInExternalPlayer", document.getElementsByClassName("itemName")[0].innerHTML);
+				piwikTracker.trackEvent("MediaAccess", "StreamedItemInExternalPlayer", window.EMBY_CURRENT_ITEM_TITLE);
+				
+				// Mark item as watched
+				jQuery(".btnPlaystate").not(".playstatebutton-played").click();
 
 				var downloadUrl = ApiClient.getUrl("Videos/" + itemId + "/stream?static=true&mediaSourceId=" + itemId + "&deviceId=" + deviceId + "&api_key=" + accessToken);
-				setTimeout(function () {
-					window.location.href = downloadUrl;
-				}, 500);
+				Dashboard.alert({
+				  title: "Stream in lokalem Player öffnen",
+				  message: 'Du kannst folgende URL in einem Player öffnen, um den Stream zu starten oder <a href="' + downloadUrl + '" target="_blank" class="button-link textlink" style="text-decoration: inherit;">hier</a> klicken, falls dein Gerät das direkte Öffnen solcher Links unterstützt.<br><br><input type="text" class="emby-input" onClick="this.setSelectionRange(0, this.value.length)" readonly value="' + downloadUrl + '">'
+				});
 			}
 		}
 		//myproduction-change-end

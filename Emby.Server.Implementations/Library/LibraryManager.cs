@@ -109,7 +109,6 @@ namespace Emby.Server.Implementations.Library
 
 		//myproduction-change-start
 		public event EventHandler<PlaybackProgressEventArgs> ItemDownloaded;
-		public event EventHandler<PlaybackProgressEventArgs> ItemStreamedInExternalPlayer;
 		//myproduction-change-end
 		
         /// <summary>
@@ -2014,26 +2013,6 @@ namespace Emby.Server.Implementations.Library
 				catch (Exception ex)
 				{
 					_logger.ErrorException("Error in ItemDownloaded event handler", ex);
-				}
-			}
-		}
-
-		public void ReportItemStreamedInExternalPlayer(BaseItem item, User user, String clientName, String deviceName)
-		{
-			if (ItemStreamedInExternalPlayer != null)
-			{
-				try
-				{
-					PlaybackProgressEventArgs args = new PlaybackProgressEventArgs();
-					args.Item = item;
-					args.Users.Add(user);
-					args.ClientName = clientName;
-					args.DeviceName = deviceName;
-					ItemStreamedInExternalPlayer(this, args);
-				}
-				catch (Exception ex)
-				{
-					_logger.ErrorException("Error in ItemStreamedInExternalPlayer event handler", ex);
 				}
 			}
 		}
